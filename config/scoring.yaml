@@ -1,0 +1,48 @@
+# Individual Engineer Scoring Configuration
+# Covers: Individual Scoring, Report Generation, Pattern Explanations
+
+# =============================================================================
+# Individual Scoring Configuration
+# =============================================================================
+
+scoring:
+  batch_size: 64
+  device: "cuda"
+
+# =============================================================================
+# Report Generation Configuration
+# =============================================================================
+
+report:
+  llm_provider: "gemini"
+  llm_model: "gemini-3-flash-preview"
+  temperature: 0.7
+  max_completion_tokens: 65536
+  thinking_level: "high"
+  max_retries: 3
+
+  content:
+    strength_threshold: 70
+    weakness_threshold: 40
+    summary_sentences_min: 10
+    summary_sentences_max: 15
+
+# =============================================================================
+# Pattern Explanation Configuration
+# =============================================================================
+
+explanation:
+  llm_provider: "gemini"
+  llm_model: "gemini-3-flash-preview"
+  temperature: 0.7
+  max_completion_tokens: 65536
+  thinking_level: "high"
+  engineer_examples: 5
+
+# =============================================================================
+# Report Viewer Configuration
+# =============================================================================
+
+viewer:
+  strength_threshold: 70
+  weakness_threshold: 40

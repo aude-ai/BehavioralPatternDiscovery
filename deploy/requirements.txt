@@ -1,0 +1,29 @@
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database
+sqlalchemy>=2.0.0
+redis>=5.0.0
+
+# Task queue
+celery>=5.3.0
+
+# Modal
+modal>=0.56.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0,<2.0.0
+h5py>=3.9.0
+pyyaml>=6.0
+
+# LLM APIs
+google-generativeai>=0.3.0
+openai>=1.0.0
+
+# Utilities
+python-multipart>=0.0.6
+requests>=2.31.0

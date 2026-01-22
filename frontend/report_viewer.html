@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Report Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Markdown parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --border-color: #334155;
+            --card-bg: rgba(30, 41, 59, 0.6);
+            --card-hover: rgba(51, 65, 85, 0.8);
+            --glass-bg: rgba(30, 41, 59, 0.4);
+            --glass-border: rgba(148, 163, 184, 0.1);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.25rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-md);
+        }
+
+        .header-content {
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .general-report-btn {
+            margin-left: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 6px;
+            color: white !important;
+            -webkit-text-fill-color: white !important;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .general-report-btn:hover {
+            background: #2563eb;
+        }
+
+        .engineer-info {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            max-width: 1920px;
+            margin: 0 auto;
+            height: calc(100vh - 81px);
+        }
+
+        /* Content Area (Left) */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+
+        /* Pattern Table (Right) */
+        .pattern-sidebar {
+            width: 400px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--glass-border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .sidebar-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sort-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .sort-btn:hover {
+            background: var(--card-hover);
+            border-color: var(--accent-primary);
+        }
+
+        .sort-btn:focus {
+            outline: none;
+        }
+
+        .sort-btn:active {
+            outline: none;
+        }
+
+        .sort-btn[data-filter].active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        /* Pattern List */
+        .pattern-list {
+            flex: 1;
+        }
+
+        .pattern-section {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-header {
+            padding: 1rem 1.5rem;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .section-header:hover {
+            background: var(--card-hover);
+        }
+
+        .section-title {
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .section-count {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .section-content.open {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .model-section {
+            border-bottom: 2px solid var(--accent-primary);
+        }
+
+        .model-header {
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .model-header:hover {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%);
+        }
+
+        .model-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .model-content.open {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .pattern-item {
+            padding: 0.875rem 1.5rem;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pattern-item:hover {
+            background: var(--card-hover);
+            transform: translateX(-4px);
+        }
+
+        .pattern-item.selected {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .pattern-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+        }
+
+        .pattern-level-badge {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.625rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .badge-top {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .badge-mid {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+
+        .badge-bottom {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+
+        .pattern-name {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pattern-percentile {
+            font-size: 0.875rem;
+            font-weight: 700;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        /* Content Cards */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-subtitle {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Markdown Styles */
+        .markdown-content {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .markdown-content h2:first-child {
+            margin-top: 0;
+        }
+
+        .markdown-content h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1rem;
+        }
+
+        .markdown-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .markdown-content ul, .markdown-content ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content code {
+            background: var(--bg-tertiary);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 0.8125rem;
+        }
+
+        .markdown-content blockquote {
+            border-left: 3px solid var(--accent-primary);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Pattern Detail View */
+        .pattern-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 2rem;
+        }
+
+        .pattern-detail-info {
+            flex: 1;
+        }
+
+        .pattern-detail-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .pattern-detail-level {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .pattern-detail-score {
+            text-align: right;
+        }
+
+        .score-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+        }
+
+        .score-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .explain-btn {
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .explain-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .explain-btn:disabled {
+            background: var(--bg-tertiary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Explanation Display */
+        .explanation-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            line-height: 1.7;
+        }
+
+        .explanation-header {
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .explanation-text {
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+        }
+
+        /* Correlation Lists */
+        .correlation-section {
+            margin-bottom: 2rem;
+        }
+
+        .correlation-header {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .correlation-item {
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--accent-primary);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .correlation-item:hover {
+            background: var(--card-hover);
+            transform: translateX(4px);
+        }
+
+        .correlation-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .correlation-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .correlation-score {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .message-text {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-color);
+        }
+
+        /* Hierarchical Bar Graph */
+        .hierarchical-bar-graph {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .bar-graph-container {
+            position: relative;
+            height: 300px;
+            padding: 2rem 1rem;
+        }
+
+        .bar-graph-baseline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 0;
+            border-top: 2px dotted var(--text-secondary);
+            z-index: 1;
+        }
+
+        .bar-graph-bars {
+            position: relative;
+            display: flex;
+            gap: 2px;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .bar-graph-bar-wrapper {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+            height: 100%;
+        }
+
+        .bar-graph-bar-top {
+            position: absolute;
+            bottom: 50%;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .bar-graph-bar-bottom {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .bar-graph-bar {
+            width: 100%;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 2px;
+        }
+
+        .bar-graph-bar:hover {
+            filter: brightness(1.2);
+            transform: scaleY(1.05);
+            z-index: 10;
+        }
+
+        .bar-graph-tooltip {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            min-width: 220px;
+            max-width: 300px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 100;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .bar-graph-bar-top .bar-graph-tooltip {
+            bottom: calc(100% + 8px);
+        }
+
+        .bar-graph-bar-bottom .bar-graph-tooltip {
+            top: calc(100% + 8px);
+        }
+
+        .bar-graph-bar:hover .bar-graph-tooltip {
+            opacity: 1;
+        }
+
+        .bar-tooltip-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            word-wrap: break-word;
+        }
+
+        .bar-tooltip-weight {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .bar-tooltip-percentile {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .bar-graph-legend {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .bar-graph-controls {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+        }
+
+        .bar-graph-sort-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .bar-graph-sort-select {
+            padding: 0.375rem 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .bar-graph-sort-select:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .bar-graph-sort-select:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .bar-graph-explanation {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(59, 130, 246, 0.05);
+            border-left: 3px solid var(--accent-primary);
+            border-radius: 4px;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span>Performance Report Viewer</span>
+                <button class="general-report-btn" onclick="showGeneralReport()">General Report</button>
+            </div>
+            <div class="engineer-info" id="engineerInfo">Loading...</div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Main Content Area -->
+        <div class="content-area" id="contentArea">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h1 class="card-title" id="reportTitle">Loading Report...</h1>
+                </div>
+                <div class="card-subtitle" id="reportSummary">
+                    Please wait while we load your performance report...
+                </div>
+            </div>
+        </div>
+
+        <!-- Pattern Sidebar -->
+        <div class="pattern-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">All Patterns</div>
+                <div class="sort-controls">
+                    <button class="sort-btn active" data-filter="strength" onclick="toggleFilter('strength')">Strengths</button>
+                    <button class="sort-btn active" data-filter="passing" onclick="toggleFilter('passing')">Passing</button>
+                    <button class="sort-btn active" data-filter="weakness" onclick="toggleFilter('weakness')">Weaknesses</button>
+                    <button class="sort-btn" onclick="toggleSort()" style="margin-left: auto;">Sort: <span id="sortLabel">Default</span></button>
+                </div>
+            </div>
+            <div class="pattern-list" id="patternList">
+                <!-- Patterns will be loaded here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:5000';
+        const urlParams = new URLSearchParams(window.location.search);
+        const engineerId = urlParams.get('engineer_id');
+
+        // State
+        let reportData = null;
+        let scoresData = null;
+        let patternsData = null;
+        let hierarchicalWeights = null;
+        let explanations = {}; // Store pre-loaded explanations {pattern_id: explanation_text}
+        let activeFilters = new Set(['strength', 'passing', 'weakness']); // All active by default
+        let currentSort = 'default'; // 'default' or 'high' or 'low'
+        let selectedPattern = null;
+        let allPatterns = [];
+        let config = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!engineerId) {
+                alert('No engineer ID provided');
+                return;
+            }
+
+            await loadConfig();
+            await loadAllData();
+            renderPatternList();
+        });
+
+        // Load configuration
+        async function loadConfig() {
+            console.log('[DEBUG] Loading config from:', `${API_BASE}/api/config`);
+            try {
+                const response = await fetch(`${API_BASE}/api/config`);
+                console.log('[DEBUG] Config response status:', response.status);
+                config = await response.json();
+                console.log('[DEBUG] Config loaded:', config);
+            } catch (error) {
+                console.error('[DEBUG] Error loading config:', error);
+                config = {
+                    strength_threshold: 70,
+                    weakness_threshold: 40
+                };
+                console.log('[DEBUG] Using default config:', config);
+            }
+        }
+
+        // Load all required data
+        async function loadAllData() {
+            console.log('[DEBUG] Starting data load...');
+            console.log('[DEBUG] Engineer ID:', engineerId);
+            console.log('[DEBUG] API Base:', API_BASE);
+
+            try {
+                // Load basic report
+                const reportUrl = `${API_BASE}/api/get_report?engineer_id=${encodeURIComponent(engineerId)}`;
+                console.log('[DEBUG] Loading report from:', reportUrl);
+                const reportResponse = await fetch(reportUrl);
+                console.log('[DEBUG] Report response status:', reportResponse.status);
+                reportData = await reportResponse.json();
+                console.log('[DEBUG] Report loaded:', reportData);
+
+                // Load individual scores
+                const scoresUrl = `${API_BASE}/api/get_scores?engineer_id=${encodeURIComponent(engineerId)}`;
+                console.log('[DEBUG] Loading scores from:', scoresUrl);
+                const scoresResponse = await fetch(scoresUrl);
+                console.log('[DEBUG] Scores response status:', scoresResponse.status);
+                scoresData = await scoresResponse.json();
+                console.log('[DEBUG] Scores loaded. Pattern count:', scoresData.patterns?.length);
+
+                // Load pattern names
+                const patternsUrl = `${API_BASE}/api/pattern_names`;
+                console.log('[DEBUG] Loading patterns from:', patternsUrl);
+                const patternsResponse = await fetch(patternsUrl);
+                console.log('[DEBUG] Patterns response status:', patternsResponse.status);
+                patternsData = await patternsResponse.json();
+                console.log('[DEBUG] Patterns loaded');
+
+                // Load hierarchical weights
+                const weightsUrl = `${API_BASE}/api/hierarchical_weights`;
+                console.log('[DEBUG] Loading hierarchical weights from:', weightsUrl);
+                const weightsResponse = await fetch(weightsUrl);
+                console.log('[DEBUG] Weights response status:', weightsResponse.status);
+                hierarchicalWeights = await weightsResponse.json();
+                console.log('[DEBUG] Hierarchical weights loaded');
+
+                // Load existing explanations
+                const explanationsUrl = `${API_BASE}/api/explanations/${encodeURIComponent(engineerId)}`;
+                console.log('[DEBUG] Loading explanations from:', explanationsUrl);
+                const explanationsResponse = await fetch(explanationsUrl);
+                console.log('[DEBUG] Explanations response status:', explanationsResponse.status);
+                const explanationsData = await explanationsResponse.json();
+                explanations = explanationsData.explanations || {};
+                console.log('[DEBUG] Loaded explanations for', Object.keys(explanations).length, 'patterns');
+                console.log('[DEBUG] Loaded pattern IDs:', Object.keys(explanations));
+
+                // Extract all patterns with scores
+                console.log('[DEBUG] Extracting patterns...');
+                extractAllPatterns();
+                console.log('[DEBUG] Extracted patterns count:', allPatterns.length);
+
+                // Render initial view
+                console.log('[DEBUG] Rendering report...');
+                renderGeneralReport();
+                renderPatternList();
+
+                // Update header
+                document.getElementById('engineerInfo').textContent = `Engineer: ${engineerId}`;
+                console.log('[DEBUG] Report viewer loaded successfully!');
+
+            } catch (error) {
+                console.error('[DEBUG] Error loading data:', error);
+                console.error('[DEBUG] Error stack:', error.stack);
+                document.getElementById('reportSummary').innerHTML = `
+                    <p style="color: var(--accent-danger);">Error loading report data: ${error.message}</p>
+                    <p style="color: var(--accent-danger);">Check browser console for details.</p>
+                `;
+            }
+        }
+
+        // Extract all patterns from scores data
+        function extractAllPatterns() {
+            console.log('[DEBUG] extractAllPatterns called');
+            console.log('[DEBUG] scoresData.patterns length:', scoresData.patterns.length);
+            allPatterns = [];
+
+            // scoresData.patterns is a flat array of all patterns
+            scoresData.patterns.forEach((pattern, idx) => {
+                const extractedPattern = {
+                    id: `${pattern.model}:${pattern.id}`,
+                    model: pattern.model,
+                    name: pattern.name,
+                    level: pattern.level,
+                    percentile: pattern.percentile,
+                    score: pattern.score,
+                    polarity: pattern.polarity,
+                    data: pattern
+                };
+
+                if (idx < 5) {
+                    console.log(`[DEBUG] Sample pattern ${idx}:`, extractedPattern);
+                }
+
+                allPatterns.push(extractedPattern);
+            });
+
+            console.log('[DEBUG] Total patterns extracted:', allPatterns.length);
+            console.log('[DEBUG] Pattern levels:', {
+                bottom: allPatterns.filter(p => p.level === 'bottom').length,
+                mid: allPatterns.filter(p => p.level === 'mid').length,
+                top: allPatterns.filter(p => p.level === 'top').length
+            });
+        }
+
+        // Show general report
+        function showGeneralReport() {
+            const contentArea = document.getElementById('contentArea');
+
+            // Parse markdown content
+            let summaryHtml = reportData.overall_summary;
+            if (typeof marked !== 'undefined') {
+                // Configure marked for safe rendering
+                marked.setOptions({
+                    breaks: true,  // Convert \n to <br>
+                    gfm: true      // GitHub Flavored Markdown
+                });
+                summaryHtml = marked.parse(reportData.overall_summary);
+            }
+
+            contentArea.innerHTML = `
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h1 class="card-title" id="reportTitle">Performance Report: ${engineerId}</h1>
+                    </div>
+                    <div class="markdown-content" id="reportSummary">
+                        ${summaryHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render general report
+        function renderGeneralReport() {
+            showGeneralReport();
+        }
+
+        // Toggle filter on/off
+        function toggleFilter(filter) {
+            console.log('[DEBUG] toggleFilter called with:', filter);
+            console.log('[DEBUG] activeFilters before:', Array.from(activeFilters));
+
+            const btn = document.querySelector(`[data-filter="${filter}"]`);
+            console.log('[DEBUG] Button found:', btn);
+
+            if (activeFilters.has(filter)) {
+                console.log('[DEBUG] Removing filter:', filter);
+                activeFilters.delete(filter);
+                btn.classList.remove('active');
+            } else {
+                console.log('[DEBUG] Adding filter:', filter);
+                activeFilters.add(filter);
+                btn.classList.add('active');
+            }
+
+            console.log('[DEBUG] activeFilters after:', Array.from(activeFilters));
+            console.log('[DEBUG] Button classes:', btn.classList.toString());
+
+            renderPatternList();
+        }
+
+        // Sort control - cycles through default → high → low → default
+        function toggleSort() {
+            console.log('[DEBUG] toggleSort called, currentSort before:', currentSort);
+
+            if (currentSort === 'default') {
+                currentSort = 'high';
+            } else if (currentSort === 'high') {
+                currentSort = 'low';
+            } else {
+                currentSort = 'default';
+            }
+
+            console.log('[DEBUG] currentSort after:', currentSort);
+
+            const label = document.getElementById('sortLabel');
+            if (label) {
+                label.textContent = currentSort.charAt(0).toUpperCase() + currentSort.slice(1);
+                console.log('[DEBUG] Updated sort label to:', label.textContent);
+            } else {
+                console.error('[DEBUG] sortLabel element not found!');
+            }
+
+            renderPatternList();
+        }
+
+        // Get filtered and sorted patterns
+        function getFilteredPatterns() {
+            console.log('[DEBUG] getFilteredPatterns called');
+            console.log('[DEBUG] currentSort:', currentSort);
+            console.log('[DEBUG] activeFilters:', Array.from(activeFilters));
+            let filtered = [...allPatterns];
+            console.log('[DEBUG] Total patterns before filter:', filtered.length);
+
+            // Apply filters - only include patterns matching active filters
+            if (activeFilters.size > 0 && activeFilters.size < 3) {
+                console.log('[DEBUG] Applying filters (activeFilters.size < 3)');
+                filtered = filtered.filter(p => {
+                    const strengthThreshold = config?.strength_threshold || 70;
+                    const weaknessThreshold = config?.weakness_threshold || 40;
+
+                    const isStrength = p.percentile >= strengthThreshold;
+                    const isWeakness = p.percentile <= weaknessThreshold;
+                    const isPassing = p.percentile > weaknessThreshold && p.percentile < strengthThreshold;
+
+                    return (activeFilters.has('strength') && isStrength) ||
+                           (activeFilters.has('passing') && isPassing) ||
+                           (activeFilters.has('weakness') && isWeakness);
+                });
+                console.log('[DEBUG] Patterns after filter:', filtered.length);
+            } else {
+                console.log('[DEBUG] Not filtering (showing all patterns)');
+            }
+
+            // Apply sort
+            if (currentSort === 'high') {
+                console.log('[DEBUG] Sorting HIGH to LOW');
+                filtered.sort((a, b) => b.percentile - a.percentile);
+            } else if (currentSort === 'low') {
+                console.log('[DEBUG] Sorting LOW to HIGH');
+                filtered.sort((a, b) => a.percentile - b.percentile);
+            } else {
+                console.log('[DEBUG] Using DEFAULT sort (original order)');
+            }
+
+            if (filtered.length > 0) {
+                console.log('[DEBUG] First 3 patterns after sort:', filtered.slice(0, 3).map(p => ({ name: p.name, percentile: p.percentile })));
+            }
+
+            return filtered;
+        }
+
+        // Render pattern list
+        function renderPatternList() {
+            console.log('[DEBUG] renderPatternList called');
+            const container = document.getElementById('patternList');
+            const filtered = getFilteredPatterns();
+            console.log('[DEBUG] Rendering', filtered.length, 'patterns');
+
+            // Group by model first, then by level
+            const unified = filtered.filter(p => p.model === 'unified');
+            const model1 = filtered.filter(p => p.model === 'model_1');
+            const model2 = filtered.filter(p => p.model === 'model_2');
+            const model3 = filtered.filter(p => p.model === 'model_3');
+
+            // Helper to render model section with levels
+            const renderModelSection = (modelName, patterns, displayName) => {
+                if (patterns.length === 0) return '';
+
+                const top = patterns.filter(p => p.level === 'top');
+                const mid = patterns.filter(p => p.level === 'mid');
+                const bottom = patterns.filter(p => p.level === 'bottom');
+
+                return `
+                    <div class="model-section">
+                        <div class="model-header" onclick="toggleModelSection(this)">
+                            <span>${displayName}</span>
+                            <span class="section-count">${patterns.length}</span>
+                        </div>
+                        <div class="model-content open">
+                            ${top.length > 0 ? renderSection('Top', top) : ''}
+                            ${mid.length > 0 ? renderSection('Mid', mid) : ''}
+                            ${bottom.length > 0 ? renderSection('Bottom', bottom) : ''}
+                        </div>
+                    </div>
+                `;
+            };
+
+            container.innerHTML = `
+                ${unified.length > 0 ? renderSection('Unified Patterns', unified) : ''}
+                ${renderModelSection('model_1', model1, 'Encoder 1')}
+                ${renderModelSection('model_2', model2, 'Encoder 2')}
+                ${renderModelSection('model_3', model3, 'Encoder 3')}
+            `;
+
+            attachSectionToggleListeners();
+        }
+
+        // Helper: Get color based on weight (for hierarchical correlations)
+        function getWeightColor(weight, minWeight, maxWeight) {
+            // Light grey-blue (148, 163, 184) to current blue (59, 130, 246)
+            const ratio = maxWeight === minWeight ? 1 : (weight - minWeight) / (maxWeight - minWeight);
+            const r = Math.round(148 + (59 - 148) * ratio);
+            const g = Math.round(163 + (130 - 163) * ratio);
+            const b = Math.round(184 + (246 - 184) * ratio);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // Helper: Get color based on percentile
+        function getPercentileColor(percentile) {
+            // Softer colors: Coral red (0) -> Amber (50) -> Emerald green (100)
+            if (percentile <= 50) {
+                // 0-50: Soft red (239,68,68) -> Amber (251,191,36)
+                const ratio = percentile / 50;
+                const r = Math.round(239 + (251 - 239) * ratio);
+                const g = Math.round(68 + (191 - 68) * ratio);
+                const b = Math.round(68 + (36 - 68) * ratio);
+                return `rgb(${r}, ${g}, ${b})`;
+            } else {
+                // 50-100: Amber (251,191,36) -> Soft green (34,197,94)
+                const ratio = (percentile - 50) / 50;
+                const r = Math.round(251 + (34 - 251) * ratio);
+                const g = Math.round(191 + (197 - 191) * ratio);
+                const b = Math.round(36 + (94 - 36) * ratio);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
+
+        // Render a collapsible section
+        function renderSection(title, patterns) {
+            return `
+                <div class="pattern-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <span class="section-title">${title}</span>
+                        <span class="section-count">${patterns.length}</span>
+                    </div>
+                    <div class="section-content open">
+                        ${patterns.map(p => renderPatternItem(p)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render individual pattern item with color coding
+        function renderPatternItem(pattern) {
+            const color = getPercentileColor(pattern.percentile);
+
+            return `
+                <div class="pattern-item" data-pattern-id="${pattern.id}" onclick="selectPattern('${pattern.id}')" style="border-left: 4px solid ${color};">
+                    <div class="pattern-item-left">
+                        <div class="pattern-name">${pattern.name}</div>
+                    </div>
+                    <div class="pattern-percentile" style="color: ${color}; font-weight: bold;">${pattern.percentile}</div>
+                </div>
+            `;
+        }
+
+        // Toggle section open/closed
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            content.classList.toggle('open');
+        }
+
+        // Toggle model section open/closed
+        function toggleModelSection(header) {
+            const content = header.nextElementSibling;
+            content.classList.toggle('open');
+        }
+
+        // Attach event listeners
+        function attachSectionToggleListeners() {
+            document.querySelectorAll('.section-header').forEach(header => {
+                header.onclick = () => toggleSection(header);
+            });
+        }
+
+        function attachPatternClickListeners() {
+            document.querySelectorAll('.pattern-item').forEach(item => {
+                item.onclick = () => selectPattern(item.dataset.patternId);
+            });
+        }
+
+        // Select and display pattern details
+        async function selectPattern(patternId) {
+            selectedPattern = allPatterns.find(p => p.id === patternId);
+            if (!selectedPattern) return;
+
+            // Update selection in sidebar
+            document.querySelectorAll('.pattern-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.patternId === patternId);
+            });
+
+            // Render pattern details
+            await renderPatternDetail(selectedPattern);
+        }
+
+        // Render detailed pattern view
+        async function renderPatternDetail(pattern) {
+            const contentArea = document.getElementById('contentArea');
+            const color = getPercentileColor(pattern.percentile);
+
+            // Check if explanation exists for this pattern
+            const hasExplanation = explanations[pattern.id] !== undefined;
+            console.log('[DEBUG] Checking pattern ID:', pattern.id);
+            console.log('[DEBUG] Available explanation IDs:', Object.keys(explanations));
+            console.log('[DEBUG] Pattern', pattern.id, 'has explanation:', hasExplanation);
+            if (hasExplanation) {
+                console.log('[DEBUG] Explanation preview:', explanations[pattern.id].substring(0, 100) + '...');
+            }
+
+            // Only show button if no explanation exists
+            const explainButton = hasExplanation ? '' : `
+                <button class="explain-btn" onclick="explainPattern()">
+                    <span id="explainBtnText">Explain This Score</span>
+                </button>
+            `;
+
+            contentArea.innerHTML = `
+                <div class="glass-card">
+                    <div class="pattern-detail-header">
+                        <div class="pattern-detail-info">
+                            <div class="pattern-detail-level">${pattern.level} Pattern</div>
+                            <h1 class="pattern-detail-title">${pattern.name}</h1>
+                            <p style="margin-top: 0.5rem; color: var(--text-muted);">${pattern.data.description || 'No description available'}</p>
+                        </div>
+                        <div class="pattern-detail-score">
+                            <div class="score-value" style="color: ${color};">${pattern.percentile}</div>
+                            <div class="score-label">Percentile</div>
+                            ${explainButton}
+                        </div>
+                    </div>
+
+                    <div id="explanationContainer">${hasExplanation ? renderExistingExplanation(explanations[pattern.id]) : ''}</div>
+
+                    <div id="correlationContainer">
+                        ${await renderCorrelations(pattern)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render existing explanation
+        function renderExistingExplanation(explanation) {
+            return `
+                <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 8px; border-left: 3px solid var(--accent-success);">
+                    <h3 style="margin-bottom: 1rem; color: var(--accent-success);">Explanation</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.6; color: var(--text-secondary);">${explanation}</div>
+                </div>
+            `;
+        }
+
+        // Render correlations based on pattern level
+        async function renderCorrelations(pattern) {
+            let html = '';
+
+            if (pattern.model === 'unified') {
+                // Show top patterns that build into this unified pattern
+                html += renderUnifiedCorrelations(pattern);
+            } else if (pattern.level === 'bottom') {
+                // Show messages and mid patterns
+                html += await renderBottomCorrelations(pattern);
+            } else if (pattern.level === 'mid') {
+                // Show bottom patterns it's composed of and top patterns it builds into
+                html += renderMidCorrelations(pattern);
+            } else if (pattern.level === 'top') {
+                // Show mid patterns it's composed of and unified it builds into
+                html += renderTopCorrelations(pattern);
+            }
+
+            return html;
+        }
+
+        // Generate unique ID for each bar graph
+        let barGraphCounter = 0;
+
+        // Extract dimension index from pattern ID
+        // Pattern IDs look like: "model_1:bottom_5" or "unified:top_3"
+        function extractDimensionIndex(patternId) {
+            const parts = patternId.split('_');
+            const lastPart = parts[parts.length - 1];
+            const index = parseInt(lastPart, 10);
+            return isNaN(index) ? 0 : index;
+        }
+
+        // Render hierarchical bar graph showing all patterns with SHAP weights
+        function renderHierarchicalBarGraph(items, title) {
+            if (items.length === 0) {
+                return `
+                    <h2 class="correlation-header">${title}</h2>
+                    <div class="correlation-section">
+                        <p style="color: var(--text-muted);">No related patterns found</p>
+                    </div>
+                `;
+            }
+
+            const graphId = `bar-graph-${barGraphCounter++}`;
+
+            // Extract dimension index from pattern ID and store for sorting
+            // Pattern IDs look like: "model_1:bottom_5" or "unified:top_3"
+            const itemsWithIndex = items.map((item, index) => {
+                const dimensionIndex = extractDimensionIndex(item.pattern.id);
+                return { ...item, dimensionIndex: dimensionIndex };
+            });
+
+            // Sort by dimension index by default (matches sidebar order)
+            itemsWithIndex.sort((a, b) => a.dimensionIndex - b.dimensionIndex);
+
+            // Get max absolute weight for scaling
+            const maxAbsWeight = Math.max(...items.map(item => Math.abs(item.weight)));
+            const maxBarHeight = 120; // pixels
+
+            let html = `
+                <h2 class="correlation-header">${title}</h2>
+                <div class="hierarchical-bar-graph" id="${graphId}">
+                    <div class="bar-graph-controls">
+                        <label class="bar-graph-sort-label" for="${graphId}-sort">Sort by:</label>
+                        <select class="bar-graph-sort-select" id="${graphId}-sort" onchange="sortBarGraph('${graphId}')">
+                            <option value="dimension">Dimension Order</option>
+                            <option value="shap">SHAP Weight (high right)</option>
+                            <option value="score">User Score (high right)</option>
+                        </select>
+                    </div>
+                    <div class="bar-graph-container">
+                        <div class="bar-graph-baseline"></div>
+                        <div class="bar-graph-bars" id="${graphId}-bars">
+            `;
+
+            html += renderBarGraphBars(itemsWithIndex, maxAbsWeight, maxBarHeight);
+
+            html += `
+                        </div>
+                    </div>
+                    <div class="bar-graph-legend">
+                        <div class="legend-item">
+                            <span>Positive SHAP weights above baseline, negative below</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: linear-gradient(90deg, #ef4444 0%, #fbbf24 50%, #22c55e 100%);"></div>
+                            <span>Color: Red (low percentile) → Yellow (mid) → Green (high percentile)</span>
+                        </div>
+                    </div>
+                    <div class="bar-graph-explanation">
+                        <strong>How to interpret:</strong> Green bars on top (positive SHAP) increase the percentile, while green bars on the bottom (negative SHAP) decrease it. Larger bars represent patterns with greater importance to this prediction.
+                    </div>
+                </div>
+            `;
+
+            // Store data for sorting
+            window[`${graphId}_data`] = {
+                items: itemsWithIndex,
+                maxAbsWeight: maxAbsWeight,
+                maxBarHeight: maxBarHeight
+            };
+
+            return html;
+        }
+
+        // Render individual bars
+        function renderBarGraphBars(items, maxAbsWeight, maxBarHeight) {
+            let html = '';
+
+            items.forEach(item => {
+                const absWeight = Math.abs(item.weight);
+                const heightPx = Math.max(3, (absWeight / maxAbsWeight) * maxBarHeight);
+                const isPositive = item.weight >= 0;
+                const percentileColor = getPercentileColor(item.pattern.percentile);
+
+                html += `
+                    <div class="bar-graph-bar-wrapper">
+                        <div class="bar-graph-bar-top">
+                            ${isPositive ? `
+                                <div class="bar-graph-bar"
+                                     style="height: ${heightPx}px; background: ${percentileColor};"
+                                     onclick="selectPattern('${item.pattern.id}')">
+                                    <div class="bar-graph-tooltip">
+                                        <div class="bar-tooltip-name">${item.pattern.name}</div>
+                                        <div class="bar-tooltip-weight">SHAP Weight: ${item.weight.toFixed(4)}</div>
+                                        <div class="bar-tooltip-percentile" style="color: ${percentileColor};">
+                                            Engineer Percentile: ${item.pattern.percentile}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="bar-graph-bar-bottom">
+                            ${!isPositive ? `
+                                <div class="bar-graph-bar"
+                                     style="height: ${heightPx}px; background: ${percentileColor};"
+                                     onclick="selectPattern('${item.pattern.id}')">
+                                    <div class="bar-graph-tooltip">
+                                        <div class="bar-tooltip-name">${item.pattern.name}</div>
+                                        <div class="bar-tooltip-weight">SHAP Weight: ${item.weight.toFixed(4)}</div>
+                                        <div class="bar-tooltip-percentile" style="color: ${percentileColor};">
+                                            Engineer Percentile: ${item.pattern.percentile}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            return html;
+        }
+
+        // Sort bar graph based on selected option
+        function sortBarGraph(graphId) {
+            const selectElement = document.getElementById(`${graphId}-sort`);
+            const sortBy = selectElement.value;
+            const data = window[`${graphId}_data`];
+
+            if (!data) return;
+
+            let sortedItems = [...data.items];
+
+            switch (sortBy) {
+                case 'dimension':
+                    // Sort by dimension index (matches sidebar pattern order)
+                    sortedItems.sort((a, b) => a.dimensionIndex - b.dimensionIndex);
+                    break;
+                case 'shap':
+                    // Sort by absolute SHAP weight, ascending (higher to the right)
+                    sortedItems.sort((a, b) => Math.abs(a.weight) - Math.abs(b.weight));
+                    break;
+                case 'score':
+                    // Sort by percentile, ascending (higher to the right)
+                    sortedItems.sort((a, b) => a.pattern.percentile - b.pattern.percentile);
+                    break;
+            }
+
+            // Re-render the bars
+            const barsContainer = document.getElementById(`${graphId}-bars`);
+            barsContainer.innerHTML = renderBarGraphBars(sortedItems, data.maxAbsWeight, data.maxBarHeight);
+        }
+
+        // Render unified pattern correlations
+        function renderUnifiedCorrelations(pattern) {
+            console.log('[DEBUG] renderUnifiedCorrelations called for pattern:', pattern);
+
+            // top_to_unified is inside hierarchicalWeights.unified
+            if (hierarchicalWeights && hierarchicalWeights.unified && hierarchicalWeights.unified.top_to_unified) {
+                const topToUnified = hierarchicalWeights.unified.top_to_unified;
+                const drivingList = topToUnified[pattern.data.id] || [];
+                console.log('[DEBUG] drivingList for unified:', drivingList);
+
+                if (drivingList.length > 0) {
+                    // Collect ALL patterns (not just positive weights)
+                    const allItems = [];
+
+                    drivingList.forEach(driverObj => {
+                        const [topKey, weight] = Object.entries(driverObj)[0];
+                        const topPattern = allPatterns.find(p => p.id === topKey);
+                        if (topPattern) {
+                            allItems.push({ pattern: topPattern, weight });
+                        }
+                    });
+
+                    return renderHierarchicalBarGraph(allItems, 'What Builds Into This Pattern');
+                }
+            }
+
+            return `
+                <h2 class="correlation-header">What Builds Into This Pattern</h2>
+                <div class="correlation-section">
+                    <p style="color: var(--text-muted);">No hierarchical weights available</p>
+                </div>
+            `;
+        }
+
+        async function renderBottomCorrelations(pattern) {
+            // Load SHAP messages
+            const modelName = pattern.id.split(':')[0];
+            const dimName = pattern.id.split(':')[1];
+
+            let messages = null;
+            try {
+                const response = await fetch(`${API_BASE}/data/shap/shap_interpretations_${modelName}.json`);
+                const shap = await response.json();
+                messages = shap[dimName]?.messages || null;
+            } catch (error) {
+                console.error('Error loading SHAP data:', error);
+            }
+
+            let html = '<h2 class="correlation-header">What Builds Into This Pattern</h2>';
+
+            if (messages && messages.best_correlations && messages.best_correlations.length > 0) {
+                html += '<div class="correlation-section">';
+
+                // Get limit from config (default to 5 if not available)
+                const messageLimit = config?.report_viewer?.bottom_best_messages || 5;
+
+                // SHAP already filtered to positive correlations only, just sort and limit
+                const topMessages = messages.best_correlations
+                    .sort((a, b) => b.score - a.score)  // Highest positive first
+                    .slice(0, messageLimit);
+
+                // Display messages with color scaling
+                if (topMessages.length > 0) {
+                    const scores = topMessages.map(msg => msg.score);
+                    const minScore = Math.min(...scores);
+                    const maxScore = Math.max(...scores);
+
+                    topMessages.forEach(msg => {
+                        // Calculate color based on score
+                        // Light grey-blue (148, 163, 184) to current blue (59, 130, 246)
+                        const ratio = topMessages.length === 1 ? 1 : (msg.score - minScore) / (maxScore - minScore);
+                        const r = Math.round(148 + (59 - 148) * ratio);
+                        const g = Math.round(163 + (130 - 163) * ratio);
+                        const b = Math.round(184 + (246 - 184) * ratio);
+                        const borderColor = `rgb(${r}, ${g}, ${b})`;
+
+                        html += `
+                            <div class="correlation-item" style="border-left-color: ${borderColor};">
+                                <div class="message-text">${msg.message}</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+                                    Correlation: ${msg.score.toFixed(3)}
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div>';
+            }
+
+            // Show which mid patterns this bottom builds into
+            const relatedMids = findRelatedMidPatterns(pattern);
+            html += renderHierarchicalBarGraph(relatedMids, 'What This Pattern Builds Into');
+
+            return html;
+        }
+
+        function renderMidCorrelations(pattern) {
+            console.log('[DEBUG] renderMidCorrelations called for pattern:', pattern);
+            console.log('[DEBUG] pattern.model:', pattern.model);
+            console.log('[DEBUG] pattern.data.id:', pattern.data.id);
+            console.log('[DEBUG] hierarchicalWeights:', hierarchicalWeights);
+
+            let html = '';
+
+            // Get driving patterns from hierarchical weights
+            if (hierarchicalWeights && hierarchicalWeights[pattern.model]) {
+                console.log('[DEBUG] Found hierarchicalWeights for model:', pattern.model);
+                const bottomToMid = hierarchicalWeights[pattern.model].bottom_to_mid || {};
+                console.log('[DEBUG] bottomToMid keys:', Object.keys(bottomToMid));
+                console.log('[DEBUG] Looking for pattern.data.id:', pattern.data.id);
+                const drivingList = bottomToMid[pattern.data.id] || [];
+                console.log('[DEBUG] drivingList:', drivingList);
+                console.log('[DEBUG] drivingList length:', drivingList.length);
+
+                if (drivingList.length > 0) {
+                    // Collect ALL items (not just positive weights)
+                    const items = [];
+                    drivingList.forEach(driverObj => {
+                        const [bottomId, weight] = Object.entries(driverObj)[0];
+                        const searchId = `${pattern.model}:${bottomId}`;
+                        const drivingPattern = allPatterns.find(p => p.id === searchId);
+                        if (drivingPattern) {
+                            items.push({ pattern: drivingPattern, weight });
+                        }
+                    });
+
+                    html += renderHierarchicalBarGraph(items, 'What Builds Into This Pattern');
+                } else {
+                    console.log('[DEBUG] No driving patterns found in list');
+                    html += `
+                        <h2 class="correlation-header">What Builds Into This Pattern</h2>
+                        <div class="correlation-section">
+                            <p style="color: var(--text-muted);">No driving patterns found</p>
+                        </div>
+                    `;
+                }
+            } else {
+                console.log('[DEBUG] No hierarchicalWeights found for model:', pattern.model);
+                console.log('[DEBUG] Available models in hierarchicalWeights:', hierarchicalWeights ? Object.keys(hierarchicalWeights) : 'null');
+                html += `
+                    <h2 class="correlation-header">What Builds Into This Pattern</h2>
+                    <div class="correlation-section">
+                        <p style="color: var(--text-muted);">No driving patterns found</p>
+                    </div>
+                `;
+            }
+
+            // Show which top patterns this mid builds into
+            console.log('[DEBUG] Looking for top patterns that this mid builds into...');
+
+            // Find tops that are driven by this mid from hierarchical weights
+            const relatedTops = [];
+            if (hierarchicalWeights && hierarchicalWeights[pattern.model]) {
+                console.log('[DEBUG] Found hierarchicalWeights for model');
+                const midToTop = hierarchicalWeights[pattern.model].mid_to_top || {};
+                console.log('[DEBUG] midToTop keys:', Object.keys(midToTop));
+                for (const [topId, driversList] of Object.entries(midToTop)) {
+                    console.log(`[DEBUG] Checking top ${topId}, driversList:`, driversList);
+                    // Check if this mid is in the drivers list and get the weight
+                    const driverEntry = driversList.find(obj => Object.keys(obj)[0] === pattern.data.id);
+                    console.log(`[DEBUG] Is this mid (${pattern.data.id}) driving top ${topId}?`, !!driverEntry);
+                    if (driverEntry) {
+                        const weight = Object.values(driverEntry)[0];
+                        const searchId = `${pattern.model}:${topId}`;
+                        console.log('[DEBUG] Searching for top pattern with id:', searchId);
+                        const topPattern = allPatterns.find(p => p.id === searchId);
+                        console.log('[DEBUG] Found top pattern:', topPattern);
+                        if (topPattern) {
+                            relatedTops.push({ pattern: topPattern, weight: weight });
+                        }
+                    }
+                }
+            }
+            console.log('[DEBUG] Total relatedTops found:', relatedTops.length);
+
+            html += renderHierarchicalBarGraph(relatedTops, 'What This Pattern Builds Into');
+
+            return html;
+        }
+
+        function renderTopCorrelations(pattern) {
+            console.log('[DEBUG] renderTopCorrelations called for pattern:', pattern);
+            let html = '';
+
+            // Get driving patterns from hierarchical weights
+            if (hierarchicalWeights && hierarchicalWeights[pattern.model]) {
+                console.log('[DEBUG] Found hierarchicalWeights for model:', pattern.model);
+                const midToTop = hierarchicalWeights[pattern.model].mid_to_top || {};
+                console.log('[DEBUG] midToTop keys:', Object.keys(midToTop));
+                console.log('[DEBUG] Looking for pattern.data.id:', pattern.data.id);
+                const drivingList = midToTop[pattern.data.id] || [];
+                console.log('[DEBUG] drivingList:', drivingList);
+
+                if (drivingList.length > 0) {
+                    // Collect ALL items (not just positive weights)
+                    const items = [];
+                    drivingList.forEach(driverObj => {
+                        const [midId, weight] = Object.entries(driverObj)[0];
+                        const searchId = `${pattern.model}:${midId}`;
+                        const drivingPattern = allPatterns.find(p => p.id === searchId);
+                        if (drivingPattern) {
+                            items.push({ pattern: drivingPattern, weight });
+                        }
+                    });
+
+                    html += renderHierarchicalBarGraph(items, 'What Builds Into This Pattern');
+                } else{
+                    console.log('[DEBUG] No driving patterns found in list');
+                    html += `
+                        <h2 class="correlation-header">What Builds Into This Pattern</h2>
+                        <div class="correlation-section">
+                            <p style="color: var(--text-muted);">No driving patterns found</p>
+                        </div>
+                    `;
+                }
+            } else {
+                console.log('[DEBUG] No hierarchicalWeights found for model:', pattern.model);
+                html += `
+                    <h2 class="correlation-header">What Builds Into This Pattern</h2>
+                    <div class="correlation-section">
+                        <p style="color: var(--text-muted);">No driving patterns found</p>
+                    </div>
+                `;
+            }
+
+            // Show which unified patterns this top builds into
+            const relatedUnified = findRelatedUnifiedPatterns(pattern);
+            html += renderHierarchicalBarGraph(relatedUnified, 'What This Pattern Builds Into');
+
+            return html;
+        }
+
+        // Find unified patterns that this top pattern builds into
+        function findRelatedUnifiedPatterns(topPattern) {
+            console.log('[DEBUG] findRelatedUnifiedPatterns called for top pattern:', topPattern);
+            const relatedUnified = [];
+
+            // top_to_unified is inside hierarchicalWeights.unified
+            if (hierarchicalWeights && hierarchicalWeights.unified && hierarchicalWeights.unified.top_to_unified) {
+                const topToUnified = hierarchicalWeights.unified.top_to_unified;
+                const searchKey = `${topPattern.model}:${topPattern.data.id}`;
+                console.log('[DEBUG] Searching for searchKey:', searchKey);
+
+                for (const [unifiedId, driversList] of Object.entries(topToUnified)) {
+                    // Find if this top pattern is in the drivers list
+                    const driverEntry = driversList.find(obj => Object.keys(obj)[0] === searchKey);
+                    if (driverEntry) {
+                        const weight = Object.values(driverEntry)[0];
+                        const unifiedPattern = allPatterns.find(p => p.id === `unified:${unifiedId}`);
+                        if (unifiedPattern) {
+                            relatedUnified.push({ pattern: unifiedPattern, weight: weight });
+                        }
+                    }
+                }
+            }
+
+            // Sort by absolute weight
+            relatedUnified.sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+            console.log('[DEBUG] Total relatedUnified found:', relatedUnified.length);
+            return relatedUnified;
+        }
+
+        // Find related patterns (for bottom patterns building into mid)
+        function findRelatedMidPatterns(bottomPattern) {
+            console.log('[DEBUG] findRelatedMidPatterns called for bottom pattern:', bottomPattern);
+            const relatedMids = [];
+            if (hierarchicalWeights && hierarchicalWeights[bottomPattern.model]) {
+                console.log('[DEBUG] Found hierarchicalWeights for model');
+                const bottomToMid = hierarchicalWeights[bottomPattern.model].bottom_to_mid || {};
+                console.log('[DEBUG] bottomToMid keys:', Object.keys(bottomToMid));
+                for (const [midId, driversList] of Object.entries(bottomToMid)) {
+                    console.log(`[DEBUG] Checking mid ${midId}, driversList:`, driversList);
+                    // Check if this bottom is in the drivers list and get the weight
+                    const driverEntry = driversList.find(obj => Object.keys(obj)[0] === bottomPattern.data.id);
+                    console.log(`[DEBUG] Is this bottom (${bottomPattern.data.id}) driving mid ${midId}?`, !!driverEntry);
+                    if (driverEntry) {
+                        const weight = Object.values(driverEntry)[0];
+                        const searchId = `${bottomPattern.model}:${midId}`;
+                        console.log('[DEBUG] Searching for mid pattern with id:', searchId);
+                        const midPattern = allPatterns.find(p => p.id === searchId);
+                        console.log('[DEBUG] Found mid pattern:', midPattern);
+                        if (midPattern) {
+                            relatedMids.push({ pattern: midPattern, weight: weight });
+                        }
+                    }
+                }
+            } else {
+                console.log('[DEBUG] No hierarchicalWeights found for model:', bottomPattern.model);
+            }
+            // Sort by absolute weight
+            relatedMids.sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+            console.log('[DEBUG] Total relatedMids found:', relatedMids.length);
+            return relatedMids;
+        }
+
+        // Explain pattern with LLM
+        async function explainPattern() {
+            if (!selectedPattern) return;
+
+            const btn = document.getElementById('explainBtnText');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="loading"></span> Generating Explanation...';
+            document.querySelector('.explain-btn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/explain_pattern`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        engineer_id: engineerId,
+                        pattern_id: selectedPattern.id,
+                        pattern_level: selectedPattern.level,
+                        pattern_name: selectedPattern.name
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate explanation');
+                }
+
+                const result = await response.json();
+
+                // Save explanation to cache
+                explanations[selectedPattern.id] = result.explanation;
+                console.log('[DEBUG] Explanation saved for pattern:', selectedPattern.id);
+
+                // Re-render the pattern detail to update UI (hide button, show explanation)
+                await renderPatternDetail(selectedPattern);
+
+            } catch (error) {
+                console.error('Error generating explanation:', error);
+                alert('Failed to generate explanation. Please try again.');
+                btn.textContent = originalText;
+                document.querySelector('.explain-btn').disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

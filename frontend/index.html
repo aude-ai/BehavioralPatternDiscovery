@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Behavioral Pattern Discovery</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Behavioral Pattern Discovery</h1>
+        </header>
+
+        <main>
+            <!-- Data Collection Section -->
+            <section class="card">
+                <h2>Data Collection</h2>
+
+                <div class="section">
+                    <h3>1. Fetch Data</h3>
+
+                    <!-- Tabs -->
+                    <div class="loader-tabs">
+                        <button class="loader-tab active" data-tab="mongodb">MongoDB</button>
+                        <button class="loader-tab" data-tab="ndjson">NDJSON</button>
+                    </div>
+
+                    <!-- MongoDB Tab Content -->
+                    <div id="tab-mongodb" class="tab-content active">
+                        <div class="controls">
+                            <input type="text" id="mongodb-database" placeholder="Leave empty to use config default (database/collection format)" value="" title="Format: database/collection. Leave empty to use config default. Examples: FamaActivityRaw/all, Aude-production/b27281ee_Slack_activities. Use 'all' to fetch all collections from a database." style="min-width: 600px;">
+                            <input type="number" id="mongodb-max-engineers" placeholder="Max engineers (optional)" title="Maximum number of engineers to fetch">
+                            <input type="number" id="mongodb-max-activities" placeholder="Max activities/engineer (optional)" title="Maximum activities per engineer">
+                        </div>
+                        <div class="controls" style="margin-top: 8px;">
+                            <label style="display: inline-flex; align-items: center; gap: 4px;">
+                                <input type="checkbox" id="mongodb-append" checked>
+                                Append to existing
+                            </label>
+                            <button id="btn-fetch-mongodb" class="btn btn-primary">Fetch MongoDB</button>
+                        </div>
+                        <div id="mongodb-status" class="status-message"></div>
+                    </div>
+
+                    <!-- NDJSON Tab Content -->
+                    <div id="tab-ndjson" class="tab-content" style="display: none;">
+                        <div class="controls">
+                            <input type="text" id="ndjson-path" placeholder="Path to data folder" value="" title="Folder containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 500px;">
+                        </div>
+                        <div class="controls" style="margin-top: 8px;">
+                            <label style="font-size: 0.9em; color: #666;">Date Range (optional):</label>
+                            <input type="date" id="ndjson-date-start" title="Start date filter (optional)">
+                            <span style="color: #666;">to</span>
+                            <input type="date" id="ndjson-date-end" title="End date filter (optional)">
+                            <button id="btn-fetch-ndjson" class="btn btn-primary">Load NDJSON</button>
+                        </div>
+                        <div id="ndjson-status" class="status-message"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>2. Synthetic Profiles</h3>
+                    <div class="controls">
+                        <input type="number" id="synthetic-copies" placeholder="Copies per profile" value="3" min="1" max="10" style="width: 150px;" title="Number of synthetic copies to generate per template profile">
+                        <button id="btn-generate-synthetic" class="btn btn-primary">Generate Synthetic</button>
+                        <button id="btn-refresh-synthetic-summary" class="btn btn-secondary">Refresh Summary</button>
+                    </div>
+                    <div id="synthetic-status" class="status-message"></div>
+                    <div id="synthetic-summary-container" style="display: none; margin-top: 10px;">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Templates:</strong> <span id="synthetic-template-count">0</span> |
+                            <strong>Profiles:</strong> <span id="synthetic-profile-count">0</span>
+                        </div>
+                        <div id="synthetic-details" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-size: 0.9em;"></div>
+                        <div class="controls" style="margin-top: 10px;">
+                            <select id="synthetic-split" style="width: 120px;">
+                                <option value="train">Train</option>
+                                <option value="validation">Validation</option>
+                            </select>
+                            <button id="btn-add-synthetic" class="btn btn-primary" disabled>Add to Activities</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>3. Engineer Management</h3>
+                    <div class="controls">
+                        <button id="btn-refresh-engineer-summary" class="btn btn-secondary">Refresh Summary</button>
+                    </div>
+                    <div id="engineer-summary-status" class="status-message"></div>
+                    <div id="engineer-summary-container" style="display: none; margin-top: 10px;">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Train:</strong> <span id="train-count">0</span> |
+                            <strong>Validation:</strong> <span id="validation-count">0</span> |
+                            <strong>Bots:</strong> <span id="bot-count">0</span> |
+                            <strong>Total:</strong> <span id="total-engineers">0</span>
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                            <table id="engineer-summary-table" style="width: 100%; border-collapse: collapse;">
+                                <thead style="position: sticky; top: 0; background: #f5f5f5;">
+                                    <tr>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">
+                                            <input type="checkbox" id="select-all-engineers">
+                                        </th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="engineer_id">Engineer ID <span id="sort-indicator-engineer_id"></span></th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="activity_count">Activities <span id="sort-indicator-activity_count"></span></th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="split">Split <span id="sort-indicator-split"></span></th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="sources">Sources <span id="sort-indicator-sources"></span></th>
+                                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="is_bot">Bot <span id="sort-indicator-is_bot"></span></th>
+                                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="is_internal">Internal <span id="sort-indicator-is_internal"></span></th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="projects">Projects <span id="sort-indicator-projects"></span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="engineer-summary-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>4. Actions</h3>
+                    <div class="controls">
+                        <button id="btn-set-train" class="btn btn-secondary" disabled>Set Train</button>
+                        <button id="btn-set-validation" class="btn btn-secondary" disabled>Set Validation</button>
+                        <button id="btn-remove-selected" class="btn btn-danger" disabled>Remove Selected</button>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div class="controls">
+                            <input type="text" id="merge-target-id" placeholder="Merge target ID" title="Canonical engineer ID to merge into">
+                            <button id="btn-merge-engineers" class="btn btn-secondary" disabled>Merge Selected</button>
+                        </div>
+                    </div>
+                    <div id="action-status" class="status-message"></div>
+                </div>
+
+                <div class="section">
+                    <h3>5. Preprocess</h3>
+                    <div class="controls">
+                        <input type="number" id="max-activities-per-engineer" placeholder="Max activities/engineer" title="Leave empty to use config value or no limit" style="width: 180px;">
+                        <button id="btn-preprocess" class="btn btn-primary" disabled>Preprocess Data</button>
+                        <button id="btn-normalization" class="btn btn-secondary" disabled>Apply Normalization</button>
+                    </div>
+                    <div id="preprocess-status" class="status-message"></div>
+                </div>
+            </section>
+
+            <!-- Training Section -->
+            <section class="card">
+                <h2>Training</h2>
+
+                <div class="section">
+                    <h3>1. Train VAE Model</h3>
+                    <div class="controls">
+                        <button id="btn-train-vae" class="btn btn-primary" disabled>Train VAE</button>
+                        <button id="btn-train-from-existing" class="btn btn-secondary" disabled>Train From Existing VAE</button>
+                        <button id="btn-stop-training" class="btn btn-danger" style="display: none;">Stop Training</button>
+                    </div>
+                    <div id="existing-model-input" style="display: none; margin-top: 8px;">
+                        <input type="text" id="existing-model-path" placeholder="Path to existing VAE checkpoint (e.g., /path/to/vae_checkpoint.pt)" style="width: 400px; padding: 6px;">
+                        <button id="btn-start-from-existing" class="btn btn-primary">Start Training</button>
+                        <button id="btn-cancel-from-existing" class="btn btn-secondary">Cancel</button>
+                    </div>
+                    <div id="train-status" class="status-message"></div>
+                </div>
+            </section>
+
+            <!-- Pattern Identification Section -->
+            <section class="card">
+                <h2>Pattern Identification</h2>
+
+                <div class="section">
+                    <h3>1. Score & Assign Messages</h3>
+                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Score all messages through VAE and assign representative examples to each pattern.</p>
+                    <div class="controls">
+                        <button id="btn-batch-score" class="btn btn-primary" disabled>Run Batch Scoring</button>
+                    </div>
+                    <div id="batch-status" class="status-message"></div>
+                </div>
+
+                <div class="section">
+                    <h3>2. SHAP Analysis</h3>
+                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Extract hierarchical weights showing how patterns compose.</p>
+                    <div class="controls">
+                        <button id="btn-shap-analysis" class="btn btn-primary" disabled>Run SHAP Analysis</button>
+                    </div>
+                    <div id="shap-status" class="status-message"></div>
+                </div>
+
+                <div class="section">
+                    <h3>3. Pattern Naming</h3>
+                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Use LLM to name patterns based on message examples and hierarchical composition.</p>
+                    <div class="controls">
+                        <button id="btn-identify" class="btn btn-primary" disabled>Identify Patterns</button>
+                    </div>
+                    <div id="identify-status" class="status-message"></div>
+                </div>
+
+                <div class="section">
+                    <h3>4. Population Analysis</h3>
+                    <div class="controls">
+                        <button id="btn-population-viewer" class="btn btn-secondary" disabled>Open Population Viewer</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Evaluation Section -->
+            <section class="card">
+                <h2>Evaluation</h2>
+
+                <div class="section">
+                    <h3>1. Select Engineer</h3>
+                    <div class="controls">
+                        <select id="engineer-select" class="select" disabled>
+                            <option value="">Select an engineer...</option>
+                        </select>
+                        <button id="btn-refresh-engineers" class="btn btn-secondary" disabled>Refresh List</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>2. Score & Report</h3>
+                    <div class="controls">
+                        <button id="btn-score" class="btn btn-primary" disabled>Score Engineer</button>
+                        <button id="btn-report" class="btn btn-primary" disabled>Generate Report</button>
+                    </div>
+                    <div id="eval-status" class="status-message"></div>
+                </div>
+
+                <div class="section">
+                    <h3>3. Results</h3>
+                    <div class="controls">
+                        <button id="btn-view-report" class="btn btn-secondary" disabled>View Report</button>
+                        <button id="btn-download-report" class="btn btn-secondary" disabled>Download Report</button>
+                    </div>
+                    <div id="scores-container" class="scores-container" style="display: none;">
+                        <h4>Scores</h4>
+                        <pre id="scores-content" class="scores-content"></pre>
+                    </div>
+                    <div id="report-container" class="report-container" style="display: none;">
+                        <h4>Report</h4>
+                        <pre id="report-content" class="report-content"></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section class="card">
+                <h2>Logs</h2>
+                <div class="log-controls">
+                    <button id="btn-refresh-logs" class="btn btn-secondary">Refresh Logs</button>
+                    <button id="btn-clear-logs" class="btn btn-secondary">Clear Display</button>
+                </div>
+                <div id="logs-container" class="logs-container"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

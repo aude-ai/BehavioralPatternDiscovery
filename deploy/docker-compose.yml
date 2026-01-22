@@ -1,0 +1,70 @@
+services:
+  bpd-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bpd-api
+    environment:
+      - REDIS_URL=redis://bpd-redis:6379
+      - DATABASE_URL=sqlite:////data/db.sqlite
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BASE_URL=${BASE_URL}
+      - DATA_DIR=/data
+      - PROJECTS_DIR=/data/projects
+    volumes:
+      - ./data:/data
+      - ./config:/app/config:ro
+    expose:
+      - "8000"
+    depends_on:
+      - bpd-redis
+    restart: unless-stopped
+    networks:
+      - proxy-network
+      - bpd-internal
+
+  bpd-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bpd-worker
+    command: celery -A cloud.hetzner.celery_app worker -l info -c 4 -Q cpu,gpu
+    environment:
+      - REDIS_URL=redis://bpd-redis:6379
+      - DATABASE_URL=sqlite:////data/db.sqlite
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - DATA_DIR=/data
+      - PROJECTS_DIR=/data/projects
+    volumes:
+      - ./data:/data
+      - ./config:/app/config:ro
+    depends_on:
+      - bpd-redis
+    restart: unless-stopped
+    networks:
+      - bpd-internal
+
+  bpd-redis:
+    image: redis:7-alpine
+    container_name: bpd-redis
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - bpd-internal
+
+volumes:
+  redis_data:
+
+networks:
+  proxy-network:
+    external: true
+  bpd-internal:
+    driver: bridge

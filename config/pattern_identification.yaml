@@ -1,0 +1,128 @@
+# =============================================================================
+# Pattern Identification Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Batch Scoring - Score all messages, store activations at all levels
+# -----------------------------------------------------------------------------
+batch_scoring:
+  batch_size: 64
+  device: "cuda"
+
+# -----------------------------------------------------------------------------
+# Message Assignment - Assign representative messages to patterns
+# -----------------------------------------------------------------------------
+message_assignment:
+  examples_per_pattern: 30
+  max_words_per_message: 250
+  # Scoring mode for selecting top messages:
+  # - "positive": Select messages with highest positive activation scores
+  # - "absolute": Select messages with highest absolute activation scores
+  scoring_mode: "absolute"
+  # Minimum ratio constraints for "absolute" mode (ignored when scoring_mode is "positive")
+  # Ensures minimum representation of both positive and negative examples
+  # Set to 0 to disable a constraint. Sum of both must be <= 1.0
+  min_positive_ratio: 0.4
+  min_negative_ratio: 0.2
+
+# -----------------------------------------------------------------------------
+# Word Attribution - Compute word-level score attributions (optional)
+# -----------------------------------------------------------------------------
+word_attribution:
+  enabled: true
+  # Maximum messages to analyze per dimension (uses top N from message_examples)
+  max_messages_per_dimension: 10
+  # Top words to include in output per dimension
+  top_words_per_dimension: 10
+  # Maximum unique words to process per message (prevents long texts from blocking)
+  # Set to 0 for unlimited. Recommended: 50-100 for reasonable speed.
+  max_words_per_message: 75
+  # Minimum word length to consider
+  min_word_length: 3
+  # Skip common stopwords
+  skip_stopwords: true
+  # Batch size for text encoder
+  batch_size: 128
+  # Device for VAE inference
+  device: "cuda"
+  # Scoring mode for selecting top words:
+  # - "positive": Select words with highest positive mean_delta (words that increase activation)
+  # - "absolute": Select words with highest absolute mean_delta (strongest influence either way)
+  scoring_mode: "absolute"
+  # Minimum ratio constraints for "absolute" mode (ignored when scoring_mode is "positive")
+  # Ensures minimum representation of both positive and negative word attributions
+  # Set to 0 to disable a constraint. Sum of both must be <= 1.0
+  min_positive_ratio: 0.4
+  min_negative_ratio: 0.2
+
+# -----------------------------------------------------------------------------
+# Normalization - Normalization for scores and word deltas
+# -----------------------------------------------------------------------------
+# Normalization uses the Nth percentile of absolute values as the scale factor.
+# Values can exceed ±1.0 if they are above the percentile threshold.
+#
+# Mode options:
+# - "global": Normalize across ALL values in message_examples.json (cross-pattern comparison)
+# - "layer": Normalize within each layer separately (enc1_bottom, enc1_mid, unified, etc.)
+# - "dimension": Normalize within each dimension/pattern separately (preserves relative ordering)
+normalization:
+  # Normalize message example scores
+  scores:
+    enabled: true
+    # Mode: "global", "layer", or "dimension"
+    mode: "layer"
+    # Percentile of absolute values to use as scale (90 = some values > 1.0)
+    percentile: 90
+  # Normalize word attribution mean_delta values
+  word_deltas:
+    enabled: true
+    # Mode: "global", "layer", or "dimension"
+    mode: "layer"
+    # Percentile of absolute values to use as scale
+    percentile: 90
+
+# -----------------------------------------------------------------------------
+# SHAP Analysis - Extract hierarchical weights
+# -----------------------------------------------------------------------------
+shap:
+  explainer_type: "gradient"
+  background_samples: 100
+  shap_samples: 50
+
+# -----------------------------------------------------------------------------
+# Pattern Naming - LLM-based naming
+# -----------------------------------------------------------------------------
+pattern_naming:
+  llm_provider: "gemini"
+  llm_model: "gemini-3-flash-preview"
+  max_retries: 3
+  max_examples_in_prompt: 30
+  max_output_tokens: 65536
+  thinking_level: "high"
+
+  naming_guidelines:
+    max_name_words: 5
+    focus_on_behaviors: true
+
+  # Prompt configuration
+  prompts:
+    # Maximum contributors to show in composition context
+    max_composition_contributors: 5
+
+    # Whether to include each context section
+    include_system_context: true
+    include_data_source_context: true
+    include_team_context: true
+    include_disentanglement_context: true
+    include_model_structure_context: true
+    include_word_attribution_context: true
+
+    # Optional custom additions to level descriptions
+    # These are APPENDED to the standard level context
+    custom_level_notes:
+      first: ""
+      middle: ""
+      final_encoder: ""
+      unified: ""
+
+# NOTE: Output paths are defined in data.yaml under paths.pattern_identification

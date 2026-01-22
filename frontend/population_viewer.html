@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Population Pattern Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --border-color: #334155;
+            --card-bg: rgba(30, 41, 59, 0.6);
+            --card-hover: rgba(51, 65, 85, 0.8);
+            --glass-bg: rgba(30, 41, 59, 0.4);
+            --glass-border: rgba(148, 163, 184, 0.1);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.25rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-md);
+        }
+
+        .header-content {
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .back-btn {
+            padding: 0.5rem 1rem;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            -webkit-background-clip: border-box;
+            -webkit-text-fill-color: white;
+        }
+
+        .back-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Controls */
+        .controls {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .control-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .control-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        select[multiple] {
+            min-height: 120px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        /* Engineer Info */
+        .engineer-info {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        /* Model Grid */
+        .model-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .model-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .model-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .level-group {
+            margin-bottom: 2rem;
+        }
+
+        .level-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .level-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .pillars-container {
+            display: flex;
+            gap: 4px;
+            align-items: flex-end;
+            min-height: 200px;
+            padding: 0.5rem;
+            position: relative;
+        }
+
+        .pillar {
+            flex: 1;
+            min-width: 0;
+            background: linear-gradient(180deg, #667eea 0%, #a78bfa 100%);
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .pillar:hover {
+            transform: scaleY(1.05);
+            filter: brightness(1.2);
+        }
+
+        .pillar-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            min-width: 200px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 10;
+            margin-bottom: 8px;
+        }
+
+        .pillar:hover .pillar-tooltip {
+            opacity: 1;
+        }
+
+        .tooltip-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .tooltip-score {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Distribution View */
+        .distribution-container {
+            display: none;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .distribution-container.active {
+            display: block;
+        }
+
+        .distribution-chart {
+            position: relative;
+            height: 400px;
+            margin-top: 2rem;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            padding: 0 1rem;
+        }
+
+        .distribution-bar {
+            flex: 1;
+            background: rgba(102, 126, 234, 0.3);
+            border: 2px solid rgba(102, 126, 234, 0.6);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            min-height: 2px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .distribution-bar:hover {
+            background: rgba(102, 126, 234, 0.5);
+            border-color: rgba(102, 126, 234, 1);
+        }
+
+        .distribution-bar.highlighted {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: rgba(239, 68, 68, 0.8);
+            border-width: 3px;
+        }
+
+        .bar-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            min-width: 220px;
+            max-width: 300px;
+            max-height: 300px;
+            overflow-y: auto;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 10;
+            margin-bottom: 8px;
+        }
+
+        .distribution-bar:hover .bar-tooltip {
+            opacity: 1;
+        }
+
+        .distribution-label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .distribution-marker {
+            position: absolute;
+            bottom: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--accent-danger);
+            z-index: 10;
+        }
+
+        .distribution-marker-label {
+            position: absolute;
+            bottom: 105%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-danger);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .distribution-info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .distribution-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Message Distribution View */
+        .message-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1rem;
+            min-width: 350px;
+            max-width: 500px;
+            max-height: 400px;
+            overflow-y: auto;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 20;
+            margin-bottom: 8px;
+        }
+
+        .distribution-bar:hover .message-tooltip {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .message-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .message-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .message-engineer {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .message-score {
+            color: var(--accent-success);
+            font-weight: 600;
+        }
+
+        .message-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-danger);
+            border-radius: 8px;
+            padding: 1rem;
+            color: var(--accent-danger);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span>🔍</span>
+                Population Pattern Viewer
+                <button class="back-btn" onclick="window.location.href='/'">← Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label class="control-label">Select Engineers (hold Ctrl/Cmd to select multiple)</label>
+                    <select id="engineerSelect" multiple>
+                        <!-- Populated by loadEngineers() -->
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Aggregation Method</label>
+                    <select id="aggregationMethod">
+                        <option value="average">Average</option>
+                        <option value="max">Maximum</option>
+                        <option value="min">Minimum</option>
+                        <option value="median">Median</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="control-group">
+                    <label class="control-label">View Type</label>
+                    <select id="viewType">
+                        <option value="scores">Pattern Scores</option>
+                        <option value="distribution">Pattern Distribution</option>
+                        <option value="messages">Message Distribution</option>
+                    </select>
+                </div>
+                <div class="control-group" id="patternSelectGroup" style="display: none;">
+                    <label class="control-label">Select Pattern (for distribution view)</label>
+                    <select id="patternSelect">
+                        <option value="">Select a pattern...</option>
+                    </select>
+                </div>
+                <div class="control-group" id="binCountGroup" style="display: none; min-width: 150px; flex: 0.5;">
+                    <label class="control-label">Histogram Bars: <span id="binCountValue">20</span></label>
+                    <input type="range" id="binCountSlider" min="2" max="100" value="20">
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="loadData()">Load Selected</button>
+                    <button class="btn btn-secondary" onclick="loadAllEngineers()">Load All Engineers</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="engineerInfo" class="engineer-info"></div>
+        <div id="loading" class="loading" style="display: none;">Loading data...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="scoresView" class="model-grid"></div>
+        <div id="distributionView" class="distribution-container"></div>
+        <div id="messageDistributionView" class="distribution-container"></div>
+    </div>
+
+    <script>
+        let allData = null;
+
+        async function loadEngineers() {
+            try {
+                const response = await fetch('/api/engineers');
+                const data = await response.json();
+
+                const select = document.getElementById('engineerSelect');
+                // Engineers are objects with engineer_id, activity_count, split, sources
+                select.innerHTML = data.engineers.map(eng =>
+                    `<option value="${eng.engineer_id}">${eng.engineer_id} (${eng.activity_count} activities)</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load engineers:', error);
+                showError('Failed to load engineer list');
+            }
+        }
+
+        async function loadData() {
+            const select = document.getElementById('engineerSelect');
+            const selectedEngineers = Array.from(select.selectedOptions).map(opt => opt.value);
+
+            if (selectedEngineers.length === 0) {
+                showError('Please select at least one engineer');
+                return;
+            }
+
+            await fetchAndRenderData(selectedEngineers);
+        }
+
+        async function loadAllEngineers() {
+            await fetchAndRenderData(null);
+        }
+
+        async function fetchAndRenderData(engineerIds) {
+            showLoading(true);
+            hideError();
+
+            try {
+                const url = engineerIds
+                    ? `/api/population_viewer_data?engineer_ids=${engineerIds.join(',')}`
+                    : '/api/population_viewer_data';
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                allData = await response.json();
+                renderView();
+                updateEngineerInfo(engineerIds || allData.available_engineers);
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showError(`Failed to load population data: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateEngineerInfo(engineerIds) {
+            const info = document.getElementById('engineerInfo');
+            if (engineerIds.length <= 5) {
+                info.textContent = `Engineer(s): ${engineerIds.join(', ')}`;
+            } else {
+                info.textContent = `Engineer(s): ${engineerIds.slice(0, 5).join(', ')}, and ${engineerIds.length - 5} more`;
+            }
+        }
+
+        function renderView() {
+            const viewType = document.getElementById('viewType').value;
+            const patternSelectGroup = document.getElementById('patternSelectGroup');
+            const binCountGroup = document.getElementById('binCountGroup');
+
+            // Hide all views first
+            document.getElementById('scoresView').style.display = 'none';
+            document.getElementById('distributionView').classList.remove('active');
+            document.getElementById('messageDistributionView').classList.remove('active');
+
+            if (viewType === 'scores') {
+                document.getElementById('scoresView').style.display = 'flex';
+                patternSelectGroup.style.display = 'none';
+                binCountGroup.style.display = 'none';
+                renderScoresView();
+            } else if (viewType === 'distribution') {
+                document.getElementById('distributionView').classList.add('active');
+                patternSelectGroup.style.display = 'block';
+                binCountGroup.style.display = 'block';
+                populatePatternDropdown();
+                renderDistributionView();
+            } else if (viewType === 'messages') {
+                document.getElementById('messageDistributionView').classList.add('active');
+                patternSelectGroup.style.display = 'block';
+                binCountGroup.style.display = 'block';
+                populatePatternDropdown();
+                renderMessageDistributionView();
+            }
+        }
+
+        function aggregateScores(scores, method) {
+            if (scores.length === 0) return 0;
+
+            switch(method) {
+                case 'average':
+                    return scores.reduce((a, b) => a + b, 0) / scores.length;
+                case 'max':
+                    return Math.max(...scores);
+                case 'min':
+                    return Math.min(...scores);
+                case 'median':
+                    const sorted = [...scores].sort((a, b) => a - b);
+                    const mid = Math.floor(sorted.length / 2);
+                    return sorted.length % 2 === 0
+                        ? (sorted[mid - 1] + sorted[mid]) / 2
+                        : sorted[mid];
+                default:
+                    return 0;
+            }
+        }
+
+        function getAggregatedScores() {
+            const method = document.getElementById('aggregationMethod').value;
+            const aggregated = {};
+
+            // For each model and level
+            for (const modelKey in allData.patterns) {
+                aggregated[modelKey] = {};
+
+                for (const level in allData.patterns[modelKey]) {
+                    aggregated[modelKey][level] = [];
+
+                    // For each pattern in this level
+                    const patterns = allData.patterns[modelKey][level];
+
+                    patterns.forEach((pattern, idx) => {
+                        // Collect scores from all engineers for this pattern
+                        const scores = [];
+                        const percentiles = [];
+
+                        for (const engineerId in allData.engineers) {
+                            const engineerData = allData.engineers[engineerId][modelKey];
+                            if (engineerData && engineerData[level]) {
+                                const engineerScores = engineerData[level];
+                                if (engineerScores[idx]) {
+                                    scores.push(engineerScores[idx].score);
+                                    percentiles.push(engineerScores[idx].percentile);
+                                }
+                            }
+                        }
+
+                        aggregated[modelKey][level].push({
+                            pattern: pattern,
+                            score: aggregateScores(scores, method),
+                            percentile: aggregateScores(percentiles, method)
+                        });
+                    });
+                }
+            }
+
+            return aggregated;
+        }
+
+        function renderScoresView() {
+            const container = document.getElementById('scoresView');
+            const aggregated = getAggregatedScores();
+
+            let html = '';
+
+            // Render unified layer at the top if present
+            if (aggregated['unified'] && aggregated['unified']['top']) {
+                const patterns = aggregated['unified']['top'];
+
+                html += `
+                    <div class="model-section" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(30, 41, 59, 0.6)); border-color: rgba(124, 58, 237, 0.3);">
+                        <div class="model-title" style="color: #a78bfa;">Unified Layer (Combined from all models)</div>
+                        <div class="level-group">
+                            <div class="level-title">UNIFIED TOP (${patterns.length} patterns)</div>
+                            <div class="pillars-container">
+                `;
+
+                patterns.forEach(({pattern, score, percentile}) => {
+                    const height = Math.max(5, percentile * 2);
+
+                    html += `
+                        <div class="pillar" style="height: ${height}px; background: linear-gradient(180deg, #7c3aed 0%, #a78bfa 100%);">
+                            <div class="pillar-tooltip">
+                                <div class="tooltip-name">${pattern.name}</div>
+                                <div class="tooltip-score">Score: ${score.toFixed(3)}</div>
+                                <div class="tooltip-score">Percentile: ${percentile.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Render model sections
+            for (const modelKey of ['model_1', 'model_2', 'model_3']) {
+                html += `
+                    <div class="model-section">
+                        <div class="model-title">Model ${modelKey.split('_')[1]}</div>
+                `;
+
+                for (const level of ['top', 'mid', 'bottom']) {
+                    const patterns = aggregated[modelKey][level];
+
+                    html += `
+                        <div class="level-group">
+                            <div class="level-title">${level.toUpperCase()} (${patterns.length} patterns)</div>
+                            <div class="pillars-container">
+                    `;
+
+                    patterns.forEach(({pattern, score, percentile}) => {
+                        const height = Math.max(5, percentile * 2);
+
+                        html += `
+                            <div class="pillar" style="height: ${height}px;">
+                                <div class="pillar-tooltip">
+                                    <div class="tooltip-name">${pattern.name}</div>
+                                    <div class="tooltip-score">Score: ${score.toFixed(3)}</div>
+                                    <div class="tooltip-score">Percentile: ${percentile.toFixed(1)}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function populatePatternDropdown() {
+            const patternSelect = document.getElementById('patternSelect');
+            if (!allData || patternSelect.options.length > 1) return;
+
+            const patterns = [];
+
+            // Add unified patterns first if present
+            if (allData.patterns['unified'] && allData.patterns['unified']['top']) {
+                allData.patterns['unified']['top'].forEach(pattern => {
+                    patterns.push({
+                        value: `unified|top|${pattern.name}`,
+                        label: `UNIFIED: ${pattern.name}`
+                    });
+                });
+            }
+
+            // Add model patterns
+            for (const modelKey of ['model_1', 'model_2', 'model_3']) {
+                for (const level of ['top', 'mid', 'bottom']) {
+                    allData.patterns[modelKey][level].forEach(pattern => {
+                        const modelNum = modelKey.split('_')[1];
+                        patterns.push({
+                            value: `${modelKey}|${level}|${pattern.name}`,
+                            label: `M${modelNum} ${level.toUpperCase()}: ${pattern.name}`
+                        });
+                    });
+                }
+            }
+
+            patternSelect.innerHTML = '<option value="">Select a pattern...</option>' +
+                patterns.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
+        }
+
+        function renderDistributionView() {
+            const container = document.getElementById('distributionView');
+            const patternSelect = document.getElementById('patternSelect');
+            const selectedPattern = patternSelect.value;
+
+            if (!selectedPattern) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Please select a pattern to view its distribution</div>';
+                return;
+            }
+
+            const [modelKey, level, patternName] = selectedPattern.split('|');
+
+            // Safety check for missing data
+            if (!allData.patterns[modelKey] || !allData.patterns[modelKey][level]) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern data not available</div>';
+                return;
+            }
+
+            const patternIdx = allData.patterns[modelKey][level].findIndex(p => p.name === patternName);
+
+            if (patternIdx === -1) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern not found</div>';
+                return;
+            }
+
+            const selectedEngineerIds = Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
+            const allScores = [];
+            const selectedScores = [];
+
+            for (const engineerId in allData.engineers) {
+                const engineerData = allData.engineers[engineerId][modelKey];
+                if (engineerData && engineerData[level]) {
+                    const engineerScores = engineerData[level];
+                    if (engineerScores[patternIdx]) {
+                        const score = engineerScores[patternIdx].score;
+                        allScores.push(score);
+
+                        if (selectedEngineerIds.includes(engineerId)) {
+                            selectedScores.push({
+                                engineerId,
+                                score
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (allScores.length === 0) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">No data available for this pattern</div>';
+                return;
+            }
+
+            const min = Math.min(...allScores);
+            const max = Math.max(...allScores);
+            const numBins = parseInt(document.getElementById('binCountSlider').value);
+            // Handle edge case where all scores are the same (avoid division by zero)
+            const range = max - min;
+            const binWidth = range > 0 ? range / numBins : 1;
+
+            const bins = Array(numBins).fill(0).map((_, i) => ({
+                start: min + i * binWidth,
+                end: min + (i + 1) * binWidth,
+                count: 0,
+                hasSelected: false,
+                engineers: []
+            }));
+
+            for (const engineerId in allData.engineers) {
+                const engineerData = allData.engineers[engineerId][modelKey];
+                if (engineerData && engineerData[level]) {
+                    const engineerScores = engineerData[level];
+                    if (engineerScores[patternIdx]) {
+                        const score = engineerScores[patternIdx].score;
+                        // When all scores are same (range=0), put everything in first bin
+                        let binIdx = range > 0
+                            ? Math.min(Math.floor((score - min) / binWidth), numBins - 1)
+                            : 0;
+                        // Extra safety: ensure binIdx is valid
+                        if (isNaN(binIdx) || binIdx < 0) binIdx = 0;
+                        if (binIdx >= numBins) binIdx = numBins - 1;
+
+                        bins[binIdx].count++;
+                        bins[binIdx].engineers.push({
+                            id: engineerId,
+                            score: score,
+                            isSelected: selectedEngineerIds.includes(engineerId)
+                        });
+                    }
+                }
+            }
+
+            bins.forEach(bin => {
+                bin.hasSelected = bin.engineers.some(e => e.isSelected);
+            });
+
+            const maxCount = Math.max(...bins.map(b => b.count));
+            const mean = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+            const sortedScores = [...allScores].sort((a, b) => a - b);
+            const median = sortedScores.length % 2 === 0
+                ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+                : sortedScores[Math.floor(sortedScores.length / 2)];
+
+            // Generate display label for model
+            const modelLabel = modelKey === 'unified'
+                ? 'Unified Layer'
+                : `Model ${modelKey.split('_')[1]}`;
+
+            let html = `
+                <h2 style="margin-bottom: 1rem;">Distribution: ${patternName}</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${level.toUpperCase()}</p>
+
+                <div class="distribution-chart">
+            `;
+
+            bins.forEach(bin => {
+                const height = maxCount > 0 ? (bin.count / maxCount) * 100 : 0;
+                const highlightClass = bin.hasSelected ? ' highlighted' : '';
+
+                // Sort engineers by score descending
+                const sortedEngineers = [...bin.engineers].sort((a, b) => b.score - a.score);
+
+                // Create engineer list HTML
+                let engineerListHtml = '';
+                if (sortedEngineers.length > 0) {
+                    if (sortedEngineers.length <= 10) {
+                        engineerListHtml = sortedEngineers.map(e =>
+                            `<div style="font-size: 0.7rem; color: ${e.isSelected ? '#ef4444' : 'var(--text-secondary)'}; font-weight: ${e.isSelected ? '600' : '400'};">${e.id}: ${e.score.toFixed(3)}</div>`
+                        ).join('');
+                    } else {
+                        engineerListHtml = sortedEngineers.slice(0, 8).map(e =>
+                            `<div style="font-size: 0.7rem; color: ${e.isSelected ? '#ef4444' : 'var(--text-secondary)'}; font-weight: ${e.isSelected ? '600' : '400'};">${e.id}: ${e.score.toFixed(3)}</div>`
+                        ).join('');
+                        engineerListHtml += `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">... and ${sortedEngineers.length - 8} more</div>`;
+                    }
+                }
+
+                html += `
+                    <div class="distribution-bar${highlightClass}" style="height: ${height}%">
+                        <div class="distribution-label">${bin.count}</div>
+                        <div class="bar-tooltip">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">
+                                Range: ${bin.start.toFixed(3)} - ${bin.end.toFixed(3)}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                ${bin.count} engineer${bin.count !== 1 ? 's' : ''}
+                            </div>
+                            ${engineerListHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            selectedScores.forEach(({engineerId, score}) => {
+                const position = ((score - min) / (max - min)) * 100;
+                html += `
+                    <div class="distribution-marker" style="left: ${position}%">
+                        <div class="distribution-marker-label">${engineerId}: ${score.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                </div>
+
+                <div class="distribution-info">
+                    <h3 style="margin-bottom: 1rem;">Statistics</h3>
+                    <div class="distribution-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Engineers</span>
+                            <span class="stat-value">${allScores.length}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Mean</span>
+                            <span class="stat-value">${mean.toFixed(3)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Median</span>
+                            <span class="stat-value">${median.toFixed(3)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Min</span>
+                            <span class="stat-value">${min.toFixed(3)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Max</span>
+                            <span class="stat-value">${max.toFixed(3)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Range</span>
+                            <span class="stat-value">${(max - min).toFixed(3)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        async function renderMessageDistributionView() {
+            const container = document.getElementById('messageDistributionView');
+            const patternSelect = document.getElementById('patternSelect');
+            const selectedPattern = patternSelect.value;
+
+            if (!selectedPattern) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Please select a pattern to view message distribution</div>';
+                return;
+            }
+
+            const [modelKey, level, patternName] = selectedPattern.split('|');
+
+            // Safety check for missing data
+            if (!allData.patterns[modelKey] || !allData.patterns[modelKey][level]) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern data not available</div>';
+                return;
+            }
+
+            const patternIdx = allData.patterns[modelKey][level].findIndex(p => p.name === patternName);
+
+            if (patternIdx === -1) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern not found</div>';
+                return;
+            }
+
+            // Map frontend keys to backend keys
+            const backendKeyMap = {
+                'model_1': { 'bottom': 'enc1_bottom', 'mid': 'enc1_mid', 'top': 'enc1_top' },
+                'model_2': { 'bottom': 'enc2_bottom', 'mid': 'enc2_mid', 'top': 'enc2_top' },
+                'model_3': { 'bottom': 'enc3_bottom', 'mid': 'enc3_mid', 'top': 'enc3_top' },
+                'unified': { 'top': 'unified' },
+            };
+
+            const backendKey = backendKeyMap[modelKey]?.[level];
+            if (!backendKey) {
+                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Invalid pattern key</div>';
+                return;
+            }
+
+            // Get selected engineers
+            const selectedEngineerIds = Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
+
+            // Show loading
+            container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading message data...</div>';
+
+            try {
+                // Fetch message distribution data from API
+                let url = `/api/message_distribution_data?pattern_key=${backendKey}&pattern_idx=${patternIdx}`;
+                if (selectedEngineerIds.length > 0) {
+                    url += `&engineer_ids=${selectedEngineerIds.join(',')}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `HTTP error ${response.status}`);
+                }
+
+                const data = await response.json();
+                const messages = data.messages;
+                const stats = data.stats;
+
+                if (messages.length === 0) {
+                    container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">No messages found</div>';
+                    return;
+                }
+
+                // Bin the messages
+                const numBins = parseInt(document.getElementById('binCountSlider').value);
+                const min = stats.min;
+                const max = stats.max;
+                const range = max - min;
+                const binWidth = range > 0 ? range / numBins : 1;
+
+                const bins = Array(numBins).fill(null).map((_, i) => ({
+                    start: min + i * binWidth,
+                    end: min + (i + 1) * binWidth,
+                    messages: []
+                }));
+
+                // Assign messages to bins
+                messages.forEach(msg => {
+                    let binIdx = range > 0
+                        ? Math.min(Math.floor((msg.score - min) / binWidth), numBins - 1)
+                        : 0;
+                    if (isNaN(binIdx) || binIdx < 0) binIdx = 0;
+                    if (binIdx >= numBins) binIdx = numBins - 1;
+                    bins[binIdx].messages.push(msg);
+                });
+
+                const maxCount = Math.max(...bins.map(b => b.messages.length));
+
+                // Calculate statistics
+                const allScores = messages.map(m => m.score);
+                const mean = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+                const sortedScores = [...allScores].sort((a, b) => a - b);
+                const median = sortedScores.length % 2 === 0
+                    ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+                    : sortedScores[Math.floor(sortedScores.length / 2)];
+
+                // Generate display label for model
+                const modelLabel = modelKey === 'unified'
+                    ? 'Unified Layer'
+                    : `Model ${modelKey.split('_')[1]}`;
+
+                let html = `
+                    <h2 style="margin-bottom: 1rem;">Message Distribution: ${patternName}</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${level.toUpperCase()} | ${messages.length} messages from ${new Set(messages.map(m => m.engineer_id)).size} engineer(s)</p>
+
+                    <div class="distribution-chart">
+                `;
+
+                bins.forEach(bin => {
+                    const height = maxCount > 0 ? (bin.messages.length / maxCount) * 100 : 0;
+
+                    // Sort messages by score descending
+                    const sortedMessages = [...bin.messages].sort((a, b) => b.score - a.score);
+
+                    // Create message list HTML
+                    let messageListHtml = '';
+                    if (sortedMessages.length > 0) {
+                        const displayMessages = sortedMessages.slice(0, 5);
+                        messageListHtml = displayMessages.map(m => {
+                            const truncatedText = m.text.length > 150 ? m.text.substring(0, 150) + '...' : m.text;
+                            const escapedText = truncatedText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            return `
+                                <div class="message-item">
+                                    <div class="message-header">
+                                        <span class="message-engineer">${m.engineer_id}</span>
+                                        <span class="message-score">${m.score.toFixed(4)}</span>
+                                    </div>
+                                    <div class="message-text">${escapedText}</div>
+                                    <div class="message-meta">${m.source} | ${m.activity_type}</div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        if (sortedMessages.length > 5) {
+                            messageListHtml += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">... and ${sortedMessages.length - 5} more messages</div>`;
+                        }
+                    }
+
+                    html += `
+                        <div class="distribution-bar" style="height: ${height}%">
+                            <div class="distribution-label">${bin.messages.length}</div>
+                            <div class="message-tooltip">
+                                <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                                    Score Range: ${bin.start.toFixed(4)} - ${bin.end.toFixed(4)}
+                                    <br><span style="font-size: 0.8rem; color: var(--text-muted);">${bin.messages.length} message${bin.messages.length !== 1 ? 's' : ''}</span>
+                                </div>
+                                ${messageListHtml || '<div style="color: var(--text-muted);">No messages in this range</div>'}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    </div>
+
+                    <div class="distribution-info">
+                        <h3 style="margin-bottom: 1rem;">Statistics</h3>
+                        <div class="distribution-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Messages</span>
+                                <span class="stat-value">${messages.length}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Engineers</span>
+                                <span class="stat-value">${new Set(messages.map(m => m.engineer_id)).size}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Mean</span>
+                                <span class="stat-value">${mean.toFixed(4)}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Median</span>
+                                <span class="stat-value">${median.toFixed(4)}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Min</span>
+                                <span class="stat-value">${min.toFixed(4)}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Max</span>
+                                <span class="stat-value">${max.toFixed(4)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Failed to load message distribution:', error);
+                container.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--accent-danger);">Error: ${error.message}</div>`;
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        // Event listeners
+        document.getElementById('viewType').addEventListener('change', () => {
+            if (allData) renderView();
+        });
+
+        document.getElementById('aggregationMethod').addEventListener('change', () => {
+            if (allData) renderView();
+        });
+
+        document.getElementById('patternSelect').addEventListener('change', () => {
+            if (allData) {
+                const viewType = document.getElementById('viewType').value;
+                if (viewType === 'distribution') {
+                    renderDistributionView();
+                } else if (viewType === 'messages') {
+                    renderMessageDistributionView();
+                }
+            }
+        });
+
+        document.getElementById('binCountSlider').addEventListener('input', (e) => {
+            document.getElementById('binCountValue').textContent = e.target.value;
+            if (allData) {
+                const viewType = document.getElementById('viewType').value;
+                if (viewType === 'distribution') {
+                    renderDistributionView();
+                } else if (viewType === 'messages') {
+                    renderMessageDistributionView();
+                }
+            }
+        });
+
+        // Initialize
+        loadEngineers();
+    </script>
+</body>
+</html>

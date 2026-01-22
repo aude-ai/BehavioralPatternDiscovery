@@ -1,0 +1,374 @@
+# Model Configuration
+# Each section has its own layer_config for activation and normalization
+#
+# NOTE: Derived dimensions (input_dim, output_dim where computed) are NOT in config.
+# They are computed by ModelDimensions class in src/core/config.py:
+#   - encoder input = embedding_dim + aux_features_dim (if enabled)
+#   - each level's input = previous level's output
+#   - decoder input = unified output
+#   - decoder output = embedding_dim
+#
+# IMPORTANT: embedding_dim and aux_features_dim are inferred from preprocessed data.
+# They are NOT specified in config - this ensures dimensions always match actual data.
+
+# =============================================================================
+# Input Configuration
+# =============================================================================
+input:
+  # Auxiliary features (35 statistical features per engineer)
+  aux_features:
+    enabled: false
+
+# =============================================================================
+# Encoder Configuration
+# =============================================================================
+encoder:
+  # Options: hierarchical
+  type: "hierarchical"
+  num_encoders: 3
+  # Master seed for encoder initialization. Derived seeds computed as seed + i for encoder i.
+  # Set to null for random seed at launch (non-reproducible).
+  seed: 63
+
+  hierarchical:
+    # Controls the MLP output dimension before distribution parameters
+    pre_distribution_expansion: 1.0
+
+    # Hierarchy levels defined as an ordered list
+    # Each level feeds into the next; last level feeds into unification
+    # The order defines the hierarchy: first = most detailed, last = most abstract
+    levels:
+      - name: "bottom"
+        output_dim: 90
+        num_layers: 10
+        expansion_factor: 1.5
+      - name: "mid"
+        output_dim: 30
+        num_layers: 5
+        expansion_factor: 6.5
+      - name: "top"
+        output_dim: 10
+        num_layers: 5
+        expansion_factor: 10
+
+    dropout: 0.3
+
+  layer_config:
+    activation:
+      # Options: relu, leaky_relu, swish, gelu, elu, xielu, cone, parabolic_cone, parameterized_cone
+      type: "xielu"
+
+      leaky_relu:
+        negative_slope: 0.01
+
+      elu:
+        alpha: 1.0
+
+      xielu:
+        alpha: 1.0
+        learnable: true
+
+      parameterized_cone:
+        alpha: 1.0
+        beta: 1.0
+        gamma: 1.0
+        learnable: true
+
+    normalization:
+      # Options: none, rms_norm, layer_norm, dynamic_tanh, batch_norm, scaled_rms_norm, scaled_layer_norm
+      type: "dynamic_tanh"
+      eps: 1.0e-6
+      elementwise_affine: true
+
+      scaled:
+        strength: 1.0
+
+  # Scale-VAE: Scale posterior means for decoder to encourage latent utilization
+  # Scales mu before sampling, but keeps original mu for KL computation.
+  # Higher scale_factor = more spread for decoder, unchanged regularization.
+  # Per-level scale factors (1.0 = no scaling / disabled)
+  # Order matches encoder.hierarchical.levels order
+  scale_vae:
+    enabled: true
+    scale_factors:
+      - name: "bottom"
+        value: 2.5
+      - name: "mid"
+        value: 2.5
+      - name: "top"
+        value: 2.5
+
+# =============================================================================
+# Unification Layer Configuration
+# =============================================================================
+unification:
+  # Options: mlp
+  type: "mlp"
+
+  mlp:
+    output_dim: 10
+    num_layers: 5
+    expansion_factor: 10
+    dropout: 0.3
+
+  layer_config:
+    activation:
+      # Options: relu, leaky_relu, swish, gelu, elu, xielu, cone, parabolic_cone, parameterized_cone
+      type: "xielu"
+
+      leaky_relu:
+        negative_slope: 0.01
+
+      elu:
+        alpha: 1.0
+
+      xielu:
+        alpha: 1.0
+        learnable: true
+
+      parameterized_cone:
+        alpha: 1.0
+        beta: 1.0
+        gamma: 1.0
+        learnable: true
+
+    normalization:
+      # Options: none, rms_norm, layer_norm, dynamic_tanh, batch_norm, scaled_rms_norm, scaled_layer_norm
+      type: "dynamic_tanh"
+      eps: 1.0e-6
+      elementwise_affine: true
+
+      scaled:
+        strength: 1.0
+
+  # Scale-VAE for unified layer
+  scale_vae:
+    enabled: true
+    scale_factor: 2.5
+
+# =============================================================================
+# Decoder Configuration
+# =============================================================================
+decoder:
+  # Options: spherical_flow_matching, flow_matching, mlp
+  type: "spherical_flow_matching"
+
+  flow_matching:
+    hidden_dim: 2048
+    num_blocks: 10
+    time_embedding_dim: 256
+    latent_embedding_dim: 256
+    dropout: 0.3
+
+    # Options: euler, heun, midpoint
+    ode_solver: "heun"
+    num_steps: 10
+
+    optimal_transport:
+      enabled: true
+      # eps: entropic regularization (higher = faster convergence, slightly less optimal)
+      # n_iters: Sinkhorn iterations (20 is usually sufficient for good coupling)
+      eps: 0.1
+      n_iters: 20
+
+    # Data-driven noise scaling for better reconstruction
+    # Options: fixed, data_driven, data_driven_l2
+    noise_scaling:
+      type: "data_driven_l2"
+      fixed_std: 1.0
+
+    ema:
+      enabled: true
+      decay: 0.9999
+      update_every: 10
+
+  # Spherical flow matching for L2-normalized embeddings
+  spherical_flow_matching:
+    hidden_dim: 2048
+    num_blocks: 10
+    time_embedding_dim: 256
+    latent_embedding_dim: 256
+    dropout: 0.3
+
+    ode_solver: "heun"
+    num_steps: 15
+
+    # Optimal transport pairing (minimizes total geodesic distance between noise and targets)
+    optimal_transport:
+      enabled: true
+      eps: 0.1
+      n_iters: 20
+
+    ema:
+      enabled: true
+      decay: 0.9999
+      update_every: 10
+
+  mlp:
+    hidden_dims: [256, 512, 512, 256]
+    dropout: 0.1
+
+    ema:
+      enabled: false
+      decay: 0.999
+      update_every: 1
+
+  layer_config:
+    activation:
+      # Options: relu, leaky_relu, swish, gelu, elu, xielu, cone, parabolic_cone, parameterized_cone
+      type: "xielu"
+
+      leaky_relu:
+        negative_slope: 0.01
+
+      elu:
+        alpha: 1.0
+
+      xielu:
+        alpha: 1.0
+        learnable: true
+
+      parameterized_cone:
+        alpha: 1.0
+        beta: 1.0
+        gamma: 1.0
+        learnable: true
+
+    normalization:
+      # Options: none, rms_norm, layer_norm, dynamic_tanh, batch_norm, scaled_rms_norm, scaled_layer_norm
+      type: "dynamic_tanh"
+      eps: 1.0e-6
+      elementwise_affine: true
+
+      scaled:
+        strength: 1.0
+
+# =============================================================================
+# Latent Distribution Configuration
+# =============================================================================
+distribution:
+  # Options: gaussian, gamma, vmf
+  type: "gamma"
+
+  gaussian:
+    # std = exp(0.5 * logvar), so logvar=2 gives std≈2.7 vs logvar=10 giving std≈148
+    logvar_clamp_min: -5.0
+    logvar_clamp_max: 2.0
+    unified_logvar_clamp_min: -5.0
+    unified_logvar_clamp_max: 2.0
+
+  gamma:
+    prior_concentration: 1.0
+    prior_rate: 1.0
+    # Log bounds chosen for digamma/lgamma safety: exp(-0.7) ≈ 0.5 minimum concentration
+    log_concentration_min: -0.7
+    log_concentration_max: 4.6
+    log_rate_min: -4.6
+    log_rate_max: 4.6
+    # Monte Carlo KL estimation (avoids digamma/lgamma numerical issues)
+    use_monte_carlo_kl: false
+    monte_carlo_samples: 10
+
+  # Von Mises-Fisher distribution for hyperspherical latent space
+  # Samples lie on the unit sphere S^{d-1}
+  # Suitable for normalized embeddings, angular/directional data
+  vmf:
+    # Concentration parameter bounds (kappa >= 0)
+    # kappa = 0 is uniform on sphere, higher = more concentrated around mean direction
+    # Reference: kappa=1 mild, kappa=10 moderate, kappa=50 strong, kappa=100 very strong
+    kappa_min: 1.0e-6
+    kappa_max: 50.0
+
+    # Prior type: "uniform" (kappa=0, uniform on sphere) or "learnable" (vMF prior)
+    # Uniform encourages patterns to spread across the sphere (good for diversity)
+    prior_type: "uniform"
+
+    # Prior concentration (only used if prior_type="learnable")
+    prior_kappa: 1.0
+
+    # Monte Carlo KL estimation (more stable than analytic in dimensions > 20)
+    # Recommended: true for this architecture's latent dims (90, 30, 10)
+    use_monte_carlo_kl: false
+    monte_carlo_samples: 5
+
+# =============================================================================
+# Mixture Prior Configuration
+# =============================================================================
+mixture_prior:
+  enabled: false
+  # Options: any positive integer, or "match_latent_dim" to tie to latent dimension
+  num_clusters: "match_latent_dim"
+  learnable_cluster_params: true
+  learnable_mixture_weights: true
+  # Cluster head architecture: 1 (single Linear) or 2 (2-layer MLP)
+  cluster_head_layers: 1
+  cluster_init_scale: 1.0
+
+# =============================================================================
+# Discriminator Configuration
+# =============================================================================
+discriminators:
+  # TC Intra: Independence within each encoder (per level)
+  tc_intra:
+    enabled: true
+    hidden_dims: [1000, 1000]
+    dropout: 0.2
+
+  # PC Inter: Independence between encoders (per level)
+  pc_inter:
+    enabled: true
+    hidden_dims: [1000, 1000]
+    dropout: 0.2
+
+  # TC Unified: Independence in unified latent space
+  tc_unified:
+    enabled: true
+    hidden_dims: [1000, 1000]
+    dropout: 0.2
+
+  # Diversity: Engineer classification from unified latent (cooperative, not adversarial)
+  # SCOPE: Unified layer only. May be extended to per-encoder per-level in future.
+  # BATCH MODE: Only used with single-engineer batch mode (batching.mode: engineer).
+  diversity:
+    enabled: false
+    hidden_dims: [64, 32]
+    # Empirical Bayes prior variance for batch aggregation
+    # Higher = more shrinkage toward zero, lower = trust batch mean more
+    prior_variance: 1.0
+
+  # Training frequency optimization:
+  # - train_every_n_batches: Train discriminators every N VAE batches (reduces overhead)
+  # - discriminator_steps: Number of discriminator updates per training round
+  # Discriminators converge faster than VAE, so less frequent training still works well
+  train_every_n_batches: 4
+  discriminator_steps: 2
+
+  layer_config:
+    activation:
+      # Options: relu, leaky_relu, swish, gelu, elu, xielu, cone, parabolic_cone, parameterized_cone
+      type: "xielu"
+
+      leaky_relu:
+        negative_slope: 0.2
+
+      elu:
+        alpha: 1.0
+
+      xielu:
+        alpha: 1.0
+        learnable: true
+
+      parameterized_cone:
+        alpha: 1.0
+        beta: 1.0
+        gamma: 1.0
+        learnable: true
+
+    normalization:
+      # Options: none, rms_norm, layer_norm, dynamic_tanh, batch_norm, scaled_rms_norm, scaled_layer_norm
+      type: "none"
+      eps: 1.0e-6
+      elementwise_affine: true
+
+      scaled:
+        strength: 1.0

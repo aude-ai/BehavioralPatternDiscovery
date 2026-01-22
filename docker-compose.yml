@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  behavioral-pattern-discovery:
+    build: .
+    image: behavioral-pattern-discovery:latest
+    container_name: behavioral_pattern_discovery
+
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Expose API port
+    ports:
+      - "5000:5000"
+
+    # Mount volumes
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./frontend:/app/frontend
+
+    # Load environment variables from .env file
+    env_file:
+      - .env
+
+    # Environment variables
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - TOKENIZERS_PARALLELISM=true
+
+    # Shared memory size for DataLoader
+    shm_size: '8gb'
+
+    # Keep container running
+    stdin_open: true
+    tty: true

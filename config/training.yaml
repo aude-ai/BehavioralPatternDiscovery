@@ -1,0 +1,529 @@
+# Training Configuration
+# Each major component can have its own optimizer
+
+# =============================================================================
+# Batching Strategy
+# =============================================================================
+batching:
+  # Mode options:
+  #   "engineer" - Each batch = all messages from one engineer (original behavior)
+  #   "multi_engineer" - Each batch = messages from N engineers (stratified)
+  #   "random" - Completely random message sampling across all engineers
+  mode: "random"
+
+  # For "multi_engineer" mode: number of engineers per batch
+  # Total batch size = engineers_per_batch * messages_per_engineer
+  engineers_per_batch: 16
+  messages_per_engineer: 32
+
+  # For "random" mode: batch size (number of messages)
+  random_batch_size: 512
+
+# =============================================================================
+# VAE Model Optimizer (Encoders, Unification, Decoder)
+# =============================================================================
+vae_optimizer:
+  # Options: adam, adamw, sgd, rmsprop, lion, ademamix, nadam, radam
+  type: "ademamix"
+  learning_rate: 0.001
+  weight_decay: 0.01
+
+  adamw:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    amsgrad: false
+
+  adam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    amsgrad: false
+
+  sgd:
+    momentum: 0.9
+    dampening: 0
+    nesterov: false
+
+  rmsprop:
+    alpha: 0.99
+    eps: 1.0e-8
+    momentum: 0
+
+  lion:
+    betas: [0.9, 0.99]
+
+  ademamix:
+    betas: [0.9, 0.999, 0.9999]
+    alpha: 5.0
+    eps: 1.0e-8
+    T_alpha: null
+    T_beta3: null
+
+  nadam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  radam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+# =============================================================================
+# Discriminator Optimizer (TC Intra, PC Inter, TC Unified)
+# =============================================================================
+discriminator_optimizer:
+  # Options: adam, adamw, sgd, rmsprop, lion, ademamix, nadam, radam
+  type: "ademamix"
+  learning_rate: 0.01
+  weight_decay: 0.0001
+
+  adamw:
+    betas: [0.5, 0.999]
+    eps: 1.0e-8
+    amsgrad: false
+
+  adam:
+    betas: [0.5, 0.999]
+    eps: 1.0e-8
+    amsgrad: false
+
+  sgd:
+    momentum: 0.9
+    dampening: 0
+    nesterov: false
+
+  rmsprop:
+    alpha: 0.99
+    eps: 1.0e-8
+    momentum: 0
+
+  lion:
+    betas: [0.9, 0.99]
+
+  ademamix:
+    betas: [0.9, 0.999, 0.9999]
+    alpha: 5.0
+    eps: 1.0e-8
+    T_alpha: null
+    T_beta3: null
+
+  nadam:
+    betas: [0.5, 0.999]
+    eps: 1.0e-8
+
+  radam:
+    betas: [0.5, 0.999]
+    eps: 1.0e-8
+
+# =============================================================================
+# Learning Rate Scheduler (Applied to both VAE and Discriminator)
+# =============================================================================
+scheduler:
+  # Options: cosine, linear, constant
+  type: "cosine"
+  warmup_epochs: 5
+  min_lr_ratio: 0.01
+
+# =============================================================================
+# Capacity Control (per-level adaptive scheduling)
+# =============================================================================
+# Phases:
+# 1. Warmup: No KL penalty, track actual KL values per level
+# 2. Ramp Down: Start at measured avg KL, decrease to floor_targets
+# 3. Ramp Up: Increase from floor_targets to final_targets
+# 4. Hold: Stay at final_targets
+capacity:
+  warmup_epochs: 10
+  ramp_down_epochs: 10
+  ramp_up_epochs: 100
+
+  # Floor targets (minimum capacity at end of ramp down, per level)
+  # Order matches encoder.hierarchical.levels order, plus unified
+  floor_targets:
+    - name: "bottom"
+      value: 90.0
+    - name: "mid"
+      value: 30.0
+    - name: "top"
+      value: 10.0
+    - name: "unified"
+      value: 5.0
+
+  # Final targets (capacity at end of ramp up, per level)
+  # Order matches encoder.hierarchical.levels order, plus unified
+  final_targets:
+    - name: "bottom"
+      value: 360.0
+    - name: "mid"
+      value: 54.0
+    - name: "top"
+      value: 20.0
+    - name: "unified"
+      value: 10.0
+
+# =============================================================================
+# Beta Controller (Dual Gradient Descent or PI Controller)
+# =============================================================================
+# Warmup is controlled by capacity.warmup_epochs (no KL penalty during warmup).
+# Beta updates are skipped during capacity warmup - beta stays at beta_init.
+beta_controller:
+  # Controller type: "dual_gradient" (default) or "pi" (legacy)
+  type: "dual_gradient"
+  enabled: true
+
+  # Shared settings
+  beta_min: 0.1
+  beta_max: 50.0
+  # Initial beta values per level
+  # Order matches encoder.hierarchical.levels order, plus unified
+  beta_init:
+    - name: "bottom"
+      value: 1.0
+    - name: "mid"
+      value: 1.0
+    - name: "top"
+      value: 1.0
+    - name: "unified"
+      value: 1.0
+
+  # Dual Gradient Descent settings
+  # Treats beta as Lagrange multiplier: beta += lr_dual * (KL - capacity)
+  # When KL > capacity: beta increases, pushes KL down
+  # When KL < capacity: beta decreases, lets KL rise
+  # When KL = capacity: beta stable (equilibrium)
+  dual_gradient:
+    lr_dual: 0.005
+    # Optional: smooth constraint with EMA for less noisy updates
+    use_constraint_ema: true
+    constraint_ema_decay: 0.9
+
+  # PI Controller settings (legacy, for comparison)
+  pi:
+    kp: 0.01
+    ki: -0.001
+    use_absolute_error: true
+    beta_decay: 0.97
+
+# =============================================================================
+# Loss Weights (gamma values)
+# =============================================================================
+loss_weights:
+  # Reconstruction-related losses (organized under recon:)
+  recon:
+    # Base reconstruction loss: MLP MSE or Flow diff ODE reconstruction
+    base: 10.0
+    # Flow velocity MSE loss (flow decoders only)
+    flow: 10.0
+    # Focal loss component: additional penalty for hard samples
+    # Only applies when focal_loss.enabled=true AND base recon is available
+    # (MLP decoder, or Flow decoder with diff ODE enabled)
+    focal: 100.0
+  kl:
+    encoder_levels: 1.0
+    unified: 1.0
+  tc_intra: 1
+  pc_inter: 1
+  tc_unified: 1
+  iwo_intra: 1
+  iwo_unified: 1
+  kl_balance: 1.0
+  hoyer: 1.0
+  cluster_separation: 1.0
+  range_regularization: 1.0
+  contrastive_memory: 1.0
+  entropy_uniformity: 1.0
+  diversity_discriminator: 1.0
+  
+# =============================================================================
+# Cluster Separation Loss (Mixture Prior Only)
+# =============================================================================
+cluster_separation:
+  enabled: false
+  overlap_threshold: 0.25   # Only penalize when overlap > x%
+  temperature: 0.1          # Sharpness of exponential penalty
+  max_element_penalty: 100.0  # Maximum penalty per cluster pair
+
+# =============================================================================
+# Discriminator Loss Formulations
+# =============================================================================
+discriminator:
+  # TC/PC loss formulation for VAE training:
+  #   "averaged": 0.5 * (CE(real, real_label) + CE(fake, fake_label))
+  #   "real_only": CE(real, fake_label) - only penalize real samples being detected
+  tc_loss_formulation: "averaged"
+  pc_loss_formulation: "averaged"
+
+# =============================================================================
+# IWO Loss (Importance-Weighted Orthogonality)
+# =============================================================================
+# Encourages orthogonal latent dimensions weighted by their importance (variance).
+# Weight is in loss_weights.iwo_intra and loss_weights.iwo_unified
+iwo:
+  enabled: true
+  eps: 1.0e-12
+
+# =============================================================================
+# Hoyer Sparsity Regularization
+# =============================================================================
+hoyer:
+  enabled: true
+  target_sparsity: .7
+  per_sample: true
+  per_dimension: true
+  absolute_values: true
+  eps: 1.0e-8
+  # Adaptive mode: automatically adjusts weight based on current sparsity
+  adaptive: true
+  # Adaptive settings (only used when adaptive: true)
+  adaptation_rate: 0.01
+  min_weight: 0.01
+  max_weight: 10.0
+
+# =============================================================================
+# Focal Loss for Reconstruction
+# =============================================================================
+focal_loss:
+  enabled: true
+  # Exponent for focal weighting: weights = (1 + loss)^gamma
+  # Higher gamma = more emphasis on hard samples
+  # Typical values: 1.0-3.0
+  gamma: 1.5
+  
+# =============================================================================
+# Range Regularization Loss (Latent Utilization)
+# =============================================================================
+# Penalizes dimensions with narrow activation range (max - min).
+# Optionally also penalizes low variance dimensions.
+# Uses exponential penalty for smooth gradients.
+# Computed on mu (not sampled z).
+# Weight is in loss_weights.range_regularization
+range_regularization:
+  enabled: true
+  # Minimum range (max - min) per dimension
+  min_range: 2.0
+  # Temperature for exponential penalty (lower = sharper)
+  temperature: 0.5
+  # Temperature for soft max/min computation (gradient flow at collapse)
+  soft_temperature: 0.1
+  # Variance component (optional)
+  variance_enabled: true
+  # Minimum variance per dimension (only used if variance_enabled: true)
+  min_variance: 0.5
+  # Maximum penalty per dimension
+  max_element_penalty: 100.0
+
+# =============================================================================
+# Contrastive Memory Loss (Inter-Batch Diversity)
+# =============================================================================
+# Maintains memory bank of recent batches per encoder per level.
+# Penalizes current batch for being too similar to historical batches.
+# Weight is in loss_weights.contrastive_memory
+contrastive_memory_loss:
+  enabled: false
+  # Number of recent batches to store per memory bank
+  memory_size: 16
+  # Temperature for contrastive similarity (lower = sharper contrast)
+  temperature: 0.1
+
+# =============================================================================
+# Entropy Uniformity Loss (Stratification Prevention)
+# =============================================================================
+# Penalizes low-entropy (stratified) latent distributions.
+# Uses soft histogram to measure distribution uniformity per dimension.
+# Weight is in loss_weights.entropy_uniformity
+entropy_uniformity_loss:
+  enabled: true
+  # Number of histogram bins (more bins = finer resolution for detecting groups)
+  num_bins: 50
+  # Target entropy as fraction of maximum (1.0 = perfectly uniform)
+  # 0.97 = penalize when entropy drops below 97% of max (catches <7 groups)
+  min_entropy_ratio: 0.97
+  # Temperature for exponential penalty (lower = sharper penalty)
+  temperature: 0.12
+  # Temperature for soft histogram (lower = sharper bin assignment)
+  # CRITICAL: Must be very small to detect stratification
+  soft_bin_temperature: 0.002
+  # Maximum penalty per dimension
+  max_element_penalty: 100.0
+
+# =============================================================================
+# Training Loop Settings
+# =============================================================================
+training:
+  epochs: 250
+  batch_size: 512
+  validation_split: 0.2
+  max_messages_per_engineer: 512
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    save_best: true
+
+  gradient_clipping:
+    enabled: true
+    max_norm: 1.0
+
+# =============================================================================
+# Decoder Training Configuration
+# =============================================================================
+# Training settings for each decoder type.
+# These settings affect loss computation during training.
+decoder_training:
+  # Used when decoder.type = "spherical_flow_matching"
+  spherical_flow_matching:
+    # Training mode: "ideal" or "trajectory"
+    # "ideal": Train on SLERP-interpolated points (traditional flow matching)
+    # "trajectory": Train along actual ODE integration path (learns correct magnitudes)
+    training_mode: "trajectory"
+
+    loss:
+      # Normalize velocity MSE by zero-prediction baseline
+      # Makes loss interpretable: 1.0 = same as predicting zero, 0.0 = perfect
+      normalize: true
+      # TRUE RATIO between direction and MSE loss components
+      # 0.0 = pure MSE (magnitude matters most)
+      # 0.5 = balanced (50% MSE, 50% direction)
+      # 1.0 = pure direction (magnitude ignored in loss)
+      direction_loss_ratio: 0.9
+      # Track baselines for logging (zero, centroid)
+      track_baselines: true
+      # Endpoint weighting: higher weight at t=0 and t=1 (ideal mode only)
+      weight_endpoints: true
+      weight_clamp: 10.0
+
+    # Timestep sampling distribution (ideal mode only)
+    timestep_sampling: "logit_normal"
+    logit_normal_mean: 0.0
+    logit_normal_std: 1.0
+    u_shaped_concentration: 2.0
+
+    # Differentiable ODE training
+    differentiable_ode:
+      enabled: true
+      interval: 1
+
+  # Used when decoder.type = "flow_matching"
+  flow_matching:
+    # Training mode: "ideal" or "trajectory"
+    # "ideal": Train on linearly interpolated points (traditional flow matching)
+    # "trajectory": Train along actual ODE integration path (learns correct magnitudes)
+    training_mode: "trajectory"
+
+    loss:
+      normalize: true
+      # TRUE RATIO between direction and MSE loss components
+      # 0.0 = pure MSE (magnitude matters most)
+      # 0.5 = balanced (50% MSE, 50% direction)
+      # 1.0 = pure direction (magnitude ignored in loss)
+      direction_loss_ratio: 0.0
+      track_baselines: true
+
+    timestep_sampling: "uniform"
+    logit_normal_mean: 0.0
+    logit_normal_std: 1.0
+    u_shaped_concentration: 2.0
+
+    differentiable_ode:
+      enabled: true
+      interval: 1
+
+  # Used when decoder.type = "mlp"
+  mlp:
+    loss:
+      # All loss components are additive (set weight > 0 to enable)
+      mse_weight: 1.0           # MSE reconstruction loss (base)
+      cosine_weight: 0.0        # Cosine similarity loss (direction accuracy)
+      focal_gamma: 0.0          # Focal weighting gamma (0 = disabled, 2.0 = typical)
+      normalize: true           # Normalize MSE by output dimension
+      spherical_output: false   # L2 normalize outputs
+
+# =============================================================================
+# Decoder Validation Configuration
+# =============================================================================
+# Validation settings for each decoder type.
+# These settings affect metric computation during validation.
+#
+# Early stopping uses a weighted combination of metrics.
+# Each metric has a weight and mode ("max" = higher is better, "min" = lower is better).
+# The final ES value is normalized so lower = better for patience comparison.
+decoder_validation:
+  spherical_flow_matching:
+    # Early stopping: weighted combination of validation metrics
+    # Weights are relative (will be normalized internally)
+    early_stopping:
+      # Reconstruction quality from ODE solve (the true quality metric)
+      reconstruction_cosine_sim:
+        weight: 1.0
+        mode: "max"  # higher cosine similarity = better
+      # Velocity prediction accuracy (how well we predict the flow direction)
+      velocity_cosine_sim:
+        weight: 0.0
+        mode: "max"
+      # Improvement over centroid baseline (recon→target vs centroid→target)
+      improvement_vs_centroid:
+        weight: 0.0
+        mode: "max"
+
+  flow_matching:
+    early_stopping:
+      reconstruction_mse_total:
+        weight: 1.0
+        mode: "min"  # lower MSE = better
+      velocity_cosine_sim:
+        weight: 0.0
+        mode: "max"
+
+  mlp:
+    early_stopping:
+      reconstruction_mse_total:
+        weight: 1.0
+        mode: "min"
+      reconstruction_cosine_sim:
+        weight: 0.0
+        mode: "max"
+
+# =============================================================================
+# Performance Settings
+# =============================================================================
+performance:
+  amp:
+    enabled: false
+    # Options: float16, bfloat16 (bfloat16 recommended - more stable, no loss scaling needed)
+    dtype: "bfloat16"
+
+  gradient_checkpointing:
+    enabled: false
+
+  # torch.compile for kernel fusion and optimization
+  torch_compile:
+    enabled: true
+    # Options: default, reduce-overhead, max-autotune
+    # default: fastest compilation, good balance
+    # reduce-overhead: uses CUDA graphs, best for static shapes
+    # max-autotune: most aggressive, longest compile time, best runtime
+    mode: "default"
+
+  # cuDNN autotuning (benchmarks algorithms for your hardware)
+  cudnn_benchmark: true
+
+  num_workers: 4
+  pin_memory: true
+
+# =============================================================================
+# Logging
+# =============================================================================
+logging:
+  log_every_n_batches: 250
+  eval_mode_variance: true
+
+  # Diagnostic logging sections (appear below main training log)
+  latent_stats:
+    enabled: true
+  kl_stats:
+    enabled: true
+  range_stats:
+    enabled: true
+
+  wandb:
+    enabled: true
+    project: "behavioral-pattern-discovery"
+    entity: null

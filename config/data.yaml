@@ -1,0 +1,272 @@
+# =============================================================================
+# Data Section Configuration
+# =============================================================================
+# This file configures data collection, synthetic generation, and processing.
+# Structure mirrors src/data/ for clarity.
+
+# =============================================================================
+# Data Collection Configuration
+# =============================================================================
+
+collection:
+  mongodb:
+    connection_timeout_ms: 5000
+    default_databases:
+      - "FamaActivityRaw/all"
+      - "Aude-production/b27281ee-c2c8-40e8-9cc5-994d08fd19c3_Slack_activities"
+      - "Aude-production/b27281ee-c2c8-40e8-9cc5-994d08fd19c3_Confluence_activities"
+    max_activities_per_engineer: 1000
+    # User integrations mapping from Aude-production database
+    # Maps activity_user_id (source-specific) to user_id (canonical UUID)
+    user_integrations:
+      enabled: true
+      database: "Aude-production"
+      collection: "user_integrations"
+
+  # NDJSON Loader Configuration (7im format)
+  # Expects a folder containing:
+  #   - adoIdentities.ndjson (identity file for bot detection)
+  #   - *.ndjson.gz (data files)
+  ndjson:
+    # Sections to exclude from loading
+    excluded_sections:
+      - "users"
+      - "meta"
+
+  parsers:
+    github:
+      skip_bot_users: true
+      activity_types:
+        - "commit"
+        - "pull_request"
+        - "review"
+        - "issue"
+        - "comment"
+    trello:
+      activity_types:
+        - "card_create"
+        - "card_update"
+        - "comment"
+    slack:
+      filter_bots: true
+      filter_app_users: true
+      filter_bot_usernames: true
+    confluence:
+      skip_minor_edits: true
+      skip_empty_messages: true
+    azure_devops:
+      skip_system_users: true
+      activity_types:
+        - "discussion"
+        - "revision"
+        - "pull_request"
+        - "commit"
+        - "pr_comment"
+      min_text_length: 10
+
+  # Text cleanup and spam detection (applied by all loaders)
+  text_cleanup:
+    enabled: true
+
+    # Text normalization
+    normalization:
+      collapse_whitespace: true
+      strip_leading_trailing: true
+      remove_null_bytes: true
+      normalize_unicode: true
+
+    # Content filtering
+    filtering:
+      min_text_length: 10
+      max_text_length: null
+      min_word_count: 3
+      max_repetition_ratio: 0.5
+
+    # Spam detection patterns (regex)
+    spam_patterns:
+      enabled: true
+      patterns:
+        - "^\\s*$"
+        - "^(.)\\1{10,}$"
+
+    # Quality filter patterns for low-information messages (regex, case-insensitive)
+    quality_filter:
+      enabled: true
+      patterns:
+        - "^.+ voted \\d+$"
+        - "^Policy status has been updated$"
+        - "^.+ updated the pull request status"
+        - "^No files to check$"
+        - "^Merge pull request \\d+"
+        - "^Merged PR \\d+"
+
+    # Per-engineer deduplication (requires engineer_id to be passed)
+    deduplication:
+      enabled: true
+      max_duplicates_per_engineer: 3
+      case_insensitive: true
+      normalize_whitespace: true
+
+    # URL/link handling (keep, remove, or replace)
+    urls:
+      mode: "keep"
+      replacement: "[URL]"
+
+    # Code block handling (keep, remove, or summarize)
+    code_blocks:
+      mode: "keep"
+      summary_text: "[CODE]"
+      max_lines: null
+
+# =============================================================================
+# Synthetic Profile Generation
+# =============================================================================
+
+synthetic:
+  llm_provider: "gemini"
+  llm_model: "gemini-2.0-flash"
+  copies_per_template: 3
+
+# =============================================================================
+# Data Processing Configuration
+# =============================================================================
+
+processing:
+  # Activity sampling before preprocessing (balances across source+activity_type)
+  sampling:
+    enabled: false
+    max_activities_per_engineer: null  # null = no limit, set to e.g. 512 to limit
+    seed: 42  # For reproducibility
+
+  text_encoder:
+    # Encoder type: jina, nv_embed, qwen_raw
+    type: "jina"
+
+    jina:
+      model_name: "jinaai/jina-embeddings-v3"
+      task: "separation"
+      max_tokens: 8192
+      batch_size: 32
+
+    nv_embed:
+      model_name: "nvidia/NV-Embed-v2"
+      max_tokens: 32768
+      batch_size: 8
+      instruction_prefix: "Instruct: Retrieve semantically similar text\nQuery: "
+      quantization:
+        enabled: true
+        compute_dtype: "float16"
+        quant_type: "nf4"
+        use_double_quant: true
+
+    qwen_raw:
+      model_name: "Qwen/Qwen2.5-3B-Instruct"
+      max_tokens: 32768
+      batch_size: 8
+      quantization:
+        # Options: none, int8, int4
+        type: "none"
+        int4:
+          compute_dtype: "float16"
+          quant_type: "nf4"
+          use_double_quant: true
+
+  # Unified normalization pipeline (replaces per-encoder normalization and variance_transform)
+  # Pipeline is a comma-separated list of normalizations applied in order
+  # Available: l2, maxabs, standard, zca, quantile, isotropic, winsorize
+  #
+  # To replicate OLD encoder behavior (Jina v3, NV-Embed v2 built-in L2 norm):
+  #   pipeline: "l2"
+  #
+  # Set enabled: false to skip normalization during preprocessing.
+  # You can then apply it manually via the frontend /api/normalization button.
+  normalization:
+    enabled: true
+    pipeline: "l2"
+
+    zca:
+      eps: 1.0e-6
+
+    quantile:
+      output_distribution: "normal"
+      n_quantiles: 1000
+
+    isotropic:
+      target_l2_norm: 1.0
+
+    winsorize:
+      lower_percentile: 1.0
+      upper_percentile: 99.0
+
+  # Activity type prefix added to text before encoding
+  activity_prefix:
+    enabled: false
+    default: "activity"
+    separator: ":"
+    mappings:
+      # GitHub
+      pull_request: "git_pr"
+      pull_request_body: "git_pr_body"
+      commit: "git_commit"
+      review: "git_review"
+      comment: "git_comment"
+      review_comment: "git_review_comment"
+      # Azure DevOps
+      work_item: "ado_work_item"
+      discussion: "ado_discussion"
+      revision: "ado_revision"
+      pr_thread: "ado_pr_thread"
+      # Slack
+      message: "slack_message"
+      # Trello
+      card_create: "trello_card"
+      card_update: "trello_card"
+      # Confluence
+      page: "confluence_page"
+
+  statistical_features:
+    feature_count: 35
+    activity_volume:
+      trend_window_weeks: 4
+      burst_threshold: 3.0
+
+# =============================================================================
+# Data Paths (mirrors src/ structure: data/{section}/ for src/{section}/)
+# =============================================================================
+
+paths:
+  # Outputs from src/data/
+  data:
+    collection:
+      activities_csv: "data/data/collection/activities.csv"
+    synthetic:
+      templates_dir: "data/data/synthetic/templates"
+      generated_dir: "data/data/synthetic/generated"
+    processing:
+      message_database: "data/data/processing/message_database.pkl"
+      train_features: "data/data/processing/train_features.npy"
+      train_aux_vars: "data/data/processing/train_aux_vars.npy"
+      train_metadata: "data/data/processing/train_metadata.csv"
+
+  # Outputs from src/training/
+  training:
+    checkpoints_dir: "data/training/checkpoints"
+    checkpoint: "data/training/checkpoints/vae_checkpoint.pt"
+    logs_dir: "data/training/logs"
+
+  # Outputs from src/pattern_identification/
+  pattern_identification:
+    scoring:
+      activations: "data/pattern_identification/scoring/activations.h5"
+      population_stats: "data/pattern_identification/scoring/population_stats.json"
+    messages:
+      examples: "data/pattern_identification/messages/message_examples.json"
+    shap:
+      hierarchical_weights: "data/pattern_identification/shap/hierarchical_weights.json"
+    naming:
+      pattern_names: "data/pattern_identification/naming/pattern_names.json"
+
+  # Outputs from src/scoring/
+  scoring:
+    individual_dir: "data/scoring/individual"
+    reports_dir: "data/scoring/reports"
