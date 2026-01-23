@@ -32,6 +32,7 @@ def create_base_image():
             "numpy>=1.24.0,<2.0.0",
             "requests>=2.31.0",
             "pyyaml>=6.0",
+            "fastapi[standard]",
         )
     )
 

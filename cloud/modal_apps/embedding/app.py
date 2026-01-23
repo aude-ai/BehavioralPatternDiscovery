@@ -21,7 +21,7 @@ model_cache = modal.Volume.from_name("bpd-model-cache", create_if_missing=True)
     image=image,
     gpu="T4",
     volumes={"/cache": model_cache},
-    container_idle_timeout=300,
+    scaledown_window=300,
     timeout=3600,
     secrets=[modal.Secret.from_name("hetzner-internal-key")],
 )
@@ -75,7 +75,7 @@ class EmbeddingService:
             "embedding_dim": embeddings.shape[1],
         }
 
-    @modal.web_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST")
     def embed_endpoint(self, request: dict) -> dict:
         """HTTP endpoint for embedding (for testing/direct access)."""
         texts = request.get("texts", [])

@@ -432,7 +432,7 @@ def score_individual(
 @app.cls(
     image=image,
     gpu="T4",
-    container_idle_timeout=600,
+    scaledown_window=600,
     timeout=300,
     secrets=[modal.Secret.from_name("hetzner-internal-key")],
 )
@@ -506,7 +506,7 @@ class ScoringService:
 
         return {"engineer_id": engineer_id, "scores": scores}
 
-    @modal.web_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST")
     def score_endpoint(self, request: dict) -> dict:
         """HTTP endpoint for scoring."""
         return self.score(
