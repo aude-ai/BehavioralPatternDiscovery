@@ -1,8 +1,8 @@
 services:
   bpd-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: deploy/Dockerfile
     container_name: bpd-api
     environment:
       - REDIS_URL=redis://bpd-redis:6379
@@ -16,8 +16,8 @@ services:
       - DATA_DIR=/data
       - PROJECTS_DIR=/data/projects
     volumes:
-      - ./data:/data
-      - ./config:/app/config:ro
+      - ../data:/data
+      - ../config:/app/config:ro
     expose:
       - "8000"
     depends_on:
@@ -29,8 +29,8 @@ services:
 
   bpd-worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: deploy/Dockerfile
     container_name: bpd-worker
     command: celery -A cloud.hetzner.celery_app worker -l info -c 4 -Q cpu,gpu
     environment:
@@ -42,8 +42,8 @@ services:
       - DATA_DIR=/data
       - PROJECTS_DIR=/data/projects
     volumes:
-      - ./data:/data
-      - ./config:/app/config:ro
+      - ../data:/data
+      - ../config:/app/config:ro
     depends_on:
       - bpd-redis
     restart: unless-stopped
