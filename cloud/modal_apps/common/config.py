@@ -45,6 +45,7 @@ def create_ml_image():
             "h5py>=3.9.0",
             "shap>=0.44.0",
             "scikit-learn>=1.3.0",
+            "wandb>=0.15.0",
         )
     )
 

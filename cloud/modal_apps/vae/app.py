@@ -58,12 +58,23 @@ def train_vae(
 
     import numpy as np
     import torch
+    import wandb
 
     sys.path.insert(0, "/app")
 
     hetzner_url = get_hetzner_url()
     headers = get_headers()
     callback = ProgressCallback(hetzner_url, job_id, headers)
+
+    # Initialize wandb if API key is available
+    wandb_enabled = os.environ.get("WANDB_API_KEY") is not None
+    if wandb_enabled:
+        wandb.init(
+            project="behavioral-pattern-discovery",
+            name=f"train-{project_id[:8]}",
+            config=config,
+            tags=["modal", "cloud"],
+        )
 
     try:
         callback.status("Downloading training data...")
@@ -112,6 +123,9 @@ def train_vae(
                     "metrics": {k: float(v) for k, v in metrics.items()},
                     "is_best": is_best,
                 })
+                # Log to wandb
+                if wandb_enabled:
+                    wandb.log({k: float(v) for k, v in metrics.items()}, step=epoch)
 
             # Create trainer
             trainer = Trainer(
@@ -148,10 +162,15 @@ def train_vae(
 
             callback.completed("Training completed successfully")
 
+            if wandb_enabled:
+                wandb.finish()
+
             return {"status": "completed", "checkpoint_path": checkpoint_path}
 
     except Exception as e:
         callback.failed(str(e))
+        if wandb_enabled:
+            wandb.finish(exit_code=1)
         raise
 
 
