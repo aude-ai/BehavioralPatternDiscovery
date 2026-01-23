@@ -344,7 +344,7 @@ input[type="text"] {
                     <!-- NDJSON Tab Content -->
                     <div id="tab-ndjson" class="tab-content" style="display: none;">
                         <div class="controls">
-                            <input type="text" id="ndjson-path" placeholder="Path to data folder" value="" title="Folder containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 500px;">
+                            <input type="text" id="ndjson-path" placeholder="Folder path, .zip file, or URL" value="" title="Local folder, local .zip file, or URL to .zip file containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 500px;">
                         </div>
                         <div class="controls" style="margin-top: 8px;">
                             <label style="font-size: 0.9em; color: #666;">Date Range (optional):</label>
@@ -1339,12 +1339,13 @@ async function fetchNDJSON() {
     const dateEnd = document.getElementById('ndjson-date-end').value;
 
     if (!basePath) {
-        showStatus(statusEl, 'Please enter a path to the data folder', 'error');
+        showStatus(statusEl, 'Please enter a folder path, zip file path, or URL', 'error');
         return;
     }
 
     btn.disabled = true;
-    showStatus(statusEl, `Loading data from ${basePath}...`, 'info');
+    const sourceType = basePath.startsWith('http') ? 'URL' : basePath.endsWith('.zip') ? 'zip file' : 'folder';
+    showStatus(statusEl, `Loading data from ${sourceType}: ${basePath}...`, 'info');
 
     try {
         const requestBody = {

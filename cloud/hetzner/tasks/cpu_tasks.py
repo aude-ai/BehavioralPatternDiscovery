@@ -57,8 +57,16 @@ def fetch_mongodb_data(self, project_id: str, job_id: str, config: dict):
 
 @celery_app.task(bind=True, max_retries=3)
 def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
-    """Fetch data from NDJSON files."""
+    """
+    Fetch data from NDJSON source.
+
+    Supports multiple source types via config["input_path"]:
+    - Local folder path (e.g., "/data/ndjson/")
+    - Local zip file (e.g., "/data/export.zip")
+    - URL to zip file (e.g., "https://api.example.com/export.zip")
+    """
     from src.data.collection.ndjson_loader import NDJSONLoader
+    from src.data.collection.data_source import resolve_data_source
 
     with get_db() as db:
         try:
@@ -69,12 +77,22 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            loader = NDJSONLoader(config)
-            activities_df, engineer_metadata = loader.load()
+            # Resolve data source (handles folder, zip, or URL)
+            source_path = config.get("input_path", "")
+            with resolve_data_source(source_path) as resolved_path:
+                # Update config with resolved path
+                resolved_config = config.copy()
+                resolved_config["input_path"] = str(resolved_path)
 
-            activities_df.to_csv(storage.activities_path, index=False)
-            if engineer_metadata is not None:
-                engineer_metadata.to_csv(storage.engineer_metadata_path, index=False)
+                # Also update identity_file path if it's relative to input_path
+                if "identity_file" not in config or not config["identity_file"]:
+                    # Default to adoIdentities.ndjson in the resolved folder
+                    resolved_config["identity_file"] = str(resolved_path / "adoIdentities.ndjson")
+
+                loader = NDJSONLoader(resolved_config)
+                activities_df = loader.load()
+
+                activities_df.to_csv(storage.activities_path, index=False)
 
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.COMPLETED,
