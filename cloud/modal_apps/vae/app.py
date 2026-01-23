@@ -18,8 +18,8 @@ image = (
     .pip_install(
         "pandas>=2.0.0",
     )
-    .copy_local_dir("src", "/app/src")
-    .copy_local_dir("config", "/app/config")
+    .add_local_dir("src", "/app/src")
+    .add_local_dir("config", "/app/config")
 )
 
 # Volume for training checkpoints
