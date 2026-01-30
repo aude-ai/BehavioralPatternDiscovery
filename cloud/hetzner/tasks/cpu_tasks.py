@@ -6,7 +6,7 @@ from pathlib import Path
 from ..celery_app import celery_app
 from ..config import get_settings
 from ..database import get_db, JobModel
-from ..models import JobStatus, ProjectStatus
+from ..models import JobStatus
 from ..services import StorageService
 
 # Add src to path for imports
@@ -23,7 +23,6 @@ def fetch_mongodb_data(self, project_id: str, job_id: str, config: dict):
 
     with get_db() as db:
         try:
-            # Update job status
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
             )
@@ -35,7 +34,6 @@ def fetch_mongodb_data(self, project_id: str, job_id: str, config: dict):
             activities_df = loader.load()
             activities_df.to_csv(storage.activities_path, index=False)
 
-            # Update job as completed
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.COMPLETED,
                 "progress": 1.0,
@@ -77,16 +75,12 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            # Resolve data source (handles folder, zip, or URL)
             source_path = config.get("input_path", "")
             with resolve_data_source(source_path) as resolved_path:
-                # Update config with resolved path
                 resolved_config = config.copy()
                 resolved_config["input_path"] = str(resolved_path)
 
-                # Also update identity_file path if it's relative to input_path
                 if "identity_file" not in config or not config["identity_file"]:
-                    # Default to adoIdentities.ndjson in the resolved folder
                     resolved_config["identity_file"] = str(resolved_path / "adoIdentities.ndjson")
 
                 loader = NDJSONLoader(resolved_config)
@@ -134,17 +128,13 @@ def preprocess_data(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            # Load activities
             activities_df = pd.read_csv(storage.activities_path)
 
-            # Extract statistical features
             feature_extractor = StatisticalFeatureExtractor(config.get("processing", {}))
             aux_features = feature_extractor.extract(activities_df)
 
-            # Save auxiliary features
             storage.save_numpy(storage.train_aux_vars_path, aux_features)
 
-            # Prepare texts for embedding (will be sent to Modal)
             texts = activities_df["text"].tolist()
 
             db.query(JobModel).filter(JobModel.id == job_id).update({
@@ -159,7 +149,7 @@ def preprocess_data(self, project_id: str, job_id: str, config: dict):
 
             return {
                 "status": "completed",
-                "texts": texts,  # Pass to embedding task
+                "texts": texts,
                 "num_texts": len(texts),
             }
 
@@ -187,16 +177,16 @@ def normalize_embeddings(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            # Load embeddings
-            embeddings = storage.load_numpy(storage.train_features_path)
+            # Load compressed embeddings
+            embeddings = storage.load_numpy_compressed(storage.train_features_path)
 
-            # Apply normalization
             pipeline_config = config.get("processing", {}).get("normalization", "")
             if pipeline_config:
                 pipeline = NormalizationPipeline.from_config(pipeline_config)
                 pipeline.fit(embeddings)
                 normalized = pipeline.transform(embeddings)
-                storage.save_numpy(storage.train_features_path, normalized)
+                # Save back compressed
+                storage.save_numpy_compressed(storage.train_features_path, normalized)
 
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.COMPLETED,
@@ -219,6 +209,8 @@ def normalize_embeddings(self, project_id: str, job_id: str, config: dict):
 @celery_app.task(bind=True)
 def assign_messages(self, project_id: str, job_id: str, config: dict):
     """Assign messages to patterns based on activations."""
+    import h5py
+
     from src.pattern_identification.message_assigner import MessageAssigner
 
     with get_db() as db:
@@ -230,19 +222,20 @@ def assign_messages(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            # Load data
-            message_db = storage.load_pickle(storage.message_database_path)
+            # Load compressed message database
+            message_db = storage.load_pickle_compressed(storage.message_database_path)
             population_stats = storage.load_json(storage.population_stats_path)
 
-            # Load activations
-            import h5py
+            # Decompress activations to temp file for h5py access
+            tmp_activations = storage.decompress_to_temp(storage.activations_path)
+            try:
+                activations = {}
+                with h5py.File(tmp_activations, "r") as f:
+                    for key in f.keys():
+                        activations[key] = f[key][:]
+            finally:
+                tmp_activations.unlink()
 
-            activations = {}
-            with h5py.File(storage.activations_path, "r") as f:
-                for key in f.keys():
-                    activations[key] = f[key][:]
-
-            # Assign messages
             assigner = MessageAssigner(config.get("message_assignment", {}))
             message_examples = assigner.assign(
                 activations=activations,
@@ -284,11 +277,9 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            # Load data
             message_examples = storage.load_json(storage.message_examples_path)
             hierarchical_weights = storage.load_json(storage.hierarchical_weights_path)
 
-            # Name patterns
             namer = PatternNamer(config.get("pattern_naming", {}))
             pattern_names = namer.name_patterns(
                 message_examples=message_examples,
@@ -329,14 +320,11 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
 
             storage = StorageService(project_id)
 
-            # Load scores
             scores_path = storage.base_path / f"scoring/individual/{engineer_id}.json"
             scores = storage.load_json(scores_path)
 
-            # Load pattern names
             pattern_names = storage.load_json(storage.pattern_names_path)
 
-            # Generate report
             generator = ReportGenerator(config.get("report_generation", {}))
             report = generator.generate(
                 engineer_id=engineer_id,
@@ -344,7 +332,6 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
                 pattern_names=pattern_names,
             )
 
-            # Save report
             report_path = storage.base_path / f"scoring/reports/{engineer_id}.json"
             storage.save_json(report_path, report)
 

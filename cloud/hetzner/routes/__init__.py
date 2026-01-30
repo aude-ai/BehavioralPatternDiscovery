@@ -12,9 +12,12 @@ api_router.include_router(pipeline.router, prefix="/projects/{project_id}", tags
 api_router.include_router(scoring.router, prefix="/projects/{project_id}/scoring", tags=["scoring"])
 api_router.include_router(patterns.router, prefix="/projects/{project_id}/patterns", tags=["patterns"])
 
-# Internal routes (for Modal callbacks)
-api_router.include_router(internal.router, prefix="/internal", tags=["internal"])
+# Internal routes (for Modal callbacks) - mounted at /internal, not under /api
+# This matches nginx routing: /bpd/internal/* -> /internal/*
+internal_router = APIRouter()
+internal_router.include_router(internal.router, prefix="/internal", tags=["internal"])
 
-# External API routes
+# External API routes - mounted at /external, not under /api
+# This matches nginx routing: /bpd/external/* -> /external/*
 external_router = APIRouter()
 external_router.include_router(external.router, prefix="/external", tags=["external"])

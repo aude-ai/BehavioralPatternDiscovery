@@ -4,24 +4,21 @@ import modal
 from cloud.modal_apps.common.config import create_embedding_image, get_headers, get_hetzner_url
 from cloud.modal_apps.common.data_transfer import (
     ProgressCallback,
-    compress_numpy,
-    upload_file,
+    compress_and_upload,
 )
 
 app = modal.App("bpd-embedding")
 
-# Image with embedding model dependencies
 image = create_embedding_image()
 
-# Volume for caching downloaded models
 model_cache = modal.Volume.from_name("bpd-model-cache", create_if_missing=True)
 
 
 @app.cls(
     image=image,
-    gpu="T4",
+    gpu="A100",
     volumes={"/cache": model_cache},
-    scaledown_window=300,
+    scaledown_window=60,
     timeout=3600,
     secrets=[modal.Secret.from_name("hetzner-internal-key")],
 )
@@ -51,7 +48,6 @@ class EmbeddingService:
         ).to(self.device)
         self.model.eval()
 
-        # Commit model to volume for faster subsequent loads
         model_cache.commit()
 
     @modal.method()
@@ -77,7 +73,7 @@ class EmbeddingService:
 
     @modal.fastapi_endpoint(method="POST")
     def embed_endpoint(self, request: dict) -> dict:
-        """HTTP endpoint for embedding (for testing/direct access)."""
+        """HTTP endpoint for embedding."""
         texts = request.get("texts", [])
         task = request.get("task", "retrieval.passage")
 
@@ -89,7 +85,7 @@ class EmbeddingService:
 
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="A100",
     volumes={"/cache": model_cache},
     timeout=7200,
     secrets=[modal.Secret.from_name("hetzner-internal-key")],
@@ -101,12 +97,10 @@ def embed_all_texts(
     task: str = "retrieval.passage",
     batch_size: int = 32,
 ) -> dict:
-    """
-    Embed all texts for a project.
+    """Embed all texts for a project."""
+    import tempfile
+    from pathlib import Path
 
-    Called asynchronously from Hetzner. Sends progress updates
-    and uploads final embeddings via callback.
-    """
     import numpy as np
 
     hetzner_url = get_hetzner_url()
@@ -130,21 +124,26 @@ def embed_all_texts(
             progress = min((i + len(batch)) / total, 1.0)
             callback.progress(progress, processed=i + len(batch), total=total)
 
-        # Convert to numpy array
+        # Save to temp file
         embeddings_array = np.array(all_embeddings, dtype=np.float32)
         embedding_dim = embeddings_array.shape[1]
 
         callback.status("Uploading embeddings...")
 
-        # Compress and upload
-        compressed = compress_numpy(embeddings_array)
+        with tempfile.NamedTemporaryFile(suffix=".npy", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            np.save(tmp_path, embeddings_array)
 
-        upload_file(
-            f"{hetzner_url}/internal/projects/{project_id}/embeddings",
-            headers,
-            files={"embeddings": ("embeddings.npy.gz", compressed)},
-            data={"embedding_dim": str(embedding_dim)},
-        )
+        try:
+            # Compress and upload (streaming)
+            compress_and_upload(
+                f"{hetzner_url}/internal/projects/{project_id}/embeddings",
+                headers,
+                tmp_path,
+                filename="embeddings.npy.zst",
+            )
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
         callback.completed(f"Encoded {total} texts to {embedding_dim}-dim embeddings")
 

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .database import init_db
-from .routes import api_router, external_router
+from .routes import api_router, internal_router, external_router
 from .websocket import ws_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -45,7 +45,8 @@ app.add_middleware(
 
 # API routes
 app.include_router(api_router, prefix="/api")
-app.include_router(external_router)
+app.include_router(internal_router)  # At /internal (Modal callbacks)
+app.include_router(external_router)  # At /external (integration API)
 
 
 # WebSocket endpoint

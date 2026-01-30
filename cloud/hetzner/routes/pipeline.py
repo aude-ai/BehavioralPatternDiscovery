@@ -73,7 +73,12 @@ def start_training(
     config: dict = None,
     db: Session = Depends(get_db),
 ):
-    """Start VAE training on Modal."""
+    """
+    Start VAE training on Modal.
+
+    Automatically prepares training data (combines embeddings + aux features,
+    creates message_database) before spawning the Modal training function.
+    """
     service = ProjectService(db)
     storage = StorageService(project_id)
 
