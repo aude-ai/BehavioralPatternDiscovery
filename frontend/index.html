@@ -333,6 +333,24 @@ input[type="text"] {
     margin-bottom: 10px;
     color: #34495e;
 }
+
+/* Project Section */
+#project-section {
+    border-left: 4px solid #3498db;
+}
+
+#project-section h2 {
+    color: #2980b9;
+}
+
+.project-required-notice {
+    background: #fff3cd;
+    color: #856404;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #ffeeba;
+}
     </style>
 </head>
 <body>
@@ -342,6 +360,28 @@ input[type="text"] {
         </header>
 
         <main>
+            <!-- Project Selection Section -->
+            <section class="card" id="project-section">
+                <h2>Project</h2>
+                <div class="section">
+                    <div class="controls">
+                        <select id="project-select" class="select" style="min-width: 250px;">
+                            <option value="">Select a project...</option>
+                        </select>
+                        <button id="btn-refresh-projects" class="btn btn-secondary">Refresh</button>
+                        <span class="separator">or</span>
+                        <input type="text" id="new-project-name" placeholder="New project name" style="min-width: 200px;">
+                        <button id="btn-create-project" class="btn btn-primary">Create Project</button>
+                        <button id="btn-delete-project" class="btn btn-danger" style="display: none;">Delete Project</button>
+                    </div>
+                    <div id="project-status" class="status-message"></div>
+                    <div id="project-info" style="display: none; margin-top: 10px; padding: 10px; background: #e8f4f8; border-radius: 4px;">
+                        <strong>Current Project:</strong> <span id="current-project-name"></span>
+                        <br><small style="color: #666;">ID: <span id="current-project-id"></span> | Created: <span id="current-project-created"></span></small>
+                    </div>
+                </div>
+            </section>
+
             <!-- Data Collection Section -->
             <section class="card">
                 <h2>Data Collection</h2>
@@ -611,8 +651,10 @@ input[type="text"] {
     </div>
 
     <script>
-// API base URL
-const API_BASE = window.location.origin;
+// API base URL - handle /bpd prefix for cloud deployment
+const API_BASE = window.location.pathname.startsWith('/bpd')
+    ? `${window.location.origin}/bpd`
+    : window.location.origin;
 
 // State
 let currentEngineerId = null;
@@ -621,6 +663,230 @@ let engineerSummaryData = [];  // Store engineer data for sorting
 let currentSortColumn = 'activity_count';  // Default sort column
 let currentSortDirection = 'desc';  // Default sort direction
 let ws = null;  // WebSocket connection
+
+// Project state management
+let currentProjectId = localStorage.getItem('bpd_project_id') || null;
+let currentProjectName = localStorage.getItem('bpd_project_name') || null;
+
+// Helper to get project-specific API base
+function getProjectApiBase() {
+    if (!currentProjectId) {
+        throw new Error('No project selected');
+    }
+    return `${API_BASE}/api/projects/${currentProjectId}`;
+}
+
+// Helper to check if project is selected
+function requireProject() {
+    if (!currentProjectId) {
+        alert('Please select or create a project first');
+        return false;
+    }
+    return true;
+}
+
+// Project management functions
+async function loadProjects() {
+    const select = document.getElementById('project-select');
+    const statusEl = document.getElementById('project-status');
+
+    try {
+        const response = await fetch(`${API_BASE}/api/projects`);
+        if (!response.ok) throw new Error('Failed to fetch projects');
+
+        const projects = await response.json();
+
+        // Clear and repopulate
+        select.innerHTML = '<option value="">Select a project...</option>';
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = `${project.name} (${project.status})`;
+            option.dataset.name = project.name;
+            option.dataset.created = project.created_at;
+            select.appendChild(option);
+        });
+
+        // Restore previous selection if valid
+        if (currentProjectId) {
+            const exists = projects.some(p => p.id === currentProjectId);
+            if (exists) {
+                select.value = currentProjectId;
+                showProjectInfo();
+            } else {
+                // Previous project no longer exists
+                clearProjectSelection();
+            }
+        }
+
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+        showStatus(statusEl, `Error loading projects: ${error.message}`, 'error');
+    }
+}
+
+async function createProject() {
+    const nameInput = document.getElementById('new-project-name');
+    const statusEl = document.getElementById('project-status');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        showStatus(statusEl, 'Please enter a project name', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create project');
+        }
+
+        const project = await response.json();
+
+        showStatus(statusEl, `Project "${name}" created!`, 'success');
+        nameInput.value = '';
+
+        // Reload projects and select the new one
+        await loadProjects();
+        document.getElementById('project-select').value = project.id;
+        await selectProject(project.id, name);
+
+    } catch (error) {
+        showStatus(statusEl, `Error: ${error.message}`, 'error');
+    }
+}
+
+async function selectProject(projectId, projectName) {
+    const statusEl = document.getElementById('project-status');
+
+    if (!projectId) {
+        clearProjectSelection();
+        return;
+    }
+
+    currentProjectId = projectId;
+    currentProjectName = projectName || document.getElementById('project-select').selectedOptions[0]?.dataset.name || projectId;
+
+    // Persist to localStorage
+    localStorage.setItem('bpd_project_id', currentProjectId);
+    localStorage.setItem('bpd_project_name', currentProjectName);
+
+    showProjectInfo();
+
+    // Reconnect WebSocket with new project ID
+    reconnectWebSocket();
+
+    // Update status and enable buttons
+    await updateStatus();
+
+    showStatus(statusEl, `Project "${currentProjectName}" selected`, 'success');
+
+    // Show delete button
+    document.getElementById('btn-delete-project').style.display = 'inline-block';
+}
+
+function clearProjectSelection() {
+    currentProjectId = null;
+    currentProjectName = null;
+    localStorage.removeItem('bpd_project_id');
+    localStorage.removeItem('bpd_project_name');
+
+    document.getElementById('project-info').style.display = 'none';
+    document.getElementById('btn-delete-project').style.display = 'none';
+    document.getElementById('project-select').value = '';
+
+    // Disable all pipeline buttons
+    disableAllPipelineButtons();
+}
+
+function showProjectInfo() {
+    const infoEl = document.getElementById('project-info');
+    const select = document.getElementById('project-select');
+    const selectedOption = select.selectedOptions[0];
+
+    document.getElementById('current-project-name').textContent = currentProjectName;
+    document.getElementById('current-project-id').textContent = currentProjectId;
+
+    if (selectedOption && selectedOption.dataset.created) {
+        const created = new Date(selectedOption.dataset.created);
+        document.getElementById('current-project-created').textContent = created.toLocaleDateString();
+    }
+
+    infoEl.style.display = 'block';
+    document.getElementById('btn-delete-project').style.display = 'inline-block';
+}
+
+async function deleteProject() {
+    if (!currentProjectId) return;
+
+    const confirmed = confirm(`Are you sure you want to delete project "${currentProjectName}"?\n\nThis will permanently delete all data, models, and results for this project.`);
+    if (!confirmed) return;
+
+    const statusEl = document.getElementById('project-status');
+
+    try {
+        const response = await fetch(`${API_BASE}/api/projects/${currentProjectId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete project');
+        }
+
+        showStatus(statusEl, `Project "${currentProjectName}" deleted`, 'success');
+        clearProjectSelection();
+        await loadProjects();
+
+    } catch (error) {
+        showStatus(statusEl, `Error: ${error.message}`, 'error');
+    }
+}
+
+function disableAllPipelineButtons() {
+    // Data collection
+    document.getElementById('btn-fetch-ndjson').disabled = true;
+    document.getElementById('btn-generate-synthetic').disabled = true;
+    document.getElementById('btn-refresh-synthetic-summary').disabled = true;
+    document.getElementById('btn-refresh-engineer-summary').disabled = true;
+    document.getElementById('btn-preprocess').disabled = true;
+    document.getElementById('btn-normalization').disabled = true;
+
+    // Training
+    document.getElementById('btn-train-vae').disabled = true;
+    document.getElementById('btn-train-from-existing').disabled = true;
+
+    // Pattern identification
+    document.getElementById('btn-batch-score').disabled = true;
+    document.getElementById('btn-shap-analysis').disabled = true;
+    document.getElementById('btn-identify').disabled = true;
+    document.getElementById('btn-population-viewer').disabled = true;
+
+    // Evaluation
+    document.getElementById('btn-refresh-engineers').disabled = true;
+    document.getElementById('engineer-select').disabled = true;
+    document.getElementById('btn-score').disabled = true;
+    document.getElementById('btn-report').disabled = true;
+}
+
+function reconnectWebSocket() {
+    // Close existing connection
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+
+    // Only reconnect if project is selected
+    if (currentProjectId) {
+        connectWebSocket();
+    }
+}
 
 // Section logs management - maps section names to container IDs
 const sectionLogContainers = {
@@ -734,18 +1000,26 @@ function handleWebSocketMessage(data) {
 }
 
 function connectWebSocket() {
+    // Don't connect if no project selected
+    if (!currentProjectId) {
+        console.log('WebSocket: No project selected, skipping connection');
+        return;
+    }
+
     if (ws && ws.readyState === WebSocket.OPEN) {
         return;  // Already connected
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/projects/default/events`;
+    // Use /bpd prefix for cloud deployment
+    const wsPrefix = window.location.pathname.startsWith('/bpd') ? '/bpd' : '';
+    const wsUrl = `${protocol}//${window.location.host}${wsPrefix}/ws/projects/${currentProjectId}/events`;
 
     try {
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('WebSocket connected to project:', currentProjectId);
         };
 
         ws.onmessage = (event) => {
@@ -759,7 +1033,11 @@ function connectWebSocket() {
 
         ws.onclose = () => {
             console.log('WebSocket disconnected, reconnecting in 5s...');
-            setTimeout(connectWebSocket, 5000);
+            setTimeout(() => {
+                if (currentProjectId) {
+                    connectWebSocket();
+                }
+            }, 5000);
         };
 
         ws.onerror = (error) => {
@@ -778,9 +1056,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    updateStatus();
+    // Load projects first
+    loadProjects().then(() => {
+        // Only update status and connect WebSocket if project is selected
+        if (currentProjectId) {
+            updateStatus();
+            connectWebSocket();
+        } else {
+            disableAllPipelineButtons();
+        }
+    });
     refreshLogs();
-    connectWebSocket();
 }
 
 function setupEventListeners() {
@@ -834,6 +1120,15 @@ function setupEventListeners() {
     document.querySelectorAll('#engineer-summary-table th[data-sort]').forEach(th => {
         th.addEventListener('click', () => sortEngineerTable(th.dataset.sort));
     });
+
+    // Project management listeners
+    document.getElementById('project-select').addEventListener('change', (e) => {
+        const selectedOption = e.target.selectedOptions[0];
+        selectProject(e.target.value, selectedOption?.dataset.name);
+    });
+    document.getElementById('btn-refresh-projects').addEventListener('click', loadProjects);
+    document.getElementById('btn-create-project').addEventListener('click', createProject);
+    document.getElementById('btn-delete-project').addEventListener('click', deleteProject);
 }
 
 function startStatusPolling() {
@@ -843,7 +1138,11 @@ function startStatusPolling() {
 
 async function updateStatus() {
     try {
-        const response = await fetch(`${API_BASE}/api/status`);
+        if (!currentProjectId) {
+            disableAllPipelineButtons();
+            return;
+        }
+        const response = await fetch(`${getProjectApiBase()}/status`);
         const data = await response.json();
 
         const status = data.status;
@@ -885,7 +1184,11 @@ async function batchScore() {
     showStatus(statusEl, 'Starting batch scoring and message assignment...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/batch_score`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+        const response = await fetch(`${getProjectApiBase()}/batch-score`, {
             method: 'POST'
         });
 
@@ -898,7 +1201,7 @@ async function batchScore() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'batch_scoring') {
                 clearInterval(pollInterval);
@@ -921,7 +1224,8 @@ async function refreshEngineers() {
     const select = document.getElementById('engineer-select');
 
     try {
-        const response = await fetch(`${API_BASE}/api/engineers`);
+        if (!requireProject()) return;
+        const response = await fetch(`${getProjectApiBase()}/data/engineers`);
         if (!response.ok) throw new Error('Failed to fetch engineers');
 
         const data = await response.json();
@@ -957,25 +1261,30 @@ async function updateButtonStates() {
     await updateStatus();
 
     // If an engineer is selected, check if their score file exists
-    if (currentEngineerId) {
+    if (currentEngineerId && currentProjectId) {
         try {
-            const response = await fetch(`${API_BASE}/api/check_score_exists?engineer_id=${currentEngineerId}`);
-            const data = await response.json();
+            // Check if score exists by trying to fetch it
+            const scoreResponse = await fetch(`${getProjectApiBase()}/scoring/individual/${currentEngineerId}`);
+            const scoreExists = scoreResponse.ok;
 
             // Generate Report button ONLY depends on individual score file existence
             const reportBtn = document.getElementById('btn-report');
-            reportBtn.disabled = !data.exists;
+            reportBtn.disabled = !scoreExists;
+
+            // Check if report exists
+            const reportResponse = await fetch(`${getProjectApiBase()}/scoring/report/${currentEngineerId}`);
+            const reportExists = reportResponse.ok;
 
             // View Report button depends on report file existence
             const viewReportBtn = document.getElementById('btn-view-report');
-            viewReportBtn.disabled = !data.report_exists;
+            viewReportBtn.disabled = !reportExists;
 
             // Download Report button depends on report file existence
             const downloadReportBtn = document.getElementById('btn-download-report');
-            downloadReportBtn.disabled = !data.report_exists;
+            downloadReportBtn.disabled = !reportExists;
 
             // Score button needs batch scores to be available (for percentile calculations)
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
             const scoreBtn = document.getElementById('btn-score');
             scoreBtn.disabled = !status.can_run.score_engineer;
 
@@ -995,7 +1304,11 @@ async function scoreEngineer() {
     showStatus(statusEl, 'Scoring engineer...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/score_engineer`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+        const response = await fetch(`${getProjectApiBase()}/scoring/individual`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ engineer_id: currentEngineerId })
@@ -1034,10 +1347,12 @@ async function generateReport() {
     showStatus(statusEl, 'Generating report...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/generate_report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ engineer_id: currentEngineerId })
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+        const response = await fetch(`${getProjectApiBase()}/scoring/report/${currentEngineerId}`, {
+            method: 'POST'
         });
 
         if (!response.ok) {
@@ -1083,37 +1398,9 @@ function openPopulationViewer() {
 }
 
 async function refreshLogs() {
-    try {
-        const response = await fetch(`${API_BASE}/api/logs`);
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        const logsContainer = document.getElementById('logs-container');
-        logsContainer.innerHTML = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            lines.forEach(line => {
-                if (line.startsWith('data:')) {
-                    const logLine = line.substring(5).trim();
-                    if (logLine && logLine !== 'No logs yet') {
-                        appendLog(logLine);
-                    }
-                }
-            });
-        }
-
-        // Auto-scroll to bottom
-        logsContainer.scrollTop = logsContainer.scrollHeight;
-
-    } catch (error) {
-        console.error('Failed to fetch logs:', error);
-    }
+    // Logs are now delivered via WebSocket in cloud deployment
+    const logsContainer = document.getElementById('logs-container');
+    logsContainer.innerHTML = '<div class="log-line log-info">Logs are streamed via WebSocket. Waiting for activity...</div>';
 }
 
 function appendLog(text) {
@@ -1139,10 +1426,10 @@ function clearLogs() {
 }
 
 function downloadReport() {
-    if (!currentEngineerId) return;
+    if (!currentEngineerId || !currentProjectId) return;
 
-    const filename = `report_${currentEngineerId}.txt`;
-    window.location.href = `${API_BASE}/api/download/reporting/${filename}`;
+    // Download via the scoring report endpoint
+    window.location.href = `${getProjectApiBase()}/scoring/report/${currentEngineerId}`;
 }
 
 function showStatus(element, message, type) {
@@ -1159,18 +1446,19 @@ async function preprocessData() {
     showStatus(statusEl, 'Starting preprocessing...', 'info');
 
     try {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
         // Get optional max activities override
         const maxActivitiesInput = document.getElementById('max-activities-per-engineer');
         const maxActivities = maxActivitiesInput.value ? parseInt(maxActivitiesInput.value) : null;
 
-        // Build URL with query param if value provided
-        let url = `${API_BASE}/api/preprocess`;
-        if (maxActivities !== null) {
-            url += `?max_activities_per_engineer=${maxActivities}`;
-        }
-
-        const response = await fetch(url, {
-            method: 'POST'
+        const response = await fetch(`${getProjectApiBase()}/preprocess`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(maxActivities !== null ? { max_activities_per_engineer: maxActivities } : {})
         });
 
         if (!response.ok) {
@@ -1182,7 +1470,7 @@ async function preprocessData() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'preprocessing') {
                 clearInterval(pollInterval);
@@ -1209,8 +1497,15 @@ async function applyNormalization() {
     showStatus(statusEl, 'Starting normalization...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/normalization`, {
-            method: 'POST'
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/preprocess`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ normalize_only: true })
         });
 
         if (!response.ok) {
@@ -1222,7 +1517,7 @@ async function applyNormalization() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'normalization') {
                 clearInterval(pollInterval);
@@ -1251,7 +1546,13 @@ async function trainVAE() {
     showStatus(statusEl, 'Starting VAE training (this may take 20+ minutes)...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/train_vae`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            stopBtn.style.display = 'none';
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/train`, {
             method: 'POST'
         });
 
@@ -1264,7 +1565,7 @@ async function trainVAE() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'training_vae') {
                 clearInterval(pollInterval);
@@ -1315,10 +1616,16 @@ async function trainFromExistingVAE() {
     showStatus(statusEl, `Starting VAE training from existing model: ${modelPath}...`, 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/train_vae_from_existing`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            stopBtn.style.display = 'none';
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/train`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model_path: modelPath })
+            body: JSON.stringify({ resume_from: modelPath })
         });
 
         if (!response.ok) {
@@ -1330,7 +1637,7 @@ async function trainFromExistingVAE() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'training_vae_from_existing') {
                 clearInterval(pollInterval);
@@ -1354,29 +1661,9 @@ async function trainFromExistingVAE() {
 }
 
 async function stopTraining() {
-    const stopBtn = document.getElementById('btn-stop-training');
     const statusEl = document.getElementById('train-status');
-
-    stopBtn.disabled = true;
-    stopBtn.textContent = 'Stopping...';
-
-    try {
-        const response = await fetch(`${API_BASE}/api/train/stop`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to stop training');
-        }
-
-        showStatus(statusEl, 'Stop requested. Training will stop after current epoch...', 'info');
-
-    } catch (error) {
-        showStatus(statusEl, `Error stopping: ${error.message}`, 'error');
-        stopBtn.disabled = false;
-        stopBtn.textContent = 'Stop Training';
-    }
+    // Stop training is not yet supported in cloud deployment
+    showStatus(statusEl, 'Stop training is not yet supported in cloud deployment. Training will complete its full run.', 'info');
 }
 
 async function runSHAPAnalysis() {
@@ -1387,7 +1674,12 @@ async function runSHAPAnalysis() {
     showStatus(statusEl, 'Starting SHAP analysis...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/shap_analysis`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/shap`, {
             method: 'POST'
         });
 
@@ -1400,7 +1692,7 @@ async function runSHAPAnalysis() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'shap_analysis') {
                 clearInterval(pollInterval);
@@ -1427,7 +1719,12 @@ async function identifyPatterns() {
     showStatus(statusEl, 'Starting pattern naming with LLM...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/identify_patterns`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/name-patterns`, {
             method: 'POST'
         });
 
@@ -1440,7 +1737,7 @@ async function identifyPatterns() {
 
         const pollInterval = setInterval(async () => {
             await updateStatus();
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'pattern_naming') {
                 clearInterval(pollInterval);
@@ -1480,6 +1777,11 @@ async function fetchNDJSON() {
     btn.disabled = true;
 
     try {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
         // If file is selected, upload it first
         if (hasFile) {
             const file = fileInput.files[0];
@@ -1488,7 +1790,7 @@ async function fetchNDJSON() {
             const formData = new FormData();
             formData.append('file', file);
 
-            const uploadResponse = await fetch(`${API_BASE}/api/upload_ndjson`, {
+            const uploadResponse = await fetch(`${getProjectApiBase()}/data/upload/ndjson`, {
                 method: 'POST',
                 body: formData
             });
@@ -1518,19 +1820,24 @@ async function fetchNDJSON() {
 async function loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn) {
 
     try {
-        const requestBody = {
-            base_path: basePath
-        };
-
-        // Only include date_range if both dates are provided
-        if (dateStart && dateEnd) {
-            requestBody.date_range = {
-                start: dateStart,
-                end: dateEnd
-            };
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
         }
 
-        const response = await fetch(`${API_BASE}/api/fetch_ndjson`, {
+        const requestBody = {
+            input_path: basePath
+        };
+
+        // Only include date filters if provided
+        if (dateStart) {
+            requestBody.date_start = dateStart;
+        }
+        if (dateEnd) {
+            requestBody.date_end = dateEnd;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/data/fetch/ndjson`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -1544,7 +1851,7 @@ async function loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn) {
         showStatus(statusEl, 'Data loading started. Check logs for progress.', 'info');
 
         const pollInterval = setInterval(async () => {
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'fetching_ndjson') {
                 clearInterval(pollInterval);
@@ -1570,7 +1877,9 @@ async function refreshEngineerSummary() {
     showStatus(statusEl, 'Loading engineer summary...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/engineers`);
+        if (!requireProject()) return;
+
+        const response = await fetch(`${getProjectApiBase()}/data/engineers`);
 
         if (!response.ok) {
             const error = await response.json();
@@ -1740,7 +2049,9 @@ async function setEngineerSplit(split) {
     const statusEl = document.getElementById('action-status');
 
     try {
-        const response = await fetch(`${API_BASE}/api/engineers/set_split`, {
+        if (!requireProject()) return;
+
+        const response = await fetch(`${getProjectApiBase()}/data/engineers/set-split`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ engineer_ids: engineerIds, split: split })
@@ -1772,7 +2083,9 @@ async function removeSelectedEngineers() {
     const statusEl = document.getElementById('action-status');
 
     try {
-        const response = await fetch(`${API_BASE}/api/engineers/remove`, {
+        if (!requireProject()) return;
+
+        const response = await fetch(`${getProjectApiBase()}/data/engineers/remove`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ engineer_ids: engineerIds })
@@ -1810,7 +2123,9 @@ async function mergeSelectedEngineers() {
     const statusEl = document.getElementById('action-status');
 
     try {
-        const response = await fetch(`${API_BASE}/api/engineers/merge`, {
+        if (!requireProject()) return;
+
+        const response = await fetch(`${getProjectApiBase()}/data/engineers/merge`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ source_ids: sourceIds, target_id: targetId })
@@ -1847,7 +2162,12 @@ async function generateSyntheticProfiles() {
     showStatus(statusEl, 'Starting synthetic profile generation...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/synthetic/generate`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/data/synthetic/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ copies_per_profile: copiesPerProfile })
@@ -1861,7 +2181,7 @@ async function generateSyntheticProfiles() {
         showStatus(statusEl, 'Synthetic generation started. Check logs for progress.', 'info');
 
         const pollInterval = setInterval(async () => {
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
+            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
 
             if (status.status.current_task !== 'generating_synthetic') {
                 clearInterval(pollInterval);
@@ -1895,7 +2215,9 @@ async function refreshSyntheticSummary() {
     showStatus(statusEl, 'Loading synthetic profile summary...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/synthetic/summary`);
+        if (!requireProject()) return;
+
+        const response = await fetch(`${getProjectApiBase()}/data/synthetic/summary`);
 
         if (!response.ok) {
             const error = await response.json();
@@ -1940,7 +2262,12 @@ async function addSyntheticToActivities() {
     showStatus(statusEl, 'Adding synthetic profiles to activities...', 'info');
 
     try {
-        const response = await fetch(`${API_BASE}/api/synthetic/add_to_activities`, {
+        if (!requireProject()) {
+            btn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(`${getProjectApiBase()}/data/synthetic/add-to-activities`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ split: split })

@@ -4,7 +4,7 @@ Data Module
 Contains data collection, synthetic generation, processing, and dataset utilities.
 
 Structure:
-- collection/: MongoDB loading and activity parsing
+- collection/: NDJSON loading and activity parsing
 - synthetic/: LLM-based synthetic profile generation
 - processing/: Text encoding, feature extraction, normalization, preprocessing
 - datasets.py: PyTorch datasets for training
@@ -18,7 +18,7 @@ from .datasets import (
     create_dataset,
     dataset_registry,
 )
-from .collection import MongoDBLoader, EngineerManager
+from .collection import EngineerManager
 from .synthetic import SyntheticProfileGenerator
 from .processing import (
     BaseTextEncoder,
@@ -50,7 +50,6 @@ __all__ = [
     "create_dataset",
     "dataset_registry",
     # Collection
-    "MongoDBLoader",
     "EngineerManager",
     # Synthetic
     "SyntheticProfileGenerator",

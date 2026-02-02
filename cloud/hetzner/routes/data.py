@@ -136,3 +136,173 @@ def get_data_status(
             "size": storage.get_file_size(storage.checkpoint_path),
         },
     }
+
+
+@router.get("/engineers")
+def list_engineers(
+    project_id: str,
+    db: Session = Depends(get_db),
+):
+    """List engineers with activity counts and metadata."""
+    import pandas as pd
+
+    service = ProjectService(db)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    storage = StorageService(project_id)
+
+    if not storage.file_exists(storage.activities_path):
+        return {
+            "engineers": [],
+            "train_count": 0,
+            "validation_count": 0,
+            "bot_count": 0,
+            "total_engineers": 0,
+        }
+
+    df = pd.read_csv(storage.activities_path)
+
+    # Group by engineer
+    engineers = []
+    for engineer_id, group in df.groupby("engineer_id"):
+        eng_data = {
+            "engineer_id": engineer_id,
+            "activity_count": len(group),
+            "split": group["split"].iloc[0] if "split" in group.columns else "train",
+            "sources": group["source"].unique().tolist() if "source" in group.columns else [],
+            "is_bot": bool(group["is_bot"].iloc[0]) if "is_bot" in group.columns else False,
+            "is_internal": bool(group["is_internal"].iloc[0]) if "is_internal" in group.columns else None,
+            "projects": ",".join(group["project"].unique().tolist()) if "project" in group.columns else "",
+        }
+        engineers.append(eng_data)
+
+    # Count summaries
+    train_count = sum(1 for e in engineers if e["split"] == "train" and not e["is_bot"])
+    validation_count = sum(1 for e in engineers if e["split"] == "validation" and not e["is_bot"])
+    bot_count = sum(1 for e in engineers if e["is_bot"])
+
+    return {
+        "engineers": engineers,
+        "train_count": train_count,
+        "validation_count": validation_count,
+        "bot_count": bot_count,
+        "total_engineers": len(engineers),
+    }
+
+
+@router.post("/engineers/set-split")
+def set_engineer_split(
+    project_id: str,
+    request: dict,
+    db: Session = Depends(get_db),
+):
+    """Set train/validation split for selected engineers."""
+    import pandas as pd
+
+    service = ProjectService(db)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    storage = StorageService(project_id)
+
+    if not storage.file_exists(storage.activities_path):
+        raise HTTPException(status_code=404, detail="No activities file found")
+
+    engineer_ids = request.get("engineer_ids", [])
+    split = request.get("split", "train")
+
+    if split not in ("train", "validation"):
+        raise HTTPException(status_code=400, detail="Split must be 'train' or 'validation'")
+
+    df = pd.read_csv(storage.activities_path)
+
+    if "split" not in df.columns:
+        df["split"] = "train"
+
+    mask = df["engineer_id"].isin(engineer_ids)
+    rows_updated = mask.sum()
+    df.loc[mask, "split"] = split
+
+    df.to_csv(storage.activities_path, index=False)
+
+    return {
+        "message": f"Set {len(engineer_ids)} engineers to {split}",
+        "rows_updated": int(rows_updated),
+    }
+
+
+@router.post("/engineers/remove")
+def remove_engineers(
+    project_id: str,
+    request: dict,
+    db: Session = Depends(get_db),
+):
+    """Remove selected engineers from the dataset."""
+    import pandas as pd
+
+    service = ProjectService(db)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    storage = StorageService(project_id)
+
+    if not storage.file_exists(storage.activities_path):
+        raise HTTPException(status_code=404, detail="No activities file found")
+
+    engineer_ids = request.get("engineer_ids", [])
+
+    df = pd.read_csv(storage.activities_path)
+    original_count = len(df)
+
+    df = df[~df["engineer_id"].isin(engineer_ids)]
+    rows_deleted = original_count - len(df)
+
+    df.to_csv(storage.activities_path, index=False)
+
+    return {
+        "message": f"Removed {len(engineer_ids)} engineers",
+        "rows_deleted": int(rows_deleted),
+    }
+
+
+@router.post("/engineers/merge")
+def merge_engineers(
+    project_id: str,
+    request: dict,
+    db: Session = Depends(get_db),
+):
+    """Merge multiple engineer identities into one."""
+    import pandas as pd
+
+    service = ProjectService(db)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    storage = StorageService(project_id)
+
+    if not storage.file_exists(storage.activities_path):
+        raise HTTPException(status_code=404, detail="No activities file found")
+
+    source_ids = request.get("source_ids", [])
+    target_id = request.get("target_id")
+
+    if not target_id:
+        raise HTTPException(status_code=400, detail="target_id is required")
+
+    df = pd.read_csv(storage.activities_path)
+
+    mask = df["engineer_id"].isin(source_ids)
+    rows_updated = mask.sum()
+    df.loc[mask, "engineer_id"] = target_id
+
+    df.to_csv(storage.activities_path, index=False)
+
+    return {
+        "message": f"Merged {len(source_ids)} engineers into {target_id}",
+        "rows_updated": int(rows_updated),
+    }
