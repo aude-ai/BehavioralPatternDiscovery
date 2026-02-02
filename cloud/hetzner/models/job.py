@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobStatus(str, Enum):
@@ -53,7 +53,7 @@ class Job(BaseModel):
     result: Optional[dict]
     error: Optional[str]
     modal_call_id: Optional[str]
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, validation_alias="metadata_")
 
     class Config:
         from_attributes = True

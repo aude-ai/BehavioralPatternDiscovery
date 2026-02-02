@@ -45,11 +45,10 @@ class Project(BaseModel):
     updated_at: datetime
     status: ProjectStatus
     config_overrides: Optional[dict]
-    metadata: Optional[dict] = Field(None, alias="metadata_")
+    metadata: Optional[dict] = Field(default=None, validation_alias="metadata_")
 
     class Config:
         from_attributes = True
-        populate_by_name = True
 
 
 class ProjectWithStats(Project):
