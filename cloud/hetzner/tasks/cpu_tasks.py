@@ -17,43 +17,6 @@ settings = get_settings()
 
 
 @celery_app.task(bind=True, max_retries=3)
-def fetch_mongodb_data(self, project_id: str, job_id: str, config: dict):
-    """Fetch data from MongoDB."""
-    from src.data.collection.mongodb_loader import MongoDBLoader
-
-    with get_db() as db:
-        try:
-            db.query(JobModel).filter(JobModel.id == job_id).update(
-                {"status": JobStatus.RUNNING}
-            )
-            db.commit()
-
-            storage = StorageService(project_id)
-
-            loader = MongoDBLoader(config)
-            activities_df = loader.load()
-            activities_df.to_csv(storage.activities_path, index=False)
-
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.COMPLETED,
-                "progress": 1.0,
-                "result": {"num_activities": len(activities_df)},
-            })
-            db.commit()
-
-            return {"status": "completed", "num_activities": len(activities_df)}
-
-        except Exception as e:
-            logger.exception(f"Failed to fetch MongoDB data: {e}")
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.FAILED,
-                "error": str(e),
-            })
-            db.commit()
-            raise
-
-
-@celery_app.task(bind=True, max_retries=3)
 def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
     """
     Fetch data from NDJSON source.

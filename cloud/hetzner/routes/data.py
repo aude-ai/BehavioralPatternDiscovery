@@ -54,22 +54,33 @@ async def upload_engineer_metadata(
     return {"status": "uploaded", "filename": file.filename, "size": len(content)}
 
 
-@router.post("/fetch/mongodb", response_model=Job)
-def fetch_from_mongodb(
+@router.post("/upload/ndjson")
+async def upload_ndjson(
     project_id: str,
-    config: dict,
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Fetch data from MongoDB."""
+    """Upload NDJSON zip file for processing."""
     service = ProjectService(db)
     project = service.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    job = service.create_job(project_id, JobType.FETCH_DATA)
-    cpu_tasks.fetch_mongodb_data.delay(project_id, job.id, config)
+    storage = StorageService(project_id)
+    storage.ensure_directories()
 
-    return job
+    # Save uploaded file to project's data collection directory
+    upload_path = storage.base_path / "data/collection/uploaded_data.zip"
+    content = await file.read()
+    with open(upload_path, "wb") as f:
+        f.write(content)
+
+    return {
+        "status": "uploaded",
+        "filename": file.filename,
+        "size": len(content),
+        "path": str(upload_path),
+    }
 
 
 @router.post("/fetch/ndjson", response_model=Job)

@@ -150,6 +150,15 @@ header h1 {
     background: #c0392b;
 }
 
+.file-upload-btn {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.file-upload-btn:hover {
+    background: #7f8c8d;
+}
+
 input, .select {
     padding: 10px;
     border: 1px solid #ddd;
@@ -313,48 +322,6 @@ input[type="text"] {
 }
 
 /* Loader Tabs */
-.loader-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 15px;
-    border-bottom: 2px solid #ddd;
-}
-
-.loader-tab {
-    padding: 10px 20px;
-    border: none;
-    background: #f5f5f5;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: #666;
-    border-radius: 4px 4px 0 0;
-    margin-bottom: -2px;
-    border: 2px solid transparent;
-    border-bottom: none;
-    transition: all 0.2s ease;
-}
-
-.loader-tab:hover {
-    background: #e8e8e8;
-    color: #333;
-}
-
-.loader-tab.active {
-    background: white;
-    color: #3498db;
-    border-color: #ddd;
-    border-bottom-color: white;
-}
-
-.tab-content {
-    padding-top: 10px;
-}
-
-.tab-content:not(.active) {
-    display: none;
-}
-
 .section {
     margin-bottom: 20px;
     padding: 15px;
@@ -380,45 +347,24 @@ input[type="text"] {
                 <h2>Data Collection</h2>
 
                 <div class="section">
-                    <h3>1. Fetch Data</h3>
-
-                    <!-- Tabs -->
-                    <div class="loader-tabs">
-                        <button class="loader-tab active" data-tab="mongodb">MongoDB</button>
-                        <button class="loader-tab" data-tab="ndjson">NDJSON</button>
+                    <h3>1. Load Data</h3>
+                    <div class="controls">
+                        <label class="file-upload-btn btn btn-secondary">
+                            Choose File
+                            <input type="file" id="ndjson-file" accept=".zip,.ndjson,.gz" style="display: none;">
+                        </label>
+                        <span id="ndjson-file-name" style="color: #666; font-size: 0.9em;">No file selected</span>
+                        <span class="separator">or</span>
+                        <input type="text" id="ndjson-path" placeholder="Folder path, .zip file, or URL" value="" title="Local folder, local .zip file, or URL to .zip file containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 400px;">
                     </div>
-
-                    <!-- MongoDB Tab Content -->
-                    <div id="tab-mongodb" class="tab-content active">
-                        <div class="controls">
-                            <input type="text" id="mongodb-database" placeholder="Leave empty to use config default (database/collection format)" value="" title="Format: database/collection. Leave empty to use config default. Examples: FamaActivityRaw/all, Aude-production/b27281ee_Slack_activities. Use 'all' to fetch all collections from a database." style="min-width: 600px;">
-                            <input type="number" id="mongodb-max-engineers" placeholder="Max engineers (optional)" title="Maximum number of engineers to fetch">
-                            <input type="number" id="mongodb-max-activities" placeholder="Max activities/engineer (optional)" title="Maximum activities per engineer">
-                        </div>
-                        <div class="controls" style="margin-top: 8px;">
-                            <label style="display: inline-flex; align-items: center; gap: 4px;">
-                                <input type="checkbox" id="mongodb-append" checked>
-                                Append to existing
-                            </label>
-                            <button id="btn-fetch-mongodb" class="btn btn-primary">Fetch MongoDB</button>
-                        </div>
-                        <div id="mongodb-status" class="status-message"></div>
+                    <div class="controls" style="margin-top: 8px;">
+                        <label style="font-size: 0.9em; color: #666;">Date Range (optional):</label>
+                        <input type="date" id="ndjson-date-start" title="Start date filter (optional)">
+                        <span style="color: #666;">to</span>
+                        <input type="date" id="ndjson-date-end" title="End date filter (optional)">
+                        <button id="btn-fetch-ndjson" class="btn btn-primary">Load Data</button>
                     </div>
-
-                    <!-- NDJSON Tab Content -->
-                    <div id="tab-ndjson" class="tab-content" style="display: none;">
-                        <div class="controls">
-                            <input type="text" id="ndjson-path" placeholder="Folder path, .zip file, or URL" value="" title="Local folder, local .zip file, or URL to .zip file containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 500px;">
-                        </div>
-                        <div class="controls" style="margin-top: 8px;">
-                            <label style="font-size: 0.9em; color: #666;">Date Range (optional):</label>
-                            <input type="date" id="ndjson-date-start" title="Start date filter (optional)">
-                            <span style="color: #666;">to</span>
-                            <input type="date" id="ndjson-date-end" title="End date filter (optional)">
-                            <button id="btn-fetch-ndjson" class="btn btn-primary">Load NDJSON</button>
-                        </div>
-                        <div id="ndjson-status" class="status-message"></div>
-                    </div>
+                    <div id="ndjson-status" class="status-message"></div>
                 </div>
 
                 <div class="section">
@@ -856,12 +802,15 @@ function setupEventListeners() {
     document.getElementById('btn-download-report').addEventListener('click', downloadReport);
     document.getElementById('engineer-select').addEventListener('change', onEngineerSelected);
 
-    // MongoDB and engineer management listeners
-    document.getElementById('btn-fetch-mongodb').addEventListener('click', fetchMongoDB);
+    // Data loading and engineer management listeners
+    document.getElementById('btn-fetch-ndjson').addEventListener('click', fetchNDJSON);
     document.getElementById('btn-refresh-engineer-summary').addEventListener('click', refreshEngineerSummary);
 
-    // NDJSON loader listener
-    document.getElementById('btn-fetch-ndjson').addEventListener('click', fetchNDJSON);
+    // File input change handler
+    document.getElementById('ndjson-file').addEventListener('change', (e) => {
+        const fileName = e.target.files[0]?.name || 'No file selected';
+        document.getElementById('ndjson-file-name').textContent = fileName;
+    });
 
     // Train from existing VAE listeners
     document.getElementById('btn-train-from-existing').addEventListener('click', showExistingModelInput);
@@ -870,11 +819,6 @@ function setupEventListeners() {
 
     // Stop training button
     document.getElementById('btn-stop-training').addEventListener('click', stopTraining);
-
-    // Tab switching
-    document.querySelectorAll('.loader-tab').forEach(tab => {
-        tab.addEventListener('click', (e) => switchLoaderTab(e.target.dataset.tab));
-    });
 
     // Synthetic profile listeners
     document.getElementById('btn-generate-synthetic').addEventListener('click', generateSyntheticProfiles);
@@ -1515,96 +1459,63 @@ async function identifyPatterns() {
     }
 }
 
-// MongoDB and Engineer Management Functions
+// Data Loading Functions
 
-async function fetchMongoDB() {
-    const btn = document.getElementById('btn-fetch-mongodb');
-    const statusEl = document.getElementById('mongodb-status');
+async function fetchNDJSON() {
+    const btn = document.getElementById('btn-fetch-ndjson');
+    const statusEl = document.getElementById('ndjson-status');
 
-    const database = document.getElementById('mongodb-database').value.trim() || null;
-    const maxEngineers = document.getElementById('mongodb-max-engineers').value || null;
-    const maxActivities = document.getElementById('mongodb-max-activities').value || null;
-    const append = document.getElementById('mongodb-append').checked;
+    const fileInput = document.getElementById('ndjson-file');
+    const basePath = document.getElementById('ndjson-path').value.trim();
+    const dateStart = document.getElementById('ndjson-date-start').value;
+    const dateEnd = document.getElementById('ndjson-date-end').value;
+
+    const hasFile = fileInput.files.length > 0;
+
+    if (!hasFile && !basePath) {
+        showStatus(statusEl, 'Please select a file or enter a folder path/URL', 'error');
+        return;
+    }
 
     btn.disabled = true;
-    showStatus(statusEl, `Fetching data from MongoDB (${database})...`, 'info');
 
     try {
-        const requestBody = {
-            database: database,
-            append: append,
-            max_engineers: maxEngineers ? parseInt(maxEngineers) : null,
-            max_activities_per_engineer: maxActivities ? parseInt(maxActivities) : null
-        };
+        // If file is selected, upload it first
+        if (hasFile) {
+            const file = fileInput.files[0];
+            showStatus(statusEl, `Uploading ${file.name}...`, 'info');
 
-        const response = await fetch(`${API_BASE}/api/fetch_mongodb`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
+            const formData = new FormData();
+            formData.append('file', file);
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'MongoDB fetch failed');
-        }
+            const uploadResponse = await fetch(`${API_BASE}/api/upload_ndjson`, {
+                method: 'POST',
+                body: formData
+            });
 
-        showStatus(statusEl, 'MongoDB fetch started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'fetching_mongodb') {
-                clearInterval(pollInterval);
-                if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'MongoDB fetch complete! Refresh summary to see engineers.', 'success');
-                }
-                btn.disabled = false;
+            if (!uploadResponse.ok) {
+                const error = await uploadResponse.json();
+                throw new Error(error.detail || 'File upload failed');
             }
-        }, 3000);
 
+            const uploadResult = await uploadResponse.json();
+            showStatus(statusEl, `File uploaded. Loading data...`, 'info');
+
+            // Now fetch from the uploaded file path
+            await loadNDJSONFromPath(uploadResult.path, dateStart, dateEnd, statusEl, btn);
+        } else {
+            // Load from path/URL directly
+            const sourceType = basePath.startsWith('http') ? 'URL' : basePath.endsWith('.zip') ? 'zip file' : 'folder';
+            showStatus(statusEl, `Loading data from ${sourceType}: ${basePath}...`, 'info');
+            await loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn);
+        }
     } catch (error) {
         showStatus(statusEl, `Error: ${error.message}`, 'error');
         btn.disabled = false;
     }
 }
 
-function switchLoaderTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.loader-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabName);
-    });
-
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-        content.classList.remove('active');
-    });
-
-    const activeContent = document.getElementById(`tab-${tabName}`);
-    if (activeContent) {
-        activeContent.style.display = 'block';
-        activeContent.classList.add('active');
-    }
-}
-
-async function fetchNDJSON() {
-    const btn = document.getElementById('btn-fetch-ndjson');
-    const statusEl = document.getElementById('ndjson-status');
-
-    const basePath = document.getElementById('ndjson-path').value.trim();
-    const dateStart = document.getElementById('ndjson-date-start').value;
-    const dateEnd = document.getElementById('ndjson-date-end').value;
-
-    if (!basePath) {
-        showStatus(statusEl, 'Please enter a folder path, zip file path, or URL', 'error');
-        return;
-    }
-
-    btn.disabled = true;
-    const sourceType = basePath.startsWith('http') ? 'URL' : basePath.endsWith('.zip') ? 'zip file' : 'folder';
-    showStatus(statusEl, `Loading data from ${sourceType}: ${basePath}...`, 'info');
+async function loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn) {
 
     try {
         const requestBody = {
@@ -1627,10 +1538,10 @@ async function fetchNDJSON() {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'NDJSON fetch failed');
+            throw new Error(error.detail || 'Data loading failed');
         }
 
-        showStatus(statusEl, 'NDJSON loading started. Check logs for progress.', 'info');
+        showStatus(statusEl, 'Data loading started. Check logs for progress.', 'info');
 
         const pollInterval = setInterval(async () => {
             const status = await fetch(`${API_BASE}/api/status`).then(r => r.json());
@@ -1640,7 +1551,7 @@ async function fetchNDJSON() {
                 if (status.status.last_error) {
                     showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
                 } else {
-                    showStatus(statusEl, 'NDJSON loading complete! Refresh summary to see engineers.', 'success');
+                    showStatus(statusEl, 'Data loading complete! Refresh summary to see engineers.', 'success');
                 }
                 btn.disabled = false;
             }
