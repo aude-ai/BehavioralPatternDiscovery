@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..celery_app import celery_app
 from ..config import get_settings
-from ..database import get_db, JobModel
+from ..database import get_db_context, JobModel
 from ..models import JobStatus
 from ..services import StorageService
 
@@ -29,7 +29,7 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
     from src.data.collection.ndjson_loader import NDJSONLoader
     from src.data.collection.data_source import resolve_data_source
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
@@ -82,7 +82,7 @@ def preprocess_data(self, project_id: str, job_id: str, config: dict):
 
     from src.data.processing.statistical_features import StatisticalFeatureExtractor
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
@@ -131,7 +131,7 @@ def normalize_embeddings(self, project_id: str, job_id: str, config: dict):
     """Apply normalization pipeline to embeddings."""
     from src.data.processing.normalizer import NormalizationPipeline
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
@@ -176,7 +176,7 @@ def assign_messages(self, project_id: str, job_id: str, config: dict):
 
     from src.pattern_identification.message_assigner import MessageAssigner
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
@@ -231,7 +231,7 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
     """Generate pattern names using LLM."""
     from src.pattern_identification.pattern_naming import PatternNamer
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}
@@ -274,7 +274,7 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
     """Generate report for an engineer."""
     from src.scoring.report_generator import ReportGenerator
 
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update(
                 {"status": JobStatus.RUNNING}

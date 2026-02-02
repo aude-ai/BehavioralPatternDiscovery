@@ -7,7 +7,7 @@ import pandas as pd
 
 from ..celery_app import celery_app
 from ..config import get_settings
-from ..database import get_db, JobModel
+from ..database import get_db_context, JobModel
 from ..models import JobStatus
 from ..services import StorageService
 
@@ -90,7 +90,7 @@ def prepare_training_data(project_id: str, config: dict) -> dict:
 @celery_app.task(bind=True, max_retries=2)
 def trigger_embedding(self, project_id: str, job_id: str, texts: list[str], config: dict):
     """Trigger embedding on Modal with full config for encoder selection."""
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             # Validate config has required sections
             if "processing" not in config or "text_encoder" not in config.get("processing", {}):
@@ -144,7 +144,7 @@ def trigger_training(self, project_id: str, job_id: str, config: dict):
     Automatically prepares training data (combines embeddings + aux features,
     creates message_database) before spawning the Modal training function.
     """
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,
@@ -192,7 +192,7 @@ def trigger_training(self, project_id: str, job_id: str, config: dict):
 @celery_app.task(bind=True, max_retries=2)
 def trigger_batch_score(self, project_id: str, job_id: str, config: dict):
     """Trigger batch scoring on Modal."""
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,
@@ -227,7 +227,7 @@ def trigger_batch_score(self, project_id: str, job_id: str, config: dict):
 @celery_app.task(bind=True, max_retries=2)
 def trigger_shap_analysis(self, project_id: str, job_id: str, config: dict):
     """Trigger SHAP analysis on Modal."""
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,
@@ -269,7 +269,7 @@ def trigger_individual_score(
     population_stats: dict,
 ):
     """Trigger individual scoring on Modal."""
-    with get_db() as db:
+    with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,

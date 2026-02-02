@@ -23,9 +23,18 @@ Base = declarative_base()
 redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
 
-@contextmanager
 def get_db() -> Generator[Session, None, None]:
-    """Get database session context manager."""
+    """Get database session for FastAPI dependency injection."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_db_context() -> Generator[Session, None, None]:
+    """Get database session as context manager for Celery tasks."""
     db = SessionLocal()
     try:
         yield db
