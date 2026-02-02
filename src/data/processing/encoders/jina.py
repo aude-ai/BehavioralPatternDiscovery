@@ -1,7 +1,7 @@
 """
-Jina Embeddings Encoder
+Jina Embeddings v3 Encoder
 
-Supports Jina v3 and v4 models via SentenceTransformer.
+Jina v3 model via SentenceTransformer.
 Outputs raw embeddings (normalization removed from pipeline).
 """
 
@@ -16,17 +16,23 @@ from .base import BaseTextEncoder
 logger = logging.getLogger(__name__)
 
 
-class JinaEncoder(BaseTextEncoder):
-    """Jina embeddings encoder using SentenceTransformer."""
+class JinaV3Encoder(BaseTextEncoder):
+    """Jina v3 embeddings encoder using SentenceTransformer."""
 
     def __init__(self, config: dict):
         """
-        Initialize Jina encoder.
+        Initialize Jina v3 encoder.
 
         Args:
-            config: Full config dict with processing.text_encoder.jina section
+            config: Full config dict with processing.text_encoder.jina_v3 section
+                   (also accepts legacy 'jina' key for backward compatibility)
         """
-        jina_config = config["processing"]["text_encoder"]["jina"]
+        text_encoder_config = config["processing"]["text_encoder"]
+        # Support both jina_v3 and legacy jina key
+        if "jina_v3" in text_encoder_config:
+            jina_config = text_encoder_config["jina_v3"]
+        else:
+            jina_config = text_encoder_config["jina"]
 
         self._model_name = jina_config["model_name"]
         self.task = jina_config["task"]

@@ -57,7 +57,7 @@ def train_vae(
 
     hetzner_url = get_hetzner_url()
     headers = get_headers()
-    callback = ProgressCallback(hetzner_url, job_id, headers)
+    callback = ProgressCallback(hetzner_url, job_id, headers, section="training")
 
     wandb_enabled = os.environ.get("WANDB_API_KEY") is not None
     if wandb_enabled:
@@ -130,6 +130,7 @@ def train_vae(
                 config=config["training"],
                 dims=dims,
                 on_epoch_end=on_epoch_end,
+                metadata=metadata,
             )
 
             checkpoint_dir = Path(f"/training/{project_id}")
@@ -198,7 +199,7 @@ def batch_score(
 
     hetzner_url = get_hetzner_url()
     headers = get_headers()
-    callback = ProgressCallback(hetzner_url, job_id, headers)
+    callback = ProgressCallback(hetzner_url, job_id, headers, section="scoring")
 
     try:
         callback.status("Loading checkpoint...")
@@ -315,7 +316,7 @@ def shap_analyze(
 
     hetzner_url = get_hetzner_url()
     headers = get_headers()
-    callback = ProgressCallback(hetzner_url, job_id, headers)
+    callback = ProgressCallback(hetzner_url, job_id, headers, section="shap")
 
     try:
         callback.status("Loading checkpoint...")

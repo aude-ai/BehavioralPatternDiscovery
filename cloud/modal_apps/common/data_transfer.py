@@ -256,13 +256,14 @@ def send_callback(
     headers: dict,
     event_type: str,
     data: dict,
+    section: str = "general",
 ) -> None:
     """Send callback event to Hetzner."""
     try:
         requests.post(
             f"{base_url}/internal/jobs/{job_id}/event",
             headers=headers,
-            json={"type": event_type, **data},
+            json={"type": event_type, "section": section, **data},
             timeout=10,
         )
     except requests.RequestException as e:
@@ -270,15 +271,29 @@ def send_callback(
 
 
 class ProgressCallback:
-    """Helper for sending progress updates."""
+    """Helper for sending progress updates with section routing."""
 
-    def __init__(self, base_url: str, job_id: str, headers: dict):
+    def __init__(
+        self,
+        base_url: str,
+        job_id: str,
+        headers: dict,
+        section: str = "general",
+    ):
         self.base_url = base_url
         self.job_id = job_id
         self.headers = headers
+        self.section = section
 
     def __call__(self, event_type: str, data: dict) -> None:
-        send_callback(self.base_url, self.job_id, self.headers, event_type, data)
+        send_callback(
+            self.base_url,
+            self.job_id,
+            self.headers,
+            event_type,
+            data,
+            section=self.section,
+        )
 
     def status(self, message: str) -> None:
         self.__call__("status", {"message": message})

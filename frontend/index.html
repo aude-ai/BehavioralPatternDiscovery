@@ -248,6 +248,70 @@ input[type="text"] {
     color: #3498db;
 }
 
+.log-success {
+    color: #27ae60;
+}
+
+/* Per-section log containers */
+.section-logs-wrapper {
+    margin-top: 15px;
+    border-top: 1px solid #ddd;
+    padding-top: 15px;
+}
+
+.section-logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.section-logs-header h4 {
+    margin: 0;
+    color: #34495e;
+    font-size: 14px;
+}
+
+.section-logs-toggle {
+    background: none;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.section-logs-toggle:hover {
+    background: #ecf0f1;
+}
+
+.section-logs {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 10px;
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    display: none;
+}
+
+.section-logs.active {
+    display: block;
+}
+
+.section-logs .log-line {
+    margin-bottom: 3px;
+    padding: 1px 0;
+}
+
+.section-logs .log-timestamp {
+    color: #7f8c8d;
+    margin-right: 8px;
+}
+
 /* Loader Tabs */
 .loader-tabs {
     display: flex;
@@ -441,6 +505,15 @@ input[type="text"] {
                         <button id="btn-normalization" class="btn btn-secondary" disabled>Apply Normalization</button>
                     </div>
                     <div id="preprocess-status" class="status-message"></div>
+
+                    <!-- Preprocessing/Embedding Logs -->
+                    <div class="section-logs-wrapper" id="embedding-logs-wrapper">
+                        <div class="section-logs-header">
+                            <h4>Preprocessing Logs</h4>
+                            <button class="section-logs-toggle" onclick="toggleSectionLogs('embedding')">Show Logs</button>
+                        </div>
+                        <div class="section-logs" id="embedding-logs"></div>
+                    </div>
                 </div>
             </section>
 
@@ -461,6 +534,15 @@ input[type="text"] {
                         <button id="btn-cancel-from-existing" class="btn btn-secondary">Cancel</button>
                     </div>
                     <div id="train-status" class="status-message"></div>
+
+                    <!-- Training Logs -->
+                    <div class="section-logs-wrapper" id="training-logs-wrapper">
+                        <div class="section-logs-header">
+                            <h4>Training Logs</h4>
+                            <button class="section-logs-toggle" onclick="toggleSectionLogs('training')">Show Logs</button>
+                        </div>
+                        <div class="section-logs" id="training-logs"></div>
+                    </div>
                 </div>
             </section>
 
@@ -475,6 +557,15 @@ input[type="text"] {
                         <button id="btn-batch-score" class="btn btn-primary" disabled>Run Batch Scoring</button>
                     </div>
                     <div id="batch-status" class="status-message"></div>
+
+                    <!-- Scoring Logs -->
+                    <div class="section-logs-wrapper" id="scoring-logs-wrapper">
+                        <div class="section-logs-header">
+                            <h4>Scoring Logs</h4>
+                            <button class="section-logs-toggle" onclick="toggleSectionLogs('scoring')">Show Logs</button>
+                        </div>
+                        <div class="section-logs" id="scoring-logs"></div>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -484,6 +575,15 @@ input[type="text"] {
                         <button id="btn-shap-analysis" class="btn btn-primary" disabled>Run SHAP Analysis</button>
                     </div>
                     <div id="shap-status" class="status-message"></div>
+
+                    <!-- SHAP Logs -->
+                    <div class="section-logs-wrapper" id="shap-logs-wrapper">
+                        <div class="section-logs-header">
+                            <h4>SHAP Analysis Logs</h4>
+                            <button class="section-logs-toggle" onclick="toggleSectionLogs('shap')">Show Logs</button>
+                        </div>
+                        <div class="section-logs" id="shap-logs"></div>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -493,6 +593,15 @@ input[type="text"] {
                         <button id="btn-identify" class="btn btn-primary" disabled>Identify Patterns</button>
                     </div>
                     <div id="identify-status" class="status-message"></div>
+
+                    <!-- Naming Logs -->
+                    <div class="section-logs-wrapper" id="naming-logs-wrapper">
+                        <div class="section-logs-header">
+                            <h4>Pattern Naming Logs</h4>
+                            <button class="section-logs-toggle" onclick="toggleSectionLogs('naming')">Show Logs</button>
+                        </div>
+                        <div class="section-logs" id="naming-logs"></div>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -565,6 +674,155 @@ let statusCheckInterval = null;
 let engineerSummaryData = [];  // Store engineer data for sorting
 let currentSortColumn = 'activity_count';  // Default sort column
 let currentSortDirection = 'desc';  // Default sort direction
+let ws = null;  // WebSocket connection
+
+// Section logs management - maps section names to container IDs
+const sectionLogContainers = {
+    'embedding': 'embedding-logs',
+    'preprocessing': 'embedding-logs',
+    'training': 'training-logs',
+    'scoring': 'scoring-logs',
+    'shap': 'shap-logs',
+    'naming': 'naming-logs',
+    'general': 'logs-container',
+};
+
+function toggleSectionLogs(section) {
+    const containerId = sectionLogContainers[section] || 'logs-container';
+    const container = document.getElementById(containerId);
+    const wrapper = document.getElementById(`${containerId.replace('-logs', '')}-logs-wrapper`);
+    const button = wrapper?.querySelector('.section-logs-toggle');
+
+    if (container) {
+        const isActive = container.classList.toggle('active');
+        if (button) {
+            button.textContent = isActive ? 'Hide Logs' : 'Show Logs';
+        }
+    }
+}
+
+function appendSectionLog(section, message, level = 'info') {
+    const containerId = sectionLogContainers[section] || 'logs-container';
+    const container = document.getElementById(containerId);
+
+    if (!container) return;
+
+    const timestamp = new Date().toLocaleTimeString();
+    const logLine = document.createElement('div');
+    logLine.className = `log-line log-${level}`;
+    logLine.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${escapeHtml(message)}`;
+
+    container.appendChild(logLine);
+    container.scrollTop = container.scrollHeight;
+
+    // Auto-show logs when new content arrives
+    if (!container.classList.contains('active')) {
+        container.classList.add('active');
+        const wrapper = container.closest('.section-logs-wrapper');
+        const button = wrapper?.querySelector('.section-logs-toggle');
+        if (button) {
+            button.textContent = 'Hide Logs';
+        }
+    }
+}
+
+function clearSectionLogs(section) {
+    const containerId = sectionLogContainers[section] || 'logs-container';
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function handleWebSocketMessage(data) {
+    const section = data.section || 'general';
+    const eventType = data.type;
+    let level = 'info';
+    let message = '';
+
+    if (eventType === 'job_status') {
+        message = data.message || 'Status update';
+    } else if (eventType === 'job_progress') {
+        const pct = Math.round((data.progress || 0) * 100);
+        const extra = data.processed ? ` (${data.processed}/${data.total})` : '';
+        message = `Progress: ${pct}%${extra}`;
+    } else if (eventType === 'job_epoch') {
+        const metrics = data.metrics || {};
+        const metricsStr = Object.entries(metrics)
+            .slice(0, 5)  // Limit to 5 metrics for readability
+            .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(4) : v}`)
+            .join(', ');
+        const best = data.is_best ? ' [BEST]' : '';
+        message = `Epoch ${data.epoch}: ${metricsStr}${best}`;
+    } else if (eventType === 'job_completed') {
+        message = data.message || 'Completed';
+        level = 'success';
+    } else if (eventType === 'job_failed') {
+        message = `ERROR: ${data.error}`;
+        level = 'error';
+    } else {
+        return;  // Unknown event type
+    }
+
+    // Append to section-specific logs
+    appendSectionLog(section, message, level);
+
+    // Also append to main logs for comprehensive view
+    if (section !== 'general') {
+        const mainContainer = document.getElementById('logs-container');
+        if (mainContainer) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = document.createElement('div');
+            logLine.className = `log-line log-${level}`;
+            logLine.innerHTML = `<span style="color: #7f8c8d;">[${timestamp}]</span> <span style="color: #9b59b6;">[${section.toUpperCase()}]</span> ${escapeHtml(message)}`;
+            mainContainer.appendChild(logLine);
+            mainContainer.scrollTop = mainContainer.scrollHeight;
+        }
+    }
+}
+
+function connectWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        return;  // Already connected
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/projects/default/events`;
+
+    try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            } catch (e) {
+                console.error('Failed to parse WebSocket message:', e);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected, reconnecting in 5s...');
+            setTimeout(connectWebSocket, 5000);
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    } catch (e) {
+        console.error('Failed to create WebSocket:', e);
+    }
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -576,6 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     updateStatus();
     refreshLogs();
+    connectWebSocket();
 }
 
 function setupEventListeners() {

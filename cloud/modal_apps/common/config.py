@@ -52,12 +52,31 @@ def create_ml_image():
 
 
 def create_embedding_image():
-    """Create image with embedding model dependencies."""
+    """Create image with embedding model dependencies.
+
+    Supports:
+    - Jina v3/v4 (sentence-transformers, trust_remote_code)
+    - NV-Embed-v2 (bitsandbytes for quantization)
+    - Qwen3-Embedding-8B (flash-attn for performance)
+    """
     return (
         create_base_image()
         .pip_install(
-            "transformers>=4.36.0",
+            "transformers>=4.52.0",
+            "sentence-transformers>=2.7.0",
             "einops>=0.7.0",
-            "sentence-transformers>=2.2.0",
+            "bitsandbytes>=0.42.0",
+            "accelerate>=0.25.0",
+            "peft>=0.10.0",
+            "pillow>=10.0.0",
+            "torchvision>=0.17.0",
+            "huggingface_hub>=0.20.0",
         )
+        .run_commands(
+            "pip install flash-attn --no-build-isolation || echo 'flash-attn install failed, continuing without it'"
+        )
+        .env({
+            "HF_HOME": "/cache/models",
+            "TRANSFORMERS_CACHE": "/cache/models",
+        })
     )

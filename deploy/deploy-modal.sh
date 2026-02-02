@@ -20,11 +20,11 @@ cd "$PROJECT_DIR"
 echo "=== Deploying Modal Apps ==="
 
 echo ""
-echo "Deploying embedding app (T4 GPU)..."
+echo "Deploying embedding app (A100 GPU)..."
 "$MODAL" deploy cloud/modal_apps/embedding/app.py
 
 echo ""
-echo "Deploying VAE app (A10G GPU)..."
+echo "Deploying VAE app (A100 GPU)..."
 "$MODAL" deploy cloud/modal_apps/vae/app.py
 
 echo ""

@@ -100,10 +100,13 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
         db.query(JobModel).filter(JobModel.id == job_id).update(update_data)
         db.commit()
 
+    # Broadcast to WebSocket clients with section info for log routing
+    section = data.get("section", "general")
     await broadcast_to_project(project_id, {
         "type": f"job_{event_type}",
         "job_id": job_id,
         "job_type": job.job_type,
+        "section": section,
         **data,
     })
 

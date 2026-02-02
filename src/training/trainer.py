@@ -62,6 +62,9 @@ class Trainer:
         num_engineers: int | None = None,
         normalization_params: dict[str, Any] | None = None,
         stop_signal: Any | None = None,
+        dims: Any | None = None,
+        on_epoch_end: Any | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -71,6 +74,9 @@ class Trainer:
             num_engineers: Number of unique engineers (required if diversity discriminator enabled)
             normalization_params: Normalization params from preprocessing to save in checkpoint
             stop_signal: Optional threading.Event for early termination
+            dims: ModelDimensions instance (optional, used for metadata in checkpoint)
+            on_epoch_end: Optional callback for epoch completion (epoch, metrics, is_best)
+            metadata: Optional metadata dict to save in checkpoint (e.g., embedder info)
         """
         self.model = model.to(device)
         self.config = config
@@ -78,6 +84,9 @@ class Trainer:
         self.num_engineers = num_engineers
         self.normalization_params = normalization_params
         self.stop_signal = stop_signal
+        self.dims = dims if dims is not None else model.dims
+        self.on_epoch_end_callback = on_epoch_end
+        self.metadata = metadata or {}
 
         training_config = config["training"]
         loss_config = config["loss_weights"]
@@ -1474,6 +1483,126 @@ class Trainer:
             self._original_model.load_state_dict(self.best_model_state)
             logger.info(f"Restored best model (val_loss={self.best_val_loss:.4f})")
 
+    def train(
+        self,
+        train_data,
+        message_db: dict,
+        checkpoint_path: str,
+    ):
+        """
+        Full training loop for Modal cloud deployment.
+
+        Args:
+            train_data: Training data as numpy array (n_samples, features)
+            message_db: Message database dict with metadata
+            checkpoint_path: Path to save checkpoints
+        """
+        import numpy as np
+        from src.data.datasets import create_dataset
+
+        # Store message_db reference for checkpoint metadata
+        self.message_db = message_db
+
+        # Update metadata from message_db
+        if "metadata" in message_db:
+            self.metadata.update(message_db["metadata"])
+
+        training_config = self.config["training"]
+        total_epochs = training_config["epochs"]
+        val_split = training_config.get("validation_split", 0.1)
+        batch_size = training_config.get("batch_size", 32)
+
+        # Split data
+        n_samples = len(train_data)
+        n_val = int(n_samples * val_split)
+        indices = np.random.permutation(n_samples)
+        val_indices = indices[:n_val]
+        train_indices = indices[n_val:]
+
+        train_subset = train_data[train_indices]
+        val_subset = train_data[val_indices] if n_val > 0 else None
+
+        logger.info(f"Training with {len(train_indices)} samples, validating with {n_val} samples")
+
+        # Create data loaders
+        batching_config = self.config.get("batching", {})
+        batching_mode = batching_config.get("mode", "random")
+
+        # For cloud training, use simple random batching
+        train_loader = self._create_simple_dataloader(train_subset, batch_size, shuffle=True)
+        val_loader = self._create_simple_dataloader(val_subset, batch_size, shuffle=False) if val_subset is not None else None
+
+        logger.info(f"Starting training for {total_epochs} epochs")
+
+        for epoch in range(total_epochs):
+            # Check stop signal
+            if self.stop_signal is not None and self.stop_signal.is_set():
+                logger.info("Stop signal received, ending training")
+                break
+
+            # Train one epoch
+            train_metrics, val_metrics, should_stop = self.train_epoch(
+                train_loader,
+                val_loader,
+                total_epochs=total_epochs,
+            )
+
+            # Determine if this is the best epoch
+            is_best = self.patience_counter == 0 and self.current_epoch > 1
+
+            # Call epoch callback if provided
+            if self.on_epoch_end_callback is not None:
+                all_metrics = {**train_metrics}
+                if val_metrics:
+                    all_metrics.update(val_metrics)
+                self.on_epoch_end_callback(self.current_epoch, all_metrics, is_best)
+
+            # Save checkpoint if best
+            if is_best or self.current_epoch == 1:
+                self.save_checkpoint(checkpoint_path, include_optimizer_state=False)
+
+            if should_stop:
+                logger.info("Early stopping triggered")
+                break
+
+        # Restore best model and save final checkpoint
+        self.restore_best_model()
+        self.save_checkpoint(checkpoint_path, include_optimizer_state=False)
+
+        logger.info(f"Training complete. Best val_loss: {self.best_val_loss:.4f}")
+
+    def _create_simple_dataloader(self, data, batch_size: int, shuffle: bool = True):
+        """Create a simple DataLoader from numpy array.
+
+        Returns batches as dicts with "embeddings" key to match train_step expectations.
+        """
+        import torch
+        from torch.utils.data import DataLoader, Dataset
+
+        class SimpleDataset(Dataset):
+            def __init__(self, data_array):
+                self.data = torch.from_numpy(data_array).float()
+
+            def __len__(self):
+                return len(self.data)
+
+            def __getitem__(self, idx):
+                return {"embeddings": self.data[idx]}
+
+        def collate_fn(batch):
+            return {"embeddings": torch.stack([b["embeddings"] for b in batch])}
+
+        dataset = SimpleDataset(data)
+
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=collate_fn,
+        )
+
     def _log_epoch_metrics(
         self,
         metrics: dict[str, float],
@@ -2413,7 +2542,18 @@ class Trainer:
             "preprocessing": {
                 "normalization": self.normalization_params,
             },
+            # Metadata from message_db (includes embedder info)
+            "metadata": self.metadata,
         }
+
+        # Add embedder version if embedder info is present
+        if "embedder" in self.metadata:
+            embedder_info = self.metadata["embedder"]
+            model_name = embedder_info.get("model_name", "")
+            checkpoint["embedder"] = {
+                **embedder_info,
+                "model_version": self._get_embedder_version(model_name),
+            }
 
         # Optimizer state (optional, significantly increases file size)
         if include_optimizer_state:
@@ -2428,6 +2568,25 @@ class Trainer:
         torch.save(checkpoint, path)
         mode = "full (with optimizer)" if include_optimizer_state else "model-only"
         logger.info(f"Saved {mode} checkpoint to {path}")
+
+    def _get_embedder_version(self, model_name: str) -> str:
+        """
+        Get version identifier for the embedding model.
+
+        For HuggingFace models, attempts to get the commit hash.
+        Falls back to a timestamp-based version if unavailable.
+        """
+        if not model_name:
+            return "unknown"
+
+        try:
+            from huggingface_hub import HfApi
+            api = HfApi()
+            model_info = api.model_info(model_name)
+            return model_info.sha[:12] if model_info.sha else "unknown"
+        except Exception:
+            from datetime import datetime
+            return f"snapshot-{datetime.now().strftime('%Y%m%d')}"
 
     def finish_logging(self):
         """Finish any active logging sessions (e.g., wandb)."""

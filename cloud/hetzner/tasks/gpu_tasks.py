@@ -55,6 +55,12 @@ def prepare_training_data(project_id: str, config: dict) -> dict:
             "timestamp": row.get("timestamp", ""),
         })
 
+    # Extract encoder metadata from config for reproducibility
+    encoder_config = config.get("processing", {}).get("text_encoder", {})
+    encoder_type = encoder_config.get("type", "unknown")
+    encoder_settings = encoder_config.get(encoder_type, {})
+    model_name = encoder_settings.get("model_name", "unknown")
+
     message_db = {
         "messages": messages,
         "metadata": {
@@ -62,6 +68,12 @@ def prepare_training_data(project_id: str, config: dict) -> dict:
             "embedding_dim": embeddings.shape[1],
             "aux_dim": aux_features.shape[1] if aux_features is not None else 0,
             "total_dim": train_input.shape[1],
+            # Embedder metadata for reproducibility
+            "embedder": {
+                "type": encoder_type,
+                "model_name": model_name,
+                "config": encoder_settings,
+            },
         },
     }
 
@@ -77,22 +89,28 @@ def prepare_training_data(project_id: str, config: dict) -> dict:
 
 @celery_app.task(bind=True, max_retries=2)
 def trigger_embedding(self, project_id: str, job_id: str, texts: list[str], config: dict):
-    """Trigger embedding on Modal."""
+    """Trigger embedding on Modal with full config for encoder selection."""
     with get_db() as db:
         try:
+            # Validate config has required sections
+            if "processing" not in config or "text_encoder" not in config.get("processing", {}):
+                raise ValueError("Config must contain processing.text_encoder section")
+
+            encoder_type = config["processing"]["text_encoder"]["type"]
+
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,
-                "progress_message": "Starting embedding on Modal...",
+                "progress_message": f"Starting {encoder_type} embedding on Modal...",
             })
             db.commit()
 
-            # Call Modal function
+            # Call Modal function with full config
             embed_fn = get_modal_function("bpd-embedding", "embed_all_texts")
             call = embed_fn.spawn(
                 project_id=project_id,
                 job_id=job_id,
                 texts=texts,
-                task=config.get("embedding", {}).get("task", "retrieval.passage"),
+                config=config,
             )
 
             # Store Modal call ID
@@ -101,7 +119,10 @@ def trigger_embedding(self, project_id: str, job_id: str, texts: list[str], conf
             })
             db.commit()
 
-            logger.info(f"Triggered embedding for project {project_id}, Modal call: {call.object_id}")
+            logger.info(
+                f"Triggered {encoder_type} embedding for project {project_id}, "
+                f"Modal call: {call.object_id}"
+            )
 
             return {"modal_call_id": call.object_id}
 
