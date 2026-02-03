@@ -71,6 +71,7 @@ app_image = (
     })
     .add_local_dir("src", "/app/src")
     .add_local_dir("config", "/app/config")
+    .add_local_dir("cloud/modal_apps/common", "/app/cloud/modal_apps/common")
 )
 
 # Volumes
@@ -920,7 +921,9 @@ def score_individual(
 class ScoringService:
     """Warm service for individual scoring requests."""
 
-    def __init__(self):
+    @modal.enter()
+    def setup(self):
+        """Initialize model cache on container start."""
         self.models: dict = {}
         self.dims: dict = {}
 
