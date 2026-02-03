@@ -1,4 +1,5 @@
 """External API routes for third-party integration."""
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,6 +9,19 @@ from ..database import get_db
 from ..services import ProjectService, StorageService
 
 router = APIRouter()
+
+# Load external config
+_external_config = None
+
+
+def get_external_config() -> dict:
+    """Load external.yaml config."""
+    global _external_config
+    if _external_config is None:
+        from src.core.config import load_config
+        config_path = Path(__file__).parent.parent.parent.parent / "config" / "external.yaml"
+        _external_config = load_config(config_path)
+    return _external_config
 
 
 @router.get("/health")
@@ -61,13 +75,16 @@ def list_patterns(
         examples = message_examples.get(pattern_id, {}).get("examples", [])
         stats = population_stats.get(pattern_id, {})
 
+        config = get_external_config()
+        top_k_examples = config.get("pattern_export", {}).get("top_k_examples", 5)
+
         patterns.append({
             "id": pattern_id,
             "name": info.get("name"),
             "description": info.get("description"),
             "level": pattern_level,
             "index": pattern_idx,
-            "examples": examples[:5],
+            "examples": examples[:top_k_examples],
             "statistics": stats,
         })
 
@@ -103,7 +120,7 @@ def get_pattern(
 def get_pattern_messages(
     pattern_id: str,
     project_id: str = Query(...),
-    top_k: int = Query(20, ge=1, le=100),
+    top_k: Optional[int] = Query(None, ge=1),
     engineer_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
@@ -112,6 +129,16 @@ def get_pattern_messages(
 
     Used to provide evidence snippets for evaluations.
     """
+    config = get_external_config()
+    search_config = config.get("message_search", {})
+    default_top_k = search_config.get("default_top_k", 20)
+    max_top_k = search_config.get("max_top_k", 100)
+
+    # Apply defaults and limits from config
+    if top_k is None:
+        top_k = default_top_k
+    top_k = min(top_k, max_top_k)
+
     storage = StorageService(project_id)
 
     message_examples = storage.load_json(storage.message_examples_path)

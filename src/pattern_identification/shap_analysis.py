@@ -9,14 +9,12 @@ Level transitions are computed as:
 - level[i] -> level[i+1] for each consecutive level pair
 - final_level (all encoders concatenated) -> unified
 
-NOTE: Message examples are NOT computed here. They come from MessageAssigner
-using actual activation scores, which is more direct and works at all levels.
+Designed for remote execution (Modal) - accepts data directly and
+returns results without file I/O.
 """
 
-import json
 import logging
-from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -103,20 +101,18 @@ class SHAPAnalyzer:
     def __init__(self, config: dict[str, Any]):
         """
         Args:
-            config: Full merged config containing paths.pattern_identification
+            config: Config containing shap section
         """
-        pi_config = config["paths"]["pattern_identification"]
-        shap_config = config["shap"]
-
-        self.explainer_type = shap_config["explainer_type"]
-        self.background_samples = shap_config["background_samples"]
-        self.shap_samples = shap_config["shap_samples"]
-        self.output_path = Path(pi_config["shap"]["hierarchical_weights"])
+        shap_config = config.get("shap", {})
+        self.explainer_type = shap_config.get("explainer_type", "gradient")
+        self.background_samples = shap_config.get("background_samples", 100)
+        self.shap_samples = shap_config.get("shap_samples", 50)
 
     def analyze(
         self,
         vae: BaseVAE,
         activations: dict[str, np.ndarray],
+        progress_callback: Callable[[float], None] | None = None,
     ) -> dict[str, Any]:
         """
         Compute hierarchical SHAP weights.
@@ -126,6 +122,7 @@ class SHAPAnalyzer:
         Args:
             vae: Trained VAE implementing BaseVAE interface
             activations: Output from BatchScorer.score_all()
+            progress_callback: Optional callback(progress) for progress updates
 
         Returns:
             Hierarchical weights dictionary with structure:
@@ -159,6 +156,8 @@ class SHAPAnalyzer:
         logger.info(f"  Levels: {level_names}")
 
         hierarchical_weights = {}
+        total_transitions = len(encoder_names) * (len(level_names) - 1) + 1
+        completed_transitions = 0
 
         # Per-encoder hierarchical weights
         for enc_name in encoder_names:
@@ -190,6 +189,10 @@ class SHAPAnalyzer:
                 enc_weights[transition_key] = weights
                 logger.info(f"  Computed {transition_key} weights")
 
+                completed_transitions += 1
+                if progress_callback:
+                    progress_callback(completed_transitions / total_transitions)
+
             hierarchical_weights[enc_name] = enc_weights
             logger.info(f"Completed hierarchical weights for {enc_name}")
 
@@ -211,6 +214,9 @@ class SHAPAnalyzer:
         hierarchical_weights["final_to_unified"] = final_to_unified
         logger.info("Computed final_level -> unified weights")
 
+        if progress_callback:
+            progress_callback(1.0)
+
         # Add metadata for downstream consumers
         hierarchical_weights["metadata"] = {
             "level_names": level_names,
@@ -220,7 +226,6 @@ class SHAPAnalyzer:
             "num_encoders": len(encoder_names),
         }
 
-        self._save_weights(hierarchical_weights)
         return hierarchical_weights
 
     def _compute_level_weights(
@@ -317,18 +322,3 @@ class SHAPAnalyzer:
             weights[target_key] = contributions
 
         return weights
-
-    def _save_weights(self, weights: dict[str, Any]) -> None:
-        """Save hierarchical weights to JSON."""
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(self.output_path, "w") as f:
-            json.dump(weights, f, indent=2)
-
-        logger.info(f"Saved hierarchical weights to {self.output_path}")
-
-    @staticmethod
-    def load_weights(path: str | Path) -> dict[str, Any]:
-        """Load hierarchical weights from JSON."""
-        with open(path, "r") as f:
-            return json.load(f)

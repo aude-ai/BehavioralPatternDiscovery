@@ -192,6 +192,7 @@ def batch_score(
     from pathlib import Path
 
     import h5py
+    import numpy as np
     import requests
     import torch
 
@@ -229,30 +230,30 @@ def batch_score(
             model = model.to("cuda")
             model.eval()
 
-            callback.status("Loading message data...")
+            callback.status("Loading training data...")
 
-            # Download and decompress message database
-            msg_db_path = tmpdir / "message_database.pkl"
+            # Download and decompress training input
+            train_input_path = tmpdir / "train_input.npy"
             download_and_decompress(
-                f"{hetzner_url}/internal/projects/{project_id}/messages",
+                f"{hetzner_url}/internal/projects/{project_id}/train-input",
                 headers,
-                msg_db_path,
+                train_input_path,
             )
-
-            with open(msg_db_path, "rb") as f:
-                message_db = pickle.load(f)
+            train_input = np.load(train_input_path)
 
             callback.status("Scoring messages...")
 
-            from src.pattern_identification.batch_scorer import BatchScorer
+            # Use BatchScorer from src/
+            from src.pattern_identification import BatchScorer
 
-            scorer = BatchScorer(model, config)
+            scorer = BatchScorer(config)
 
-            def progress_fn(p):
-                callback.progress(p)
+            def progress_fn(progress, processed, total):
+                callback.progress(progress, processed=processed, total=total)
 
             activations, population_stats = scorer.score_all(
-                message_db,
+                vae=model,
+                train_input=train_input,
                 progress_callback=progress_fn,
             )
 
@@ -281,7 +282,7 @@ def batch_score(
 
             callback.completed("Batch scoring completed")
 
-            return {"status": "completed", "num_messages": len(message_db["messages"])}
+            return {"status": "completed", "num_messages": train_input.shape[0]}
 
     except Exception as e:
         callback.failed(str(e))
@@ -363,15 +364,17 @@ def shap_analyze(
 
             callback.status("Running SHAP analysis...")
 
-            from src.pattern_identification.shap_analysis import SHAPAnalyzer
+            # Use SHAPAnalyzer from src/
+            from src.pattern_identification import SHAPAnalyzer
 
-            analyzer = SHAPAnalyzer(model, config)
+            analyzer = SHAPAnalyzer(config)
 
-            def progress_fn(p):
-                callback.progress(p)
+            def progress_fn(progress):
+                callback.progress(progress)
 
-            hierarchical_weights = analyzer.extract_hierarchical_weights(
-                activations,
+            hierarchical_weights = analyzer.analyze(
+                vae=model,
+                activations=activations,
                 progress_callback=progress_fn,
             )
 
@@ -408,6 +411,7 @@ def score_individual(
     engineer_id: str,
     messages: list[dict],
     population_stats: dict,
+    config: dict,
 ) -> dict:
     """Score a single engineer."""
     import sys
@@ -436,7 +440,7 @@ def score_individual(
 
         from src.core.config import ModelDimensions
         from src.model.vae import MultiEncoderVAE
-        from src.scoring.individual_scorer import IndividualScorer
+        from src.scoring import IndividualScorer
 
         model_config = checkpoint["config"]
         metadata = checkpoint["metadata"]
@@ -447,13 +451,16 @@ def score_individual(
         model = model.to("cuda")
         model.eval()
 
-        scorer = IndividualScorer(model, population_stats)
-        scores = scorer.score_engineer(messages)
+        # Use IndividualScorer from src/
+        scorer = IndividualScorer(config)
+        result = scorer.score_engineer(
+            engineer_id=engineer_id,
+            vae=model,
+            messages=messages,
+            population_stats=population_stats,
+        )
 
-        return {
-            "engineer_id": engineer_id,
-            "scores": scores,
-        }
+        return result
 
 
 # =============================================================================
@@ -526,6 +533,7 @@ class ScoringService:
         engineer_id: str,
         messages: list[dict],
         population_stats: dict,
+        config: dict,
     ) -> dict:
         """Score individual engineer with cached model."""
         import sys
@@ -535,12 +543,17 @@ class ScoringService:
         self._load_model(project_id)
         model = self.models[project_id]
 
-        from src.scoring.individual_scorer import IndividualScorer
+        from src.scoring import IndividualScorer
 
-        scorer = IndividualScorer(model, population_stats)
-        scores = scorer.score_engineer(messages)
+        scorer = IndividualScorer(config)
+        result = scorer.score_engineer(
+            engineer_id=engineer_id,
+            vae=model,
+            messages=messages,
+            population_stats=population_stats,
+        )
 
-        return {"engineer_id": engineer_id, "scores": scores}
+        return result
 
     @modal.fastapi_endpoint(method="POST")
     def score_endpoint(self, request: dict) -> dict:
@@ -550,6 +563,7 @@ class ScoringService:
             engineer_id=request["engineer_id"],
             messages=request["messages"],
             population_stats=request["population_stats"],
+            config=request["config"],
         )
 
 

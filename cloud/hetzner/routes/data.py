@@ -1,4 +1,6 @@
 """Data management routes."""
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,16 @@ from ..services import ProjectService, StorageService
 from ..tasks import cpu_tasks
 
 router = APIRouter()
+
+
+def load_data_config() -> dict:
+    """Load the main data config from config/data.yaml."""
+    from src.core.config import load_config
+
+    config_path = Path(__file__).parent.parent.parent.parent / "config" / "data.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Data config not found at {config_path}")
+    return load_config(config_path)
 
 
 @router.post("/upload/activities")
@@ -86,7 +98,7 @@ async def upload_ndjson(
 @router.post("/fetch/ndjson", response_model=Job)
 def fetch_from_ndjson(
     project_id: str,
-    config: dict,
+    config: dict = None,
     db: Session = Depends(get_db),
 ):
     """Fetch data from NDJSON files."""
@@ -95,8 +107,36 @@ def fetch_from_ndjson(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Load base config from config/data.yaml
+    data_config = load_data_config()
+    collection_config = data_config.get("collection", {})
+
+    # Build config for NDJSONLoader from the data.yaml structure
+    ndjson_config = {
+        "parser_configs": collection_config.get("parsers", {}),
+        "excluded_sections": collection_config.get("ndjson", {}).get("excluded_sections", []),
+        "text_cleanup": collection_config.get("text_cleanup", {}),
+    }
+
+    # Merge with user-provided overrides
+    if config:
+        for key, value in config.items():
+            if key in ndjson_config and isinstance(ndjson_config[key], dict) and isinstance(value, dict):
+                ndjson_config[key] = {**ndjson_config[key], **value}
+            else:
+                ndjson_config[key] = value
+
+    # If no input_path provided, use uploaded file
+    storage = StorageService(project_id)
+    if "input_path" not in ndjson_config or not ndjson_config["input_path"]:
+        upload_path = storage.base_path / "data/collection/uploaded_data.zip"
+        if upload_path.exists():
+            ndjson_config["input_path"] = str(upload_path)
+        else:
+            raise HTTPException(status_code=400, detail="No input_path provided and no uploaded file found")
+
     job = service.create_job(project_id, JobType.FETCH_DATA)
-    cpu_tasks.fetch_ndjson_data.delay(project_id, job.id, config)
+    cpu_tasks.fetch_ndjson_data.delay(project_id, job.id, ndjson_config)
 
     return job
 

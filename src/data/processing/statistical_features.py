@@ -72,10 +72,15 @@ class StatisticalFeatureExtractor:
         feature_config = config["processing"]["statistical_features"]
         self.feature_count = feature_config["feature_count"]
 
+        activity_volume_config = feature_config.get("activity_volume", {})
+        self.trend_window_weeks = activity_volume_config.get("trend_window_weeks", 4)
+        self.burst_threshold = activity_volume_config.get("burst_threshold", 3.0)
+
         if self.feature_count != 35:
             raise ValueError(f"Expected 35 features, config has {self.feature_count}")
 
         logger.info(f"Initialized StatisticalFeatureExtractor with {self.feature_count} features")
+        logger.info(f"  trend_window_weeks={self.trend_window_weeks}, burst_threshold={self.burst_threshold}")
 
     def extract(self, activities_df: pd.DataFrame) -> dict[str, np.ndarray]:
         """
@@ -212,12 +217,13 @@ class StatisticalFeatureExtractor:
         features[6] = issue_count / total_weeks
         features[7] = self._calculate_trend(weeks, "issue")
 
-        # Burst ratio (8) - ratio of max week to average week
+        # Burst ratio (8) - ratio of max week to average week, capped at burst_threshold
         weekly_counts = [sum(w.values()) for w in weeks.values()]
         if weekly_counts:
             avg_week = np.mean(weekly_counts)
             max_week = np.max(weekly_counts)
-            features[8] = max_week / avg_week if avg_week > 0 else 0
+            raw_ratio = max_week / avg_week if avg_week > 0 else 0
+            features[8] = min(raw_ratio, self.burst_threshold)
 
         # Active weeks ratio (9)
         features[9] = len(weeks) / total_weeks if total_weeks > 0 else 0
@@ -408,11 +414,15 @@ class StatisticalFeatureExtractor:
         return dict(weeks)
 
     def _calculate_trend(self, weeks: dict, activity_type: str) -> float:
-        """Calculate trend (slope) for activity type over weeks."""
+        """Calculate trend (slope) for activity type over recent weeks."""
         if len(weeks) < 2:
             return 0.0
 
         weekly_counts = [w.get(activity_type, 0) for w in weeks.values()]
+
+        # Use only the most recent trend_window_weeks for trend calculation
+        if len(weekly_counts) > self.trend_window_weeks:
+            weekly_counts = weekly_counts[-self.trend_window_weeks:]
 
         x = np.arange(len(weekly_counts))
         if len(weekly_counts) > 1:

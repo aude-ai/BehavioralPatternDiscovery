@@ -39,10 +39,3 @@ explanation:
   thinking_level: "high"
   engineer_examples: 5
 
-# =============================================================================
-# Report Viewer Configuration
-# =============================================================================
-
-viewer:
-  strength_threshold: 70
-  weakness_threshold: 40

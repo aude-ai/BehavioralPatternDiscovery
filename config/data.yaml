@@ -9,20 +9,6 @@
 # =============================================================================
 
 collection:
-  mongodb:
-    connection_timeout_ms: 5000
-    default_databases:
-      - "FamaActivityRaw/all"
-      - "Aude-production/b27281ee-c2c8-40e8-9cc5-994d08fd19c3_Slack_activities"
-      - "Aude-production/b27281ee-c2c8-40e8-9cc5-994d08fd19c3_Confluence_activities"
-    max_activities_per_engineer: 1000
-    # User integrations mapping from Aude-production database
-    # Maps activity_user_id (source-specific) to user_id (canonical UUID)
-    user_integrations:
-      enabled: true
-      database: "Aude-production"
-      collection: "user_integrations"
-
   # NDJSON Loader Configuration (7im format)
   # Expects a folder containing:
   #   - adoIdentities.ndjson (identity file for bot detection)

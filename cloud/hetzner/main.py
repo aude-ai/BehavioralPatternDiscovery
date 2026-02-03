@@ -70,6 +70,24 @@ def health_check():
     return {"status": "healthy"}
 
 
+# Frontend config endpoint
+@app.get("/api/config")
+def get_frontend_config():
+    """Get frontend configuration values from scoring.yaml."""
+    from pathlib import Path
+    from src.core.config import load_config
+
+    config_path = Path(__file__).parent.parent.parent / "config" / "scoring.yaml"
+    scoring_config = load_config(config_path)
+
+    # Return frontend-relevant config values
+    report_content = scoring_config.get("report", {}).get("content", {})
+    return {
+        "strength_threshold": report_content.get("strength_threshold", 70),
+        "weakness_threshold": report_content.get("weakness_threshold", 40),
+    }
+
+
 # Serve frontend (if exists)
 try:
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")

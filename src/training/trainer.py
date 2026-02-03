@@ -488,6 +488,11 @@ class Trainer:
         tc_loss_formulation = loss_form_config["tc_loss_formulation"]
         pc_loss_formulation = loss_form_config["pc_loss_formulation"]
 
+        # Training frequency optimization
+        self.disc_train_every_n_batches = disc_config.get("train_every_n_batches", 1)
+        self.disc_steps_per_round = disc_config.get("discriminator_steps", 1)
+        self._disc_batch_counter = 0
+
         # Discriminator-specific layer config (each section has its own)
         disc_layer_config = disc_config["layer_config"]
         activation_config = disc_layer_config["activation"]
@@ -1011,8 +1016,13 @@ class Trainer:
         """
         x = batch["embeddings"].to(self.device)
 
-        # === Phase 1: Train discriminators ===
-        disc_losses = self._train_discriminators(x, batch)
+        # === Phase 1: Train discriminators (with frequency control) ===
+        self._disc_batch_counter += 1
+        disc_losses = {}
+        if self._disc_batch_counter >= self.disc_train_every_n_batches:
+            self._disc_batch_counter = 0
+            for _ in range(self.disc_steps_per_round):
+                disc_losses = self._train_discriminators(x, batch)
 
         # === Phase 2: Train VAE ===
         self.model_optimizer.zero_grad()

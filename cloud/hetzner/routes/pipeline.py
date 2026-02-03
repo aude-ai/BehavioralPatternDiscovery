@@ -1,4 +1,6 @@
 """Pipeline orchestration routes."""
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,70 @@ from ..services import ProjectService, StorageService
 from ..tasks import cpu_tasks, gpu_tasks
 
 router = APIRouter()
+
+# Cache for loaded configs
+_config_cache = {}
+
+
+def load_all_configs() -> dict:
+    """Load all config files from config/ directory."""
+    if _config_cache:
+        return _config_cache
+
+    from src.core.config import load_config
+
+    config_dir = Path(__file__).parent.parent.parent.parent / "config"
+
+    config_files = ["data.yaml", "model.yaml", "training.yaml", "pattern_identification.yaml", "scoring.yaml"]
+
+    for filename in config_files:
+        config_path = config_dir / filename
+        if config_path.exists():
+            key = filename.replace(".yaml", "")
+            _config_cache[key] = load_config(config_path)
+
+    return _config_cache
+
+
+def get_pipeline_config(user_overrides: dict = None) -> dict:
+    """
+    Build merged pipeline config from config files and user overrides.
+
+    Returns a flattened config structure for tasks. Keys from pattern_identification.yaml
+    and scoring.yaml are merged at top level for direct access by tasks.
+    """
+    configs = load_all_configs()
+
+    # Start with processing config from data.yaml
+    data_config = configs.get("data", {})
+    merged = {
+        "processing": data_config.get("processing", {}),
+        "collection": data_config.get("collection", {}),
+        "paths": data_config.get("paths", {}),
+        "model": configs.get("model", {}),
+        "training": configs.get("training", {}),
+    }
+
+    # Flatten pattern_identification.yaml keys to top level
+    # (message_assignment, pattern_naming, shap, batch_scoring, etc.)
+    pattern_id_config = configs.get("pattern_identification", {})
+    for key, value in pattern_id_config.items():
+        merged[key] = value
+
+    # Flatten scoring.yaml keys to top level
+    scoring_config = configs.get("scoring", {})
+    for key, value in scoring_config.items():
+        merged[key] = value
+
+    # Apply user overrides
+    if user_overrides:
+        for key, value in user_overrides.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = {**merged[key], **value}
+            else:
+                merged[key] = value
+
+    return merged
 
 
 def get_services(project_id: str, db: Session = Depends(get_db)):
@@ -32,8 +98,7 @@ def start_preprocessing(
         raise HTTPException(status_code=404, detail="Project not found")
 
     job = service.create_job(project_id, JobType.PREPROCESS)
-
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     cpu_tasks.preprocess_data.delay(project_id, job.id, merged_config)
 
@@ -60,7 +125,7 @@ def start_embedding(
     texts = activities["text"].tolist()
 
     job = service.create_job(project_id, JobType.EMBED)
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     gpu_tasks.trigger_embedding.delay(project_id, job.id, texts, merged_config)
 
@@ -86,7 +151,7 @@ def start_training(
         raise HTTPException(status_code=400, detail="Run embedding first")
 
     job = service.create_job(project_id, JobType.TRAIN)
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     gpu_tasks.trigger_training.delay(project_id, job.id, merged_config)
 
@@ -107,7 +172,7 @@ def start_batch_scoring(
         raise HTTPException(status_code=400, detail="Train model first")
 
     job = service.create_job(project_id, JobType.BATCH_SCORE)
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     gpu_tasks.trigger_batch_score.delay(project_id, job.id, merged_config)
 
@@ -128,7 +193,7 @@ def start_shap_analysis(
         raise HTTPException(status_code=400, detail="Run batch scoring first")
 
     job = service.create_job(project_id, JobType.SHAP_ANALYZE)
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     gpu_tasks.trigger_shap_analysis.delay(project_id, job.id, merged_config)
 
@@ -149,7 +214,7 @@ def start_message_assignment(
         raise HTTPException(status_code=400, detail="Run batch scoring first")
 
     job = service.create_job(project_id, JobType.NAME_PATTERNS)  # Reusing type
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     cpu_tasks.assign_messages.delay(project_id, job.id, merged_config)
 
@@ -170,7 +235,7 @@ def start_pattern_naming(
         raise HTTPException(status_code=400, detail="Run message assignment first")
 
     job = service.create_job(project_id, JobType.NAME_PATTERNS)
-    merged_config = config or {}
+    merged_config = get_pipeline_config(config)
 
     cpu_tasks.name_patterns.delay(project_id, job.id, merged_config)
 

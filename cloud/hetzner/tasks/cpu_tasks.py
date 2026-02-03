@@ -93,7 +93,7 @@ def preprocess_data(self, project_id: str, job_id: str, config: dict):
 
             activities_df = pd.read_csv(storage.activities_path)
 
-            feature_extractor = StatisticalFeatureExtractor(config.get("processing", {}))
+            feature_extractor = StatisticalFeatureExtractor(config)
             aux_features = feature_extractor.extract(activities_df)
 
             storage.save_numpy(storage.train_aux_vars_path, aux_features)
@@ -143,9 +143,9 @@ def normalize_embeddings(self, project_id: str, job_id: str, config: dict):
             # Load compressed embeddings
             embeddings = storage.load_numpy_compressed(storage.train_features_path)
 
-            pipeline_config = config.get("processing", {}).get("normalization", "")
-            if pipeline_config:
-                pipeline = NormalizationPipeline.from_config(pipeline_config)
+            norm_config = config.get("processing", {}).get("normalization", {})
+            if norm_config.get("enabled", True) and norm_config.get("pipeline"):
+                pipeline = NormalizationPipeline(config)
                 pipeline.fit(embeddings)
                 normalized = pipeline.transform(embeddings)
                 # Save back compressed
@@ -199,7 +199,7 @@ def assign_messages(self, project_id: str, job_id: str, config: dict):
             finally:
                 tmp_activations.unlink()
 
-            assigner = MessageAssigner(config.get("message_assignment", {}))
+            assigner = MessageAssigner(config)
             message_examples = assigner.assign(
                 activations=activations,
                 message_db=message_db,
@@ -243,7 +243,7 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             message_examples = storage.load_json(storage.message_examples_path)
             hierarchical_weights = storage.load_json(storage.hierarchical_weights_path)
 
-            namer = PatternNamer(config.get("pattern_naming", {}))
+            namer = PatternNamer(config)
             pattern_names = namer.name_patterns(
                 message_examples=message_examples,
                 hierarchical_weights=hierarchical_weights,
@@ -288,7 +288,7 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
 
             pattern_names = storage.load_json(storage.pattern_names_path)
 
-            generator = ReportGenerator(config.get("report_generation", {}))
+            generator = ReportGenerator(config)
             report = generator.generate(
                 engineer_id=engineer_id,
                 scores=scores,

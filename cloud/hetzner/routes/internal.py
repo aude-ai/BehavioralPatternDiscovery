@@ -206,6 +206,35 @@ async def upload_checkpoint(project_id: str, request: Request):
 
 
 # =============================================================================
+# TRAIN INPUT - DOWNLOAD (streaming)
+# =============================================================================
+
+
+@router.get("/projects/{project_id}/train-input", dependencies=[Depends(verify_internal_key)])
+async def get_train_input(project_id: str):
+    """
+    Serve training input (embeddings + aux features, compressed).
+
+    Streams directly from disk - constant memory usage.
+    """
+    storage = StorageService(project_id)
+
+    if not storage.train_input_path.exists():
+        raise HTTPException(status_code=404, detail="Training input not found")
+
+    file_size = storage.train_input_path.stat().st_size
+
+    return StreamingResponse(
+        iter_file(storage.train_input_path),
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": "attachment; filename=train_input.npy.zst",
+            "Content-Length": str(file_size),
+        },
+    )
+
+
+# =============================================================================
 # MESSAGES - DOWNLOAD (streaming)
 # =============================================================================
 

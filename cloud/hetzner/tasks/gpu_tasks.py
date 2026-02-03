@@ -267,8 +267,18 @@ def trigger_individual_score(
     engineer_id: str,
     messages: list[dict],
     population_stats: dict,
+    config: dict,
 ):
-    """Trigger individual scoring on Modal."""
+    """Trigger individual scoring on Modal.
+
+    Args:
+        project_id: Project ID
+        job_id: Job ID for tracking
+        engineer_id: Engineer to score
+        messages: List of message dicts with embeddings
+        population_stats: Pre-computed population statistics
+        config: Full config with scoring section (required)
+    """
     with get_db_context() as db:
         try:
             db.query(JobModel).filter(JobModel.id == job_id).update({
@@ -283,6 +293,7 @@ def trigger_individual_score(
                 engineer_id=engineer_id,
                 messages=messages,
                 population_stats=population_stats,
+                config=config,
             )
 
             # Save result
