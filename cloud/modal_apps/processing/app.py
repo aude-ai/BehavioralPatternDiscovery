@@ -28,77 +28,47 @@ logger = logging.getLogger(__name__)
 app = modal.App("bpd-processing")
 
 # Shared Modal configurations
-CUDA_VERSION = "12.1.0"
 PYTHON_VERSION = "3.11"
 
-
-def create_base_image():
-    """Create base Modal image with PyTorch and common dependencies."""
-    return (
-        modal.Image.debian_slim(python_version=PYTHON_VERSION)
-        .pip_install(
-            "torch==2.2.0",
-            "numpy>=1.24.0,<2.0.0",
-            "requests>=2.31.0",
-            "pyyaml>=6.0",
-            "fastapi[standard]",
-            "zstandard>=0.22.0",
-            "boto3>=1.34.0",
-        )
+# Single unified image with all dependencies
+# A100 has 40GB VRAM - plenty for both embedding models and VAE
+app_image = (
+    modal.Image.debian_slim(python_version=PYTHON_VERSION)
+    .pip_install(
+        # Core
+        "torch==2.2.0",
+        "numpy>=1.24.0,<2.0.0",
+        "requests>=2.31.0",
+        "pyyaml>=6.0",
+        "fastapi[standard]",
+        "zstandard>=0.22.0",
+        "boto3>=1.34.0",
+        # ML
+        "h5py>=3.9.0",
+        "shap>=0.44.0",
+        "scikit-learn>=1.3.0",
+        "scipy>=1.11.0",
+        "tqdm>=4.66.0",
+        "wandb>=0.15.0",
+        "pandas>=2.0.0",
+        # Embeddings
+        "transformers>=4.52.0",
+        "sentence-transformers>=2.7.0",
+        "einops>=0.7.0",
+        "bitsandbytes>=0.42.0",
+        "accelerate>=0.25.0",
+        "peft>=0.10.0",
+        "pillow>=10.0.0",
+        "torchvision>=0.17.0",
+        "huggingface_hub>=0.20.0",
     )
-
-
-def create_ml_image():
-    """Create image with ML dependencies for VAE training."""
-    return (
-        create_base_image()
-        .pip_install(
-            "h5py>=3.9.0",
-            "shap>=0.44.0",
-            "scikit-learn>=1.3.0",
-            "scipy>=1.11.0",
-            "tqdm>=4.66.0",
-            "wandb>=0.15.0",
-            "pandas>=2.0.0",
-        )
+    .run_commands(
+        "pip install flash-attn --no-build-isolation || echo 'flash-attn install failed, continuing without it'"
     )
-
-
-def create_embedding_image():
-    """Create image with embedding model dependencies."""
-    return (
-        create_ml_image()
-        .pip_install(
-            "transformers>=4.52.0",
-            "sentence-transformers>=2.7.0",
-            "einops>=0.7.0",
-            "bitsandbytes>=0.42.0",
-            "accelerate>=0.25.0",
-            "peft>=0.10.0",
-            "pillow>=10.0.0",
-            "torchvision>=0.17.0",
-            "huggingface_hub>=0.20.0",
-        )
-        .run_commands(
-            "pip install flash-attn --no-build-isolation || echo 'flash-attn install failed, continuing without it'"
-        )
-        .env({
-            "HF_HOME": "/cache/models",
-            "TRANSFORMERS_CACHE": "/cache/models",
-        })
-    )
-
-
-# Base image with ML dependencies
-base_image = (
-    create_ml_image()
-    .add_local_dir("src", "/app/src")
-    .add_local_dir("config", "/app/config")
-)
-
-# Embedding image with additional transformer dependencies
-embedding_image = (
-    create_embedding_image()
+    .env({
+        "HF_HOME": "/cache/models",
+        "TRANSFORMERS_CACHE": "/cache/models",
+    })
     .add_local_dir("src", "/app/src")
     .add_local_dir("config", "/app/config")
 )
@@ -228,7 +198,7 @@ def download_file_streaming(url: str, headers: dict, output_path: Path, timeout:
 
 
 @app.function(
-    image=embedding_image,
+    image=app_image,
     gpu="A100",
     volumes={"/cache": model_cache, "/training": training_volume},
     timeout=86400,
@@ -883,7 +853,7 @@ STEP_FUNCTIONS = {
 
 
 @app.function(
-    image=base_image,
+    image=app_image,
     gpu="A100",
     timeout=600,
     secrets=[
@@ -938,7 +908,7 @@ def score_individual(
 
 
 @app.cls(
-    image=base_image,
+    image=app_image,
     gpu="A100",
     scaledown_window=60,
     timeout=300,
@@ -1021,7 +991,7 @@ class ScoringService:
 
 
 @app.function(
-    image=base_image,
+    image=app_image,
     secrets=[modal.Secret.from_name("r2-credentials")],
 )
 def get_r2_status(project_id: str) -> dict:
@@ -1033,7 +1003,7 @@ def get_r2_status(project_id: str) -> dict:
 
 
 @app.function(
-    image=base_image,
+    image=app_image,
     secrets=[modal.Secret.from_name("r2-credentials")],
 )
 def delete_project_r2_files(project_id: str) -> dict:
