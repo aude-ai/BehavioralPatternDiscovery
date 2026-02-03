@@ -1023,13 +1023,15 @@ def delete_project_r2_files(project_id: str) -> dict:
 
 
 @app.local_entrypoint()
-def test():
-    """Test processing functions locally."""
-    print("Processing Modal app loaded successfully")
-    print("Available functions:")
-    print("  - run_processing_pipeline(project_id, job_id, starting_step, config)")
-    print("  - score_individual(project_id, engineer_id, messages, population_stats, config)")
-    print("  - get_r2_status(project_id)")
-    print("  - delete_project_r2_files(project_id)")
-    print("Available services:")
-    print("  - ScoringService.score(...)")
+def test(project_id: str = "test123"):
+    """Test R2 connectivity by checking file status for a project."""
+    import json
+
+    print(f"Testing R2 connectivity for project: {project_id}")
+    print("-" * 50)
+
+    result = get_r2_status.remote(project_id)
+
+    print(json.dumps(result, indent=2, default=str))
+    print("-" * 50)
+    print("R2 connection successful!")
