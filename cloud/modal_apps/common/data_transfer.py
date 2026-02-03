@@ -194,6 +194,28 @@ def compress_and_upload(
         tmp_path.unlink(missing_ok=True)
 
 
+def upload_json(
+    url: str,
+    headers: dict,
+    data: dict,
+    timeout: int = 30,
+) -> dict:
+    """
+    Upload JSON data to Hetzner.
+
+    For small data payloads (population_stats, message_examples, etc.)
+    """
+    response = requests.post(
+        url,
+        headers={**headers, "Content-Type": "application/json"},
+        json=data,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    logger.info(f"Uploaded JSON to: {url}")
+    return response.json() if response.text else {}
+
+
 # =============================================================================
 # LEGACY FUNCTIONS (for small data / backward compatibility)
 # =============================================================================

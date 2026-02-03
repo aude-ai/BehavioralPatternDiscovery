@@ -20,15 +20,18 @@ cd "$PROJECT_DIR"
 echo "=== Deploying Modal Apps ==="
 
 echo ""
-echo "Deploying embedding app (A100 GPU)..."
-"$MODAL" deploy cloud/modal_apps/embedding/app.py
-
-echo ""
-echo "Deploying VAE app (A100 GPU)..."
-"$MODAL" deploy cloud/modal_apps/vae/app.py
+echo "Deploying processing pipeline (A100 GPU)..."
+"$MODAL" deploy cloud/modal_apps/processing/app.py
 
 echo ""
 echo "=== Deployment Complete ==="
 echo ""
 echo "Your Modal apps are now live and will scale to zero when idle."
 echo "View them at: https://modal.com/apps"
+echo ""
+echo "Deployed functions:"
+echo "  - run_processing_pipeline: Full B.1-B.8 pipeline"
+echo "  - score_individual: One-off individual scoring"
+echo "  - ScoringService: Warm service for individual scoring"
+echo "  - get_r2_status: Check R2 file status"
+echo "  - delete_project_r2_files: Clean up R2 files"

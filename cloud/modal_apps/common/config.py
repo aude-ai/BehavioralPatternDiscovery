@@ -34,6 +34,7 @@ def create_base_image():
             "pyyaml>=6.0",
             "fastapi[standard]",
             "zstandard>=0.22.0",
+            "boto3>=1.34.0",
         )
     )
 
@@ -46,7 +47,10 @@ def create_ml_image():
             "h5py>=3.9.0",
             "shap>=0.44.0",
             "scikit-learn>=1.3.0",
+            "scipy>=1.11.0",
+            "tqdm>=4.66.0",
             "wandb>=0.15.0",
+            "pandas>=2.0.0",
         )
     )
 
@@ -58,9 +62,11 @@ def create_embedding_image():
     - Jina v3/v4 (sentence-transformers, trust_remote_code)
     - NV-Embed-v2 (bitsandbytes for quantization)
     - Qwen3-Embedding-8B (flash-attn for performance)
+
+    This image is a superset of ml_image so it can run all pipeline steps.
     """
     return (
-        create_base_image()
+        create_ml_image()
         .pip_install(
             "transformers>=4.52.0",
             "sentence-transformers>=2.7.0",

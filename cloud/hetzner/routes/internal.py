@@ -346,3 +346,57 @@ async def upload_shap_weights(project_id: str, weights: dict):
     storage = StorageService(project_id)
     storage.save_json(storage.hierarchical_weights_path, weights)
     return {"status": "ok"}
+
+
+# =============================================================================
+# ACTIVITIES - DOWNLOAD (for R2 architecture)
+# =============================================================================
+
+
+@router.get("/projects/{project_id}/activities", dependencies=[Depends(verify_internal_key)])
+async def get_activities(project_id: str):
+    """
+    Serve activities CSV for Modal processing.
+
+    This is a small file (typically < 50MB) that Modal needs to start processing.
+    """
+    storage = StorageService(project_id)
+
+    if not storage.activities_path.exists():
+        raise HTTPException(status_code=404, detail="Activities not found")
+
+    file_size = storage.activities_path.stat().st_size
+
+    return StreamingResponse(
+        iter_file(storage.activities_path),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=activities.csv",
+            "Content-Length": str(file_size),
+        },
+    )
+
+
+@router.get("/projects/{project_id}/population-stats", dependencies=[Depends(verify_internal_key)])
+async def get_population_stats(project_id: str):
+    """Serve population stats (small JSON)."""
+    storage = StorageService(project_id)
+
+    if not storage.population_stats_path.exists():
+        raise HTTPException(status_code=404, detail="Population stats not found")
+
+    stats = storage.load_json(storage.population_stats_path)
+    return stats
+
+
+# =============================================================================
+# MESSAGE EXAMPLES - UPLOAD (for R2 architecture)
+# =============================================================================
+
+
+@router.post("/projects/{project_id}/message-examples", dependencies=[Depends(verify_internal_key)])
+async def upload_message_examples(project_id: str, examples: dict):
+    """Receive message examples from Modal."""
+    storage = StorageService(project_id)
+    storage.save_json(storage.message_examples_path, examples)
+    return {"status": "ok"}

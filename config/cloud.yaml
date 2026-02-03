@@ -1,0 +1,170 @@
+# Cloud Infrastructure Configuration
+# Defines R2 storage paths and pipeline step metadata
+
+r2:
+  bucket: "bpd-storage"
+  region: "auto"
+
+  # Path templates - {project_id} is replaced at runtime
+  paths:
+    # Preprocessing outputs
+    embeddings: "projects/{project_id}/preprocessing/embeddings.npy.zst"
+    aux_features: "projects/{project_id}/preprocessing/aux_features.npy.zst"
+    normalized_embeddings: "projects/{project_id}/preprocessing/normalized_embeddings.npy.zst"
+
+    # Training outputs
+    train_input: "projects/{project_id}/training/train_input.npy.zst"
+    message_database: "projects/{project_id}/training/message_database.pkl.zst"
+    checkpoint: "projects/{project_id}/training/checkpoint.pt.zst"
+
+    # Scoring outputs
+    activations: "projects/{project_id}/scoring/activations.h5.zst"
+
+pipeline:
+  segments:
+    A:
+      name: "Data Collection"
+      runs_on: "hetzner"
+    B:
+      name: "Processing"
+      runs_on: "modal"
+    C:
+      name: "Pattern Naming"
+      runs_on: "hetzner"
+    D:
+      name: "Individual Scoring"
+      runs_on: "modal"
+
+  steps:
+    B.1:
+      name: "Statistical Features"
+      segment: "B"
+      gpu: false
+      r2_outputs:
+        - "aux_features"
+
+    B.2:
+      name: "Text Embedding"
+      segment: "B"
+      gpu: true
+      r2_outputs:
+        - "embeddings"
+
+    B.3:
+      name: "Normalization"
+      segment: "B"
+      gpu: false
+      r2_inputs:
+        - "embeddings"
+      r2_outputs:
+        - "normalized_embeddings"
+
+    B.4:
+      name: "Training Preparation"
+      segment: "B"
+      gpu: false
+      r2_inputs:
+        - "normalized_embeddings"
+        - "aux_features"
+      r2_outputs:
+        - "train_input"
+        - "message_database"
+
+    B.5:
+      name: "VAE Training"
+      segment: "B"
+      gpu: true
+      r2_inputs:
+        - "train_input"
+        - "message_database"
+      r2_outputs:
+        - "checkpoint"
+
+    B.6:
+      name: "Batch Scoring"
+      segment: "B"
+      gpu: true
+      r2_inputs:
+        - "checkpoint"
+        - "train_input"
+        - "message_database"
+      r2_outputs:
+        - "activations"
+      hetzner_outputs:
+        - "population_stats"
+
+    B.7:
+      name: "Message Assignment"
+      segment: "B"
+      gpu: false
+      r2_inputs:
+        - "activations"
+        - "message_database"
+      hetzner_outputs:
+        - "message_examples"
+
+    B.8:
+      name: "SHAP Analysis"
+      segment: "B"
+      gpu: true
+      r2_inputs:
+        - "checkpoint"
+        - "activations"
+      hetzner_outputs:
+        - "hierarchical_weights"
+
+  starting_points:
+    "B.1":
+      label: "Full Pipeline"
+      description: "Run complete processing pipeline from scratch"
+      r2_prerequisites: []
+      hetzner_prerequisites:
+        - "activities.csv"
+      steps_to_run:
+        - "B.1"
+        - "B.2"
+        - "B.3"
+        - "B.4"
+        - "B.5"
+        - "B.6"
+        - "B.7"
+        - "B.8"
+
+    "B.5":
+      label: "From Training"
+      description: "Skip preprocessing, start from VAE training"
+      r2_prerequisites:
+        - "embeddings"
+        - "aux_features"
+      hetzner_prerequisites:
+        - "activities.csv"
+      steps_to_run:
+        - "B.3"
+        - "B.4"
+        - "B.5"
+        - "B.6"
+        - "B.7"
+        - "B.8"
+
+    "B.6":
+      label: "From Batch Scoring"
+      description: "Use existing model, re-run scoring and analysis"
+      r2_prerequisites:
+        - "checkpoint"
+        - "train_input"
+        - "message_database"
+      hetzner_prerequisites: []
+      steps_to_run:
+        - "B.6"
+        - "B.7"
+        - "B.8"
+
+    "B.8":
+      label: "SHAP Only"
+      description: "Re-run only SHAP analysis"
+      r2_prerequisites:
+        - "checkpoint"
+        - "activations"
+      hetzner_prerequisites: []
+      steps_to_run:
+        - "B.8"
