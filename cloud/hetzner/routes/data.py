@@ -222,13 +222,22 @@ def list_engineers(
     # Group by engineer
     engineers = []
     for engineer_id, group in df.groupby("engineer_id"):
+        # Use .any() for boolean flags to preserve True if any row has it
+        is_bot = bool(group["is_bot"].any()) if "is_bot" in group.columns else False
+        is_internal = bool(group["is_internal"].any()) if "is_internal" in group.columns else None
+
+        # Use 'validation' if any row has it, else 'train'
+        split = "train"
+        if "split" in group.columns:
+            split = "validation" if (group["split"] == "validation").any() else "train"
+
         eng_data = {
             "engineer_id": engineer_id,
             "activity_count": len(group),
-            "split": group["split"].iloc[0] if "split" in group.columns else "train",
+            "split": split,
             "sources": group["source"].unique().tolist() if "source" in group.columns else [],
-            "is_bot": bool(group["is_bot"].iloc[0]) if "is_bot" in group.columns else False,
-            "is_internal": bool(group["is_internal"].iloc[0]) if "is_internal" in group.columns else None,
+            "is_bot": is_bot,
+            "is_internal": is_internal,
             "projects": ",".join(group["project"].unique().tolist()) if "project" in group.columns else "",
         }
         engineers.append(eng_data)
@@ -336,7 +345,13 @@ def merge_engineers(
     request: dict,
     db: Session = Depends(get_db),
 ):
-    """Merge multiple engineer identities into one."""
+    """Merge multiple engineer identities into one.
+
+    Preserves non-default features:
+    - is_internal: True if ANY source engineer was internal
+    - is_bot: True if ANY source engineer was a bot
+    - split: Uses 'validation' if ANY source was validation, else 'train'
+    """
     import pandas as pd
 
     service = ProjectService(db)
@@ -364,11 +379,49 @@ def merge_engineers(
 
     mask = df["engineer_id"].isin(source_ids)
     rows_updated = mask.sum()
+
+    if rows_updated == 0:
+        raise HTTPException(status_code=404, detail="No matching engineers found")
+
+    # Determine merged feature values (preserve non-default values)
+    source_rows = df[mask]
+
+    # is_internal: True if any source had is_internal=True
+    merged_is_internal = False
+    if "is_internal" in df.columns:
+        merged_is_internal = source_rows["is_internal"].any()
+
+    # is_bot: True if any source had is_bot=True
+    merged_is_bot = False
+    if "is_bot" in df.columns:
+        merged_is_bot = source_rows["is_bot"].any()
+
+    # split: 'validation' if any was validation, else 'train'
+    merged_split = "train"
+    if "split" in df.columns:
+        if (source_rows["split"] == "validation").any():
+            merged_split = "validation"
+
+    # Update all matching rows
     df.loc[mask, "engineer_id"] = target_id
+
+    if "is_internal" in df.columns:
+        df.loc[mask, "is_internal"] = merged_is_internal
+
+    if "is_bot" in df.columns:
+        df.loc[mask, "is_bot"] = merged_is_bot
+
+    if "split" in df.columns:
+        df.loc[mask, "split"] = merged_split
 
     df.to_csv(storage.activities_path, index=False)
 
     return {
         "message": f"Merged {len(source_ids)} engineers into {target_id}",
         "rows_updated": int(rows_updated),
+        "merged_features": {
+            "is_internal": merged_is_internal,
+            "is_bot": merged_is_bot,
+            "split": merged_split,
+        }
     }

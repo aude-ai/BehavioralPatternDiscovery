@@ -2191,17 +2191,21 @@ async function mergeSelectedEngineers() {
     const selected = Array.from($$('.engineer-checkbox:checked')).map(cb => cb.value);
     if (selected.length < 2) return;
 
-    const targetId = prompt(`Enter name for merged engineer (default: ${selected[0]}):`);
+    const targetId = prompt(`Enter name for merged engineer (merging ${selected.length} engineers):\n\nSelected: ${selected.join(', ')}`, selected[0]);
     if (targetId === null) return;
+    if (!targetId.trim()) {
+        alert('Engineer name cannot be empty');
+        return;
+    }
 
     try {
         await apiPost('/data/engineers/merge', {
-            engineer_ids: selected,
-            target_id: targetId || selected[0],
+            source_ids: selected,
+            target_id: targetId.trim(),
         });
 
         await refreshEngineerSummary();
-        appendLog('data', `Merged ${selected.length} engineers`, 'success');
+        appendLog('data', `Merged ${selected.length} engineers into "${targetId.trim()}"`, 'success');
 
     } catch (error) {
         appendLog('data', `Error: ${error.message}`, 'error');
