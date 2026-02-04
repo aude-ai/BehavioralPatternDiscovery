@@ -181,6 +181,8 @@ class ProgressCallback:
         self.job_id = job_id
         self.headers = headers
         self.section = section
+        self._first_call = True
+        logger.info(f"ProgressCallback initialized: url={hetzner_url}, job_id={job_id}")
 
     def __call__(self, event_type: str, data: dict = None):
         """Send event to Hetzner."""
@@ -194,6 +196,11 @@ class ProgressCallback:
 
         url = f"{self.hetzner_url}/internal/jobs/{self.job_id}/event"
 
+        # Log first call prominently
+        if self._first_call:
+            logger.info(f"First callback to Hetzner: {url}")
+            self._first_call = False
+
         try:
             response = requests.post(
                 url,
@@ -202,14 +209,14 @@ class ProgressCallback:
                 timeout=10,
             )
             response.raise_for_status()
-            logger.debug(f"Callback {event_type} sent to {url}")
+            logger.info(f"Callback {event_type} sent successfully")
         except requests.exceptions.HTTPError as e:
             logger.error(
-                f"Callback {event_type} failed: HTTP {e.response.status_code} - "
+                f"Callback {event_type} FAILED: HTTP {e.response.status_code} - "
                 f"URL: {url} - Response: {e.response.text[:500]}"
             )
         except Exception as e:
-            logger.error(f"Callback {event_type} failed: {e} - URL: {url}")
+            logger.error(f"Callback {event_type} FAILED: {e} - URL: {url}")
 
     def status(self, message: str):
         """Send status message."""
@@ -478,6 +485,8 @@ def _download_activities(project_id: str, hetzner_url: str, headers: dict):
 
 def step_b1_statistical_features(state: PipelineState):
     """B.1: Extract statistical features from activities."""
+    import numpy as np
+
     from src.data.processing.statistical_features import StatisticalFeatureExtractor
 
     from cloud.modal_apps.common.r2_storage import upload_numpy_to_r2
@@ -485,7 +494,18 @@ def step_b1_statistical_features(state: PipelineState):
     state.callback.status("Extracting statistical features...")
 
     extractor = StatisticalFeatureExtractor(state.config)
-    aux_features = extractor.extract(state.activities_df)
+
+    # Extract features per engineer (returns dict[str, np.ndarray])
+    features_by_engineer = extractor.extract(state.activities_df)
+
+    # Normalize features to [-1, 1]
+    normalized_features, scale_factors = extractor.normalize_features(features_by_engineer)
+
+    # Convert to per-message array (each message gets its engineer's features)
+    aux_features = np.array([
+        normalized_features[str(row["engineer_id"])]
+        for _, row in state.activities_df.iterrows()
+    ], dtype=np.float32)
 
     # Store in state for next step
     state.aux_features = aux_features
