@@ -420,8 +420,8 @@ def merge_engineers(
         "message": f"Merged {len(source_ids)} engineers into {target_id}",
         "rows_updated": int(rows_updated),
         "merged_features": {
-            "is_internal": merged_is_internal,
-            "is_bot": merged_is_bot,
+            "is_internal": bool(merged_is_internal),
+            "is_bot": bool(merged_is_bot),
             "split": merged_split,
         }
     }
