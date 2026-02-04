@@ -32,38 +32,41 @@ PYTHON_VERSION = "3.11"
 
 # Single unified image with all dependencies
 # A100 has 40GB VRAM - plenty for both embedding models and VAE
+# Using PyTorch base image with CUDA and cuDNN pre-configured
+# Versions aligned with working local Dockerfile/requirements.txt
 app_image = (
-    modal.Image.debian_slim(python_version=PYTHON_VERSION)
+    modal.Image.from_registry(
+        "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-devel",
+    )
+    .apt_install("git", "wget")
     .pip_install(
         # Core
-        "torch==2.2.0",
-        "numpy>=1.24.0,<2.0.0",
-        "requests>=2.31.0",
-        "pyyaml>=6.0",
-        "fastapi[standard]",
-        "zstandard>=0.22.0",
-        "boto3>=1.34.0",
-        # ML
-        "h5py>=3.9.0",
-        "shap>=0.44.0",
-        "scikit-learn>=1.3.0",
-        "scipy>=1.11.0",
-        "tqdm>=4.66.0",
-        "wandb>=0.15.0",
-        "pandas>=2.0.0",
-        # Embeddings
-        "transformers>=4.52.0",
-        "sentence-transformers>=2.7.0",
-        "einops>=0.7.0",
-        "bitsandbytes>=0.42.0",
-        "accelerate>=0.25.0",
-        "peft>=0.10.0",
-        "pillow>=10.0.0",
-        "torchvision>=0.17.0",
-        "huggingface_hub>=0.20.0",
-    )
-    .run_commands(
-        "pip install flash-attn --no-build-isolation || echo 'flash-attn install failed, continuing without it'"
+        "numpy",
+        "pandas",
+        "scipy",
+        "scikit-learn",
+        "pyyaml",
+        "requests",
+        "boto3",
+        "zstandard",
+        "fastapi",
+        "uvicorn[standard]",
+        # ML - versions from working local setup
+        "transformers==4.46.0",
+        "sentence-transformers",
+        "datasets",
+        "bitsandbytes",
+        "einops",
+        "flash-attn",
+        "h5py",
+        "peft==0.13.2",
+        "pillow",
+        "accelerate",
+        # Explainability
+        "shap>=0.50.0",
+        # Utilities
+        "tqdm",
+        "wandb",
     )
     .env({
         "HF_HOME": "/cache/models",

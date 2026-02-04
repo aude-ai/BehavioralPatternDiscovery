@@ -37,14 +37,19 @@ class WebSocketManager:
     async def broadcast(self, project_id: str, message: dict):
         """Broadcast message to all connections for a project."""
         if project_id not in self.connections:
+            logger.warning(f"No WebSocket connections for project {project_id}")
             return
 
         dead_connections = set()
         message_json = json.dumps(message)
+        event_type = message.get("type", "unknown")
+
+        logger.info(f"Broadcasting {event_type} to {len(self.connections[project_id])} clients for project {project_id}")
 
         for websocket in self.connections[project_id]:
             try:
                 await websocket.send_text(message_json)
+                logger.debug(f"Sent {event_type} to WebSocket")
             except Exception as e:
                 logger.warning(f"Failed to send to WebSocket: {e}")
                 dead_connections.add(websocket)
