@@ -15,7 +15,7 @@ settings = get_settings()
 
 def get_modal_function(app_name: str, function_name: str):
     """Get a Modal function handle."""
-    return modal.Function.lookup(app_name, function_name)
+    return modal.Function.from_name(app_name, function_name)
 
 
 # =============================================================================
@@ -111,7 +111,7 @@ def trigger_individual_score(
             db.commit()
 
             # Use the warm scoring service
-            scoring_service = modal.Cls.lookup("bpd-processing", "ScoringService")
+            scoring_service = modal.Cls.from_name("bpd-processing", "ScoringService")
             result = scoring_service().score.remote(
                 project_id=project_id,
                 engineer_id=engineer_id,

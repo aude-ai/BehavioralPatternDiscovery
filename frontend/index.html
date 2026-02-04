@@ -2266,11 +2266,12 @@ function updateStartingPointOptions() {
 
         // Check Hetzner prerequisites
         const hetznerMet = prereqs.hetzner.every(file => {
-            // activities.csv check
-            if (file === 'activities.csv') {
-                return state.hetznerStatus['activities.csv']?.exists;
-            }
-            return true;
+            // Map frontend file names to backend keys
+            const keyMap = {
+                'activities.csv': 'activities',
+            };
+            const key = keyMap[file] || file;
+            return state.hetznerStatus[key]?.exists;
         });
 
         const isAvailable = r2Met && (prereqs.hetzner.length === 0 || hetznerMet);

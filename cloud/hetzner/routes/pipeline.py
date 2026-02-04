@@ -185,16 +185,48 @@ def start_processing_pipeline(
 @router.get("/r2-status")
 def get_r2_status(project_id: str, db: Session = Depends(get_db)):
     """
-    Get R2 file status for a project.
+    Get R2 and Hetzner file status for a project.
 
-    Returns existence and metadata for all R2 files used by Segment B.
+    Returns existence and metadata for all files used by Segment B.
     """
     service = ProjectService(db)
     project = service.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    return get_all_r2_file_info(project_id)
+    storage = StorageService(project_id)
+
+    # R2 files (large processing outputs)
+    r2_status = get_all_r2_file_info(project_id)
+
+    # Hetzner files (local storage)
+    hetzner_status = {
+        "activities": {
+            "exists": storage.activities_path.exists(),
+            "size_bytes": storage.activities_path.stat().st_size if storage.activities_path.exists() else 0,
+        },
+        "population_stats": {
+            "exists": storage.population_stats_path.exists(),
+            "size_bytes": storage.population_stats_path.stat().st_size if storage.population_stats_path.exists() else 0,
+        },
+        "message_examples": {
+            "exists": storage.message_examples_path.exists(),
+            "size_bytes": storage.message_examples_path.stat().st_size if storage.message_examples_path.exists() else 0,
+        },
+        "hierarchical_weights": {
+            "exists": storage.hierarchical_weights_path.exists(),
+            "size_bytes": storage.hierarchical_weights_path.stat().st_size if storage.hierarchical_weights_path.exists() else 0,
+        },
+        "pattern_names": {
+            "exists": storage.pattern_names_path.exists(),
+            "size_bytes": storage.pattern_names_path.stat().st_size if storage.pattern_names_path.exists() else 0,
+        },
+    }
+
+    return {
+        "r2": r2_status,
+        "hetzner": hetzner_status,
+    }
 
 
 # =============================================================================
