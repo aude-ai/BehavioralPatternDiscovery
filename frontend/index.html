@@ -1985,11 +1985,11 @@ async function fetchNDJSON() {
 
         appendLog('data', 'File uploaded, processing...', 'info');
 
-        // Trigger NDJSON processing
+        // Trigger NDJSON processing (no input_path - backend uses uploaded file automatically)
         const processResponse = await fetch(`${getProjectApiBase()}/data/fetch/ndjson`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ input_path: file.name }),
+            body: JSON.stringify({}),
         });
 
         if (!processResponse.ok) {
