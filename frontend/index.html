@@ -2218,7 +2218,7 @@ async function refreshR2Status() {
     if (!state.projectId) return;
 
     try {
-        const status = await apiGet('/pipeline/r2-status');
+        const status = await apiGet('/r2-status');
         state.r2Status = status.r2 || {};
         state.hetznerStatus = status.hetzner || {};
 
@@ -2353,7 +2353,7 @@ async function startPipeline() {
     $('#btn-stop-pipeline').classList.remove('hidden');
 
     try {
-        await apiPost('/pipeline/process', {
+        await apiPost('/process', {
             starting_step: state.selectedStartingPoint,
         });
 
@@ -2559,7 +2559,7 @@ async function namePatterns() {
     $('#naming-progress').classList.remove('hidden');
 
     try {
-        await apiPost('/pipeline/name-patterns');
+        await apiPost('/name-patterns');
 
         showStatus('naming-status-message', 'Naming started. Monitor progress below.', 'info');
 
