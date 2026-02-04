@@ -609,12 +609,29 @@ body {
     user-select: none;
 }
 
-.engineer-table th:hover {
+.engineer-table th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+}
+
+.engineer-table th[data-sort]:hover {
     color: var(--text-primary);
 }
 
 .engineer-table th.sorted {
     color: var(--accent-primary);
+}
+
+.engineer-table th.sorted::after {
+    margin-left: 4px;
+}
+
+.engineer-table th.sorted.asc::after {
+    content: ' \u25B2';
+}
+
+.engineer-table th.sorted.desc::after {
+    content: ' \u25BC';
 }
 
 .engineer-table tbody tr:hover {
@@ -1007,12 +1024,14 @@ body {
                                     <th data-sort="engineer_id">Engineer ID</th>
                                     <th data-sort="activity_count">Activities</th>
                                     <th data-sort="split">Split</th>
+                                    <th data-sort="is_internal">Internal</th>
+                                    <th data-sort="is_bot">Bot</th>
                                     <th data-sort="sources">Sources</th>
                                 </tr>
                             </thead>
                             <tbody id="engineer-table-body">
                                 <tr>
-                                    <td colspan="5" class="text-muted" style="text-align: center; padding: 32px;">
+                                    <td colspan="7" class="text-muted" style="text-align: center; padding: 32px;">
                                         No data loaded. Upload NDJSON files to get started.
                                     </td>
                                 </tr>
@@ -2027,13 +2046,57 @@ async function refreshEngineerSummary() {
     }
 }
 
+// Engineer table sorting state
+let engineerSortColumn = 'engineer_id';
+let engineerSortAsc = true;
+
+function sortEngineers(engineers, column, asc) {
+    return [...engineers].sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+
+        // Handle arrays (sources)
+        if (Array.isArray(valA)) valA = valA.join(', ');
+        if (Array.isArray(valB)) valB = valB.join(', ');
+
+        // Handle nulls/undefined
+        if (valA == null) valA = '';
+        if (valB == null) valB = '';
+
+        // Handle booleans
+        if (typeof valA === 'boolean') valA = valA ? 1 : 0;
+        if (typeof valB === 'boolean') valB = valB ? 1 : 0;
+
+        // Handle numbers
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return asc ? valA - valB : valB - valA;
+        }
+
+        // String comparison
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        if (strA < strB) return asc ? -1 : 1;
+        if (strA > strB) return asc ? 1 : -1;
+        return 0;
+    });
+}
+
+function updateSortIndicators() {
+    $$('.engineer-table th[data-sort]').forEach(th => {
+        th.classList.remove('sorted', 'asc', 'desc');
+        if (th.dataset.sort === engineerSortColumn) {
+            th.classList.add('sorted', engineerSortAsc ? 'asc' : 'desc');
+        }
+    });
+}
+
 function renderEngineerTable(engineers) {
     const tbody = $('#engineer-table-body');
 
     if (engineers.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="text-muted" style="text-align: center; padding: 32px;">
+                <td colspan="7" class="text-muted" style="text-align: center; padding: 32px;">
                     No data loaded. Upload NDJSON files to get started.
                 </td>
             </tr>
@@ -2041,7 +2104,10 @@ function renderEngineerTable(engineers) {
         return;
     }
 
-    tbody.innerHTML = engineers.map(eng => `
+    // Sort engineers
+    const sorted = sortEngineers(engineers, engineerSortColumn, engineerSortAsc);
+
+    tbody.innerHTML = sorted.map(eng => `
         <tr data-engineer-id="${escapeHtml(eng.engineer_id)}">
             <td class="checkbox-cell">
                 <input type="checkbox" class="engineer-checkbox" value="${escapeHtml(eng.engineer_id)}">
@@ -2051,9 +2117,13 @@ function renderEngineerTable(engineers) {
             <td>
                 <span class="split-badge ${eng.split || 'train'}">${eng.split || 'train'}</span>
             </td>
+            <td>${eng.is_internal === true ? 'Yes' : eng.is_internal === false ? 'No' : '-'}</td>
+            <td>${eng.is_bot ? 'Yes' : 'No'}</td>
             <td>${(eng.sources || []).join(', ') || '-'}</td>
         </tr>
     `).join('');
+
+    updateSortIndicators();
 }
 
 function updateEngineerSelectionButtons() {
@@ -2738,6 +2808,21 @@ function setupEventListeners() {
         if (e.target.classList.contains('engineer-checkbox')) {
             updateEngineerSelectionButtons();
         }
+    });
+
+    // Engineer table column sorting
+    $$('.engineer-table th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', () => {
+            const column = th.dataset.sort;
+            if (engineerSortColumn === column) {
+                engineerSortAsc = !engineerSortAsc;
+            } else {
+                engineerSortColumn = column;
+                engineerSortAsc = true;
+            }
+            renderEngineerTable(state.engineerData);
+        });
     });
 
     // Section 2: Processing
