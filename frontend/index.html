@@ -596,18 +596,26 @@ body {
 
 .engineer-table th,
 .engineer-table td {
-    padding: 12px 16px;
+    padding: 8px 10px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
 }
 
 .engineer-table th {
     background: var(--bg-tertiary);
     font-weight: 600;
     color: var(--text-secondary);
-    cursor: pointer;
-    user-select: none;
 }
+
+/* Column width hints */
+.engineer-table td:nth-child(2) { max-width: 180px; overflow: hidden; text-overflow: ellipsis; } /* Engineer ID */
+.engineer-table td:nth-child(3) { width: 70px; text-align: right; } /* Activities */
+.engineer-table td:nth-child(4) { width: 80px; } /* Split */
+.engineer-table td:nth-child(5) { width: 60px; text-align: center; } /* Internal */
+.engineer-table td:nth-child(6) { width: 50px; text-align: center; } /* Bot */
+.engineer-table td:nth-child(7) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; } /* Sources */
+.engineer-table td:nth-child(8) { max-width: 200px; overflow: hidden; text-overflow: ellipsis; } /* Projects */
 
 .engineer-table th[data-sort] {
     cursor: pointer;
@@ -627,11 +635,11 @@ body {
 }
 
 .engineer-table th.sorted.asc::after {
-    content: ' \u25B2';
+    content: ' \25B2';
 }
 
 .engineer-table th.sorted.desc::after {
-    content: ' \u25BC';
+    content: ' \25BC';
 }
 
 .engineer-table tbody tr:hover {
@@ -1027,11 +1035,12 @@ body {
                                     <th data-sort="is_internal">Internal</th>
                                     <th data-sort="is_bot">Bot</th>
                                     <th data-sort="sources">Sources</th>
+                                    <th data-sort="projects">Projects</th>
                                 </tr>
                             </thead>
                             <tbody id="engineer-table-body">
                                 <tr>
-                                    <td colspan="7" class="text-muted" style="text-align: center; padding: 32px;">
+                                    <td colspan="8" class="text-muted" style="text-align: center; padding: 32px;">
                                         No data loaded. Upload NDJSON files to get started.
                                     </td>
                                 </tr>
@@ -2096,7 +2105,7 @@ function renderEngineerTable(engineers) {
     if (engineers.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-muted" style="text-align: center; padding: 32px;">
+                <td colspan="8" class="text-muted" style="text-align: center; padding: 32px;">
                     No data loaded. Upload NDJSON files to get started.
                 </td>
             </tr>
@@ -2107,7 +2116,10 @@ function renderEngineerTable(engineers) {
     // Sort engineers
     const sorted = sortEngineers(engineers, engineerSortColumn, engineerSortAsc);
 
-    tbody.innerHTML = sorted.map(eng => `
+    tbody.innerHTML = sorted.map(eng => {
+        // Projects come as comma-separated string from backend
+        const projects = eng.projects ? eng.projects.split(',').filter(p => p.trim()).join(', ') : '-';
+        return `
         <tr data-engineer-id="${escapeHtml(eng.engineer_id)}">
             <td class="checkbox-cell">
                 <input type="checkbox" class="engineer-checkbox" value="${escapeHtml(eng.engineer_id)}">
@@ -2120,8 +2132,9 @@ function renderEngineerTable(engineers) {
             <td>${eng.is_internal === true ? 'Yes' : eng.is_internal === false ? 'No' : '-'}</td>
             <td>${eng.is_bot ? 'Yes' : 'No'}</td>
             <td>${(eng.sources || []).join(', ') || '-'}</td>
+            <td>${escapeHtml(projects)}</td>
         </tr>
-    `).join('');
+    `}).join('');
 
     updateSortIndicators();
 }
