@@ -15,6 +15,10 @@ services:
       - BASE_URL=${BASE_URL}
       - DATA_DIR=/data
       - PROJECTS_DIR=/data/projects
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
     volumes:
       - ../data:/data
       - ../config:/app/config:ro
