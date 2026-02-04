@@ -1,29 +1,65 @@
 """Storage service for file operations."""
-import io
 import json
+import logging
 import pickle
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import zstandard as zstd
 
 from ..config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
-# Zstd compression level (3 is a good balance of speed/ratio)
-ZSTD_LEVEL = 3
+# Mapping from file_key to relative path within project directory
+HETZNER_FILE_PATHS = {
+    "activities": "data/collection/activities.csv",
+    "engineer_metadata": "data/collection/engineer_metadata.csv",
+    "train_aux_vars": "data/processing/train_aux_vars.npy",
+    "population_stats": "pattern_identification/scoring/population_stats.json",
+    "message_examples": "pattern_identification/messages/message_examples.json",
+    "hierarchical_weights": "pattern_identification/shap/hierarchical_weights.json",
+    "pattern_names": "pattern_identification/naming/pattern_names.json",
+}
 
 
 class StorageService:
-    """Service for managing project file storage."""
+    """Service for managing project file storage.
 
-    def __init__(self, project_id: str):
+    Supports variant inheritance: if parent_id and owned_files are provided,
+    file reads will fall back to parent storage for files not owned by this project.
+    """
+
+    def __init__(
+        self,
+        project_id: str,
+        parent_id: Optional[str] = None,
+        owned_files: Optional[dict] = None,
+    ):
         self.project_id = project_id
+        self.parent_id = parent_id
+        self.owned_files = owned_files or {}
         self.base_path = Path(settings.projects_dir) / project_id
+        self.parent_path = Path(settings.projects_dir) / parent_id if parent_id else None
+
+    def _resolve_read_path(self, file_key: str, relative_path: str) -> Path:
+        """Resolve the path to read a file from, considering inheritance.
+
+        For writes, always use self.base_path directly.
+        For reads, check if this project owns the file; if not, use parent.
+        """
+        if self.owned_files.get(file_key, True):
+            # Owned by this project (or no inheritance info - assume owned)
+            return self.base_path / relative_path
+        elif self.parent_path:
+            # Not owned - use parent's path
+            logger.info(f"Resolving {file_key} from parent {self.parent_id}")
+            return self.parent_path / relative_path
+        else:
+            # Root project doesn't own it - file doesn't exist
+            raise FileNotFoundError(f"File {file_key} not found in project or parent")
 
     def ensure_directories(self):
         """Create all required directories for a project."""
@@ -52,7 +88,27 @@ class StorageService:
             shutil.rmtree(self.base_path)
 
     # =========================================================================
+    # FILE PATH RESOLUTION (with inheritance support)
+    # =========================================================================
+
+    def get_read_path(self, file_key: str) -> Path:
+        """Get the path to read a file from, resolving inheritance if needed."""
+        relative_path = HETZNER_FILE_PATHS.get(file_key)
+        if not relative_path:
+            raise ValueError(f"Unknown file key: {file_key}")
+        return self._resolve_read_path(file_key, relative_path)
+
+    def get_write_path(self, file_key: str) -> Path:
+        """Get the path to write a file to (always this project's storage)."""
+        relative_path = HETZNER_FILE_PATHS.get(file_key)
+        if not relative_path:
+            raise ValueError(f"Unknown file key: {file_key}")
+        return self.base_path / relative_path
+
+    # =========================================================================
     # UNCOMPRESSED PATHS (small files, local processing)
+    # These properties return WRITE paths for backwards compatibility.
+    # Use get_read_path(file_key) when reading with inheritance support.
     # =========================================================================
 
     @property
@@ -84,37 +140,38 @@ class StorageService:
         return self.base_path / "pattern_identification/naming/pattern_names.json"
 
     # =========================================================================
-    # COMPRESSED PATHS (large files, transferred to/from Modal)
+    # INHERITANCE-AWARE READ METHODS
     # =========================================================================
 
-    @property
-    def message_database_path(self) -> Path:
-        """Message database - compressed for Modal transfer."""
-        return self.base_path / "data/processing/message_database.pkl.zst"
+    def load_json_inherited(self, file_key: str) -> Optional[dict]:
+        """Load JSON file with inheritance resolution."""
+        try:
+            path = self.get_read_path(file_key)
+        except FileNotFoundError:
+            return None
+        return self.load_json(path)
 
-    @property
-    def train_features_path(self) -> Path:
-        """Training features - compressed for Modal transfer."""
-        return self.base_path / "data/processing/train_features.npy.zst"
+    def load_pickle_inherited(self, file_key: str):
+        """Load pickle file with inheritance resolution."""
+        try:
+            path = self.get_read_path(file_key)
+        except FileNotFoundError:
+            return None
+        return self.load_pickle(path)
 
-    @property
-    def train_input_path(self) -> Path:
-        """Combined training input - compressed for Modal transfer."""
-        return self.base_path / "data/processing/train_input_with_aux.npy.zst"
-
-    @property
-    def checkpoint_path(self) -> Path:
-        """Model checkpoint - compressed for Modal transfer."""
-        return self.base_path / "training/checkpoints/best_model.pt.zst"
-
-    @property
-    def activations_path(self) -> Path:
-        """Activations HDF5 - compressed for Modal transfer."""
-        return self.base_path / "pattern_identification/scoring/activations.h5.zst"
+    def load_numpy_inherited(self, file_key: str) -> Optional[np.ndarray]:
+        """Load numpy file with inheritance resolution."""
+        try:
+            path = self.get_read_path(file_key)
+        except FileNotFoundError:
+            return None
+        return self.load_numpy(path)
 
     # =========================================================================
-    # UNCOMPRESSED FILE OPERATIONS
+    # FILE OPERATIONS
     # =========================================================================
+    # NOTE: Large processing files (embeddings, checkpoints, activations, etc.)
+    # are stored in R2, not on local Hetzner storage. Use r2_service for those.
 
     def save_json(self, path: Path, data: dict):
         """Save JSON file."""
@@ -152,85 +209,6 @@ class StorageService:
         if not path.exists():
             return None
         return np.load(path)
-
-    # =========================================================================
-    # COMPRESSED FILE OPERATIONS (for .zst files)
-    # =========================================================================
-
-    def save_pickle_compressed(self, path: Path, data):
-        """Save pickle file with zstd compression."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        pickled = pickle.dumps(data)
-        cctx = zstd.ZstdCompressor(level=ZSTD_LEVEL)
-        compressed = cctx.compress(pickled)
-        with open(path, "wb") as f:
-            f.write(compressed)
-
-    def load_pickle_compressed(self, path: Path):
-        """Load zstd-compressed pickle file."""
-        if not path.exists():
-            return None
-        with open(path, "rb") as f:
-            compressed = f.read()
-        dctx = zstd.ZstdDecompressor()
-        decompressed = dctx.decompress(compressed)
-        return pickle.loads(decompressed)
-
-    def save_numpy_compressed(self, path: Path, arr: np.ndarray):
-        """Save numpy array with zstd compression."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        buffer = io.BytesIO()
-        np.save(buffer, arr)
-        buffer.seek(0)
-        cctx = zstd.ZstdCompressor(level=ZSTD_LEVEL)
-        compressed = cctx.compress(buffer.read())
-        with open(path, "wb") as f:
-            f.write(compressed)
-
-    def load_numpy_compressed(self, path: Path) -> Optional[np.ndarray]:
-        """Load zstd-compressed numpy array."""
-        if not path.exists():
-            return None
-        with open(path, "rb") as f:
-            compressed = f.read()
-        dctx = zstd.ZstdDecompressor()
-        decompressed = dctx.decompress(compressed)
-        buffer = io.BytesIO(decompressed)
-        return np.load(buffer)
-
-    def decompress_to_temp(self, path: Path) -> Path:
-        """
-        Decompress a .zst file to a temporary file.
-
-        Returns the path to the temporary file. Caller is responsible
-        for deleting it when done.
-        """
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
-
-        # Create temp file with appropriate suffix
-        suffix = path.stem  # e.g., "activations.h5" from "activations.h5.zst"
-        with tempfile.NamedTemporaryFile(suffix=f".{suffix.split('.')[-1]}", delete=False) as tmp:
-            tmp_path = Path(tmp.name)
-
-        dctx = zstd.ZstdDecompressor()
-        with open(path, "rb") as f_in:
-            with open(tmp_path, "wb") as f_out:
-                dctx.copy_stream(f_in, f_out)
-
-        return tmp_path
-
-    def compress_from_temp(self, temp_path: Path, output_path: Path):
-        """
-        Compress a file to zstd format.
-
-        Reads from temp_path, writes compressed to output_path.
-        """
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        cctx = zstd.ZstdCompressor(level=ZSTD_LEVEL)
-        with open(temp_path, "rb") as f_in:
-            with open(output_path, "wb") as f_out:
-                cctx.copy_stream(f_in, f_out)
 
     # =========================================================================
     # UTILITY METHODS

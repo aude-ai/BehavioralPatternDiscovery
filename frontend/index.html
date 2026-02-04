@@ -4,7 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Behavioral Pattern Discovery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+/* ============================================================================
+   CSS Variables & Base Styles
+   ============================================================================ */
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-card: rgba(30, 41, 59, 0.8);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-primary: #3b82f6;
+    --accent-success: #10b981;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+    --border-color: rgba(148, 163, 184, 0.2);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --radius: 12px;
+    --radius-sm: 8px;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -12,110 +36,208 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f5f5f5;
-    color: #333;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1a2e 100%);
+    color: var(--text-primary);
     line-height: 1.6;
+    min-height: 100vh;
 }
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-header {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
-header h1 {
-    margin-bottom: 20px;
-    color: #2c3e50;
-}
-
-.status-bar {
+/* ============================================================================
+   Layout
+   ============================================================================ */
+.app-container {
     display: flex;
-    gap: 30px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 6px;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
-.status-item {
+.header {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 16px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.project-selector {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
-.status-item .label {
+.main-content {
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    width: 100%;
+}
+
+/* ============================================================================
+   Section Tabs
+   ============================================================================ */
+.section-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-secondary);
+    padding: 4px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+}
+
+.section-tab {
+    flex: 1;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.section-tab:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.section-tab.active {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.section-tab .tab-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
     font-weight: 600;
-    color: #666;
 }
 
-.status-value {
-    font-size: 16px;
+.section-tab.active .tab-number {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================================================
+   Cards & Sections
+   ============================================================================ */
+.section-content {
+    display: none;
+}
+
+.section-content.active {
+    display: block;
 }
 
 .card {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 24px;
     margin-bottom: 20px;
 }
 
-.card h2 {
-    margin-bottom: 25px;
-    color: #2c3e50;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 10px;
-}
-
-.step {
-    margin-bottom: 30px;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 6px;
-}
-
-.step h3 {
-    margin-bottom: 15px;
-    color: #34495e;
-}
-
-.description {
-    color: #7f8c8d;
-    font-size: 14px;
-    margin-bottom: 15px;
-}
-
-.controls {
+.card-header {
     display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.separator {
-    color: #95a5a6;
-    font-size: 18px;
-    font-weight: 300;
-    padding: 0 5px;
+.card-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
+.card-header h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* ============================================================================
+   Form Elements
+   ============================================================================ */
 .btn {
     padding: 10px 20px;
     border: none;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #2563eb;
+}
+
+.btn-success {
+    background: var(--accent-success);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #059669;
+}
+
+.btn-warning {
+    background: var(--accent-warning);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--accent-danger);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #475569;
 }
 
 .btn:disabled {
@@ -123,800 +245,1225 @@ header h1 {
     cursor: not-allowed;
 }
 
-.btn-primary {
-    background: #3498db;
-    color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: #2980b9;
-}
-
-.btn-secondary {
-    background: #95a5a6;
-    color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background: #7f8c8d;
-}
-
-.btn-danger {
-    background: #e74c3c;
-    color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-    background: #c0392b;
-}
-
-.file-upload-btn {
-    display: inline-block;
-    cursor: pointer;
-}
-
-.file-upload-btn:hover {
-    background: #7f8c8d;
-}
-
-input, .select {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-input[type="number"] {
-    width: 150px;
-}
-
-input[type="text"] {
-    width: 150px;
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
 }
 
 .select {
-    min-width: 300px;
-    background: white;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    min-width: 200px;
 }
 
+.select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.input {
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ============================================================================
+   Status Messages
+   ============================================================================ */
 .status-message {
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.status-message.success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.status-message.error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    margin-top: 12px;
 }
 
 .status-message.info {
-    background: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
 }
 
-.report-container, .scores-container {
-    margin-top: 20px;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 6px;
+.status-message.success {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
 }
 
-.report-content, .scores-content {
-    background: #2c3e50;
-    color: #ecf0f1;
-    padding: 20px;
-    border-radius: 4px;
+.status-message.error {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.status-message.warning {
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fcd34d;
+}
+
+/* ============================================================================
+   Pipeline Visualization (Section 2)
+   ============================================================================ */
+.pipeline-container {
+    margin-bottom: 24px;
+}
+
+.pipeline-steps {
+    display: flex;
+    gap: 8px;
     overflow-x: auto;
-    max-height: 500px;
-    overflow-y: auto;
-    font-size: 13px;
-    line-height: 1.5;
+    padding: 16px 0;
 }
 
-.logs-container {
-    background: #2c3e50;
-    color: #ecf0f1;
-    padding: 15px;
-    border-radius: 6px;
-    height: 400px;
-    overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-}
-
-.log-controls {
+.pipeline-step {
+    flex: 1;
+    min-width: 100px;
     display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.log-line {
-    margin-bottom: 5px;
-    padding: 2px 0;
-}
-
-.log-error {
-    color: #e74c3c;
-}
-
-.log-warning {
-    color: #f39c12;
-}
-
-.log-info {
-    color: #3498db;
-}
-
-.log-success {
-    color: #27ae60;
-}
-
-/* Per-section log containers */
-.section-logs-wrapper {
-    margin-top: 15px;
-    border-top: 1px solid #ddd;
-    padding-top: 15px;
-}
-
-.section-logs-header {
-    display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    margin-bottom: 10px;
+    position: relative;
 }
 
-.section-logs-header h4 {
-    margin: 0;
-    color: #34495e;
-    font-size: 14px;
+.pipeline-step::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    right: -4px;
+    width: 8px;
+    height: 2px;
+    background: var(--border-color);
 }
 
-.section-logs-toggle {
-    background: none;
-    border: 1px solid #bdc3c7;
-    border-radius: 4px;
-    padding: 4px 10px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #7f8c8d;
-}
-
-.section-logs-toggle:hover {
-    background: #ecf0f1;
-}
-
-.section-logs {
-    background: #2c3e50;
-    color: #ecf0f1;
-    padding: 10px;
-    border-radius: 6px;
-    max-height: 200px;
-    overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
+.pipeline-step:last-child::after {
     display: none;
 }
 
-.section-logs.active {
-    display: block;
+.step-indicator {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
 }
 
-.section-logs .log-line {
-    margin-bottom: 3px;
-    padding: 1px 0;
+.pipeline-step.pending .step-indicator {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-muted);
 }
 
-.section-logs .log-timestamp {
-    color: #7f8c8d;
+.pipeline-step.in-progress .step-indicator {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.pipeline-step.completed .step-indicator {
+    background: var(--accent-success);
+    border-color: var(--accent-success);
+    color: white;
+}
+
+.pipeline-step.failed .step-indicator {
+    background: var(--accent-danger);
+    border-color: var(--accent-danger);
+    color: white;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.step-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 80px;
+}
+
+.pipeline-step.in-progress .step-label,
+.pipeline-step.completed .step-label {
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   R2 Status Grid (Section 2)
+   ============================================================================ */
+.r2-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.r2-file-item {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.r2-file-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.r2-file-item.exists .r2-file-icon {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-success);
+}
+
+.r2-file-item.missing .r2-file-icon {
+    background: rgba(100, 116, 139, 0.2);
+    color: var(--text-muted);
+}
+
+.r2-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.r2-file-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.r2-file-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ============================================================================
+   Starting Point Selector (Section 2)
+   ============================================================================ */
+.starting-point-selector {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.starting-point-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.starting-point-option {
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.starting-point-option:hover:not(.disabled) {
+    border-color: var(--accent-primary);
+}
+
+.starting-point-option.selected {
+    border-color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.starting-point-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.starting-point-option .option-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.starting-point-option .option-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.starting-point-option .option-prereq {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.starting-point-option.disabled .option-prereq {
+    color: var(--accent-danger);
+}
+
+/* ============================================================================
+   Logs Container
+   ============================================================================ */
+.logs-container {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.8rem;
+    line-height: 1.8;
+}
+
+.log-line {
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.log-line:last-child {
+    border-bottom: none;
+}
+
+.log-timestamp {
+    color: var(--text-muted);
     margin-right: 8px;
 }
 
-/* Loader Tabs */
-.section {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 6px;
+.log-section {
+    color: #a78bfa;
+    margin-right: 8px;
 }
 
-.section h3 {
-    margin-bottom: 10px;
-    color: #34495e;
+.log-line.log-info { color: var(--text-secondary); }
+.log-line.log-success { color: var(--accent-success); }
+.log-line.log-warning { color: var(--accent-warning); }
+.log-line.log-error { color: var(--accent-danger); }
+
+.logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
 }
 
-/* Project Section */
-#project-section {
-    border-left: 4px solid #3498db;
+/* ============================================================================
+   Engineer Table (Section 1)
+   ============================================================================ */
+.engineer-table-container {
+    overflow-x: auto;
+    margin-top: 16px;
 }
 
-#project-section h2 {
-    color: #2980b9;
+.engineer-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
 }
 
-.project-required-notice {
-    background: #fff3cd;
-    color: #856404;
-    padding: 10px 15px;
+.engineer-table th,
+.engineer-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.engineer-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.engineer-table th:hover {
+    color: var(--text-primary);
+}
+
+.engineer-table th.sorted {
+    color: var(--accent-primary);
+}
+
+.engineer-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.engineer-table .checkbox-cell {
+    width: 40px;
+    text-align: center;
+}
+
+.split-badge {
+    padding: 4px 8px;
     border-radius: 4px;
-    margin-bottom: 15px;
-    border: 1px solid #ffeeba;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
+
+.split-badge.train {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-success);
+}
+
+.split-badge.validation {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--accent-primary);
+}
+
+.split-badge.bot {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--accent-danger);
+}
+
+/* ============================================================================
+   Pattern List (Section 3)
+   ============================================================================ */
+.pattern-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.pattern-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pattern-item:hover {
+    background: var(--bg-secondary);
+}
+
+.pattern-item.selected {
+    border-left: 3px solid var(--accent-primary);
+}
+
+.pattern-level {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.pattern-level.top { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+.pattern-level.mid { background: rgba(147, 197, 253, 0.2); color: #93c5fd; }
+.pattern-level.bottom { background: rgba(252, 211, 77, 0.2); color: #fcd34d; }
+.pattern-level.unified { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+
+.pattern-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.pattern-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ============================================================================
+   Scoring Results (Section 4)
+   ============================================================================ */
+.scores-display {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.report-display {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    line-height: 1.8;
+}
+
+/* ============================================================================
+   File Upload
+   ============================================================================ */
+.file-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 32px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.file-upload-area:hover {
+    border-color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.file-upload-area.dragover {
+    border-color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.file-upload-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+    color: var(--text-muted);
+}
+
+.file-upload-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.file-upload-text strong {
+    color: var(--accent-primary);
+}
+
+.file-input {
+    display: none;
+}
+
+.selected-file {
+    margin-top: 12px;
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   Progress Bar
+   ============================================================================ */
+.progress-bar-container {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    height: 8px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-success));
+    border-radius: var(--radius-sm);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* ============================================================================
+   Error Banner
+   ============================================================================ */
+.error-banner {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(185, 28, 28, 0.2) 100%);
+    border: 2px solid var(--accent-danger);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    animation: errorBannerAppear 0.3s ease-out;
+}
+
+@keyframes errorBannerAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.error-banner-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.error-banner-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--accent-danger);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.error-banner-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-danger);
+}
+
+.error-banner-step {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.error-banner-message {
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    color: #fca5a5;
+    max-height: 150px;
+    overflow-y: auto;
+    word-break: break-word;
+}
+
+.error-banner-suggestion {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.error-banner-suggestion strong {
+    color: var(--text-primary);
+}
+
+.error-banner-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.error-banner-completed {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.error-banner-completed span {
+    color: var(--accent-success);
+    font-weight: 500;
+}
+
+/* ============================================================================
+   Utilities
+   ============================================================================ */
+.hidden { display: none !important; }
+.mt-4 { margin-top: 16px; }
+.mb-4 { margin-bottom: 16px; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 0.85rem; }
+
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Behavioral Pattern Discovery</h1>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Behavioral Pattern Discovery</h1>
+                <div class="project-selector">
+                    <select id="project-select" class="select">
+                        <option value="">Select a project...</option>
+                    </select>
+                    <button id="btn-refresh-projects" class="btn btn-secondary btn-sm">Refresh</button>
+                    <input type="text" id="new-project-name" class="input" placeholder="New project name..." style="width: 180px;">
+                    <button id="btn-create-project" class="btn btn-primary btn-sm">Create</button>
+                    <button id="btn-delete-project" class="btn btn-danger btn-sm hidden">Delete</button>
+                    <button id="btn-create-variant" class="btn btn-secondary btn-sm hidden">Create Variant</button>
+                </div>
+            </div>
         </header>
 
-        <main>
-            <!-- Project Selection Section -->
-            <section class="card" id="project-section">
-                <h2>Project</h2>
-                <div class="section">
-                    <div class="controls">
-                        <select id="project-select" class="select" style="min-width: 250px;">
-                            <option value="">Select a project...</option>
-                        </select>
-                        <button id="btn-refresh-projects" class="btn btn-secondary">Refresh</button>
-                        <span class="separator">or</span>
-                        <input type="text" id="new-project-name" placeholder="New project name" style="min-width: 200px;">
-                        <button id="btn-create-project" class="btn btn-primary">Create Project</button>
-                        <button id="btn-delete-project" class="btn btn-danger" style="display: none;">Delete Project</button>
-                    </div>
-                    <div id="project-status" class="status-message"></div>
-                    <div id="project-info" style="display: none; margin-top: 10px; padding: 10px; background: #e8f4f8; border-radius: 4px;">
-                        <strong>Current Project:</strong> <span id="current-project-name"></span>
-                        <br><small style="color: #666;">ID: <span id="current-project-id"></span> | Created: <span id="current-project-created"></span></small>
-                    </div>
-                </div>
-            </section>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Section Tabs -->
+            <div class="section-tabs">
+                <button class="section-tab active" data-section="data">
+                    <span class="tab-number">1</span>
+                    Data Collection
+                </button>
+                <button class="section-tab" data-section="processing">
+                    <span class="tab-number">2</span>
+                    Processing Pipeline
+                </button>
+                <button class="section-tab" data-section="naming">
+                    <span class="tab-number">3</span>
+                    Pattern Naming
+                </button>
+                <button class="section-tab" data-section="scoring">
+                    <span class="tab-number">4</span>
+                    Individual Scoring
+                </button>
+            </div>
 
-            <!-- Data Collection Section -->
-            <section class="card">
-                <h2>Data Collection</h2>
+            <!-- ================================================================
+                 SECTION 1: Data Collection (Segment A)
+                 ================================================================ -->
+            <div id="section-data" class="section-content active">
+                <!-- Data Source -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Data Source</h2>
+                    </div>
 
-                <div class="section">
-                    <h3>1. Load Data</h3>
-                    <div class="controls">
-                        <label class="file-upload-btn btn btn-secondary">
-                            Choose File
-                            <input type="file" id="ndjson-file" accept=".zip,.ndjson,.gz" style="display: none;">
-                        </label>
-                        <span id="ndjson-file-name" style="color: #666; font-size: 0.9em;">No file selected</span>
-                        <span class="separator">or</span>
-                        <input type="text" id="ndjson-path" placeholder="Folder path, .zip file, or URL" value="" title="Local folder, local .zip file, or URL to .zip file containing adoIdentities.ndjson and *.ndjson.gz data files" style="min-width: 400px;">
-                    </div>
-                    <div class="controls" style="margin-top: 8px;">
-                        <label style="font-size: 0.9em; color: #666;">Date Range (optional):</label>
-                        <input type="date" id="ndjson-date-start" title="Start date filter (optional)">
-                        <span style="color: #666;">to</span>
-                        <input type="date" id="ndjson-date-end" title="End date filter (optional)">
-                        <button id="btn-fetch-ndjson" class="btn btn-primary">Load Data</button>
-                    </div>
-                    <div id="ndjson-status" class="status-message"></div>
-                </div>
-
-                <div class="section">
-                    <h3>2. Synthetic Profiles</h3>
-                    <div class="controls">
-                        <input type="number" id="synthetic-copies" placeholder="Copies per profile" value="3" min="1" max="10" style="width: 150px;" title="Number of synthetic copies to generate per template profile">
-                        <button id="btn-generate-synthetic" class="btn btn-primary">Generate Synthetic</button>
-                        <button id="btn-refresh-synthetic-summary" class="btn btn-secondary">Refresh Summary</button>
-                    </div>
-                    <div id="synthetic-status" class="status-message"></div>
-                    <div id="synthetic-summary-container" style="display: none; margin-top: 10px;">
-                        <div style="margin-bottom: 10px;">
-                            <strong>Templates:</strong> <span id="synthetic-template-count">0</span> |
-                            <strong>Profiles:</strong> <span id="synthetic-profile-count">0</span>
+                    <div class="file-upload-area" id="upload-area">
+                        <div class="file-upload-icon">📁</div>
+                        <div class="file-upload-text">
+                            <strong>Click to upload</strong> or drag and drop<br>
+                            NDJSON folder (zip) or individual files
                         </div>
-                        <div id="synthetic-details" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-size: 0.9em;"></div>
-                        <div class="controls" style="margin-top: 10px;">
-                            <select id="synthetic-split" style="width: 120px;">
-                                <option value="train">Train</option>
-                                <option value="validation">Validation</option>
-                            </select>
-                            <button id="btn-add-synthetic" class="btn btn-primary" disabled>Add to Activities</button>
-                        </div>
+                        <input type="file" id="ndjson-file" class="file-input" accept=".zip,.ndjson">
                     </div>
+                    <div id="selected-file-display" class="selected-file hidden"></div>
+
+                    <div class="controls mt-4">
+                        <button id="btn-fetch-ndjson" class="btn btn-primary" disabled>Load Data</button>
+                        <span id="data-status" class="text-muted text-sm"></span>
+                    </div>
+                    <div id="data-status-message" class="status-message hidden"></div>
                 </div>
 
-                <div class="section">
-                    <h3>3. Engineer Management</h3>
-                    <div class="controls">
-                        <button id="btn-refresh-engineer-summary" class="btn btn-secondary">Refresh Summary</button>
-                    </div>
-                    <div id="engineer-summary-status" class="status-message"></div>
-                    <div id="engineer-summary-container" style="display: none; margin-top: 10px;">
-                        <div style="margin-bottom: 10px;">
-                            <strong>Train:</strong> <span id="train-count">0</span> |
-                            <strong>Validation:</strong> <span id="validation-count">0</span> |
-                            <strong>Bots:</strong> <span id="bot-count">0</span> |
-                            <strong>Total:</strong> <span id="total-engineers">0</span>
-                        </div>
-                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
-                            <table id="engineer-summary-table" style="width: 100%; border-collapse: collapse;">
-                                <thead style="position: sticky; top: 0; background: #f5f5f5;">
-                                    <tr>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">
-                                            <input type="checkbox" id="select-all-engineers">
-                                        </th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="engineer_id">Engineer ID <span id="sort-indicator-engineer_id"></span></th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="activity_count">Activities <span id="sort-indicator-activity_count"></span></th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="split">Split <span id="sort-indicator-split"></span></th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="sources">Sources <span id="sort-indicator-sources"></span></th>
-                                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="is_bot">Bot <span id="sort-indicator-is_bot"></span></th>
-                                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="is_internal">Internal <span id="sort-indicator-is_internal"></span></th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer; user-select: none;" data-sort="projects">Projects <span id="sort-indicator-projects"></span></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="engineer-summary-body">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>4. Actions</h3>
-                    <div class="controls">
-                        <button id="btn-set-train" class="btn btn-secondary" disabled>Set Train</button>
-                        <button id="btn-set-validation" class="btn btn-secondary" disabled>Set Validation</button>
-                        <button id="btn-remove-selected" class="btn btn-danger" disabled>Remove Selected</button>
-                    </div>
-                    <div style="margin-top: 10px;">
+                <!-- Engineer Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Engineers</h2>
                         <div class="controls">
-                            <input type="text" id="merge-target-id" placeholder="Merge target ID" title="Canonical engineer ID to merge into">
-                            <button id="btn-merge-engineers" class="btn btn-secondary" disabled>Merge Selected</button>
+                            <button id="btn-refresh-engineer-summary" class="btn btn-secondary btn-sm" disabled>Refresh</button>
                         </div>
                     </div>
-                    <div id="action-status" class="status-message"></div>
+
+                    <div class="controls mb-4">
+                        <button id="btn-set-train" class="btn btn-success btn-sm" disabled>Set Train</button>
+                        <button id="btn-set-validation" class="btn btn-primary btn-sm" disabled>Set Validation</button>
+                        <button id="btn-merge-engineers" class="btn btn-secondary btn-sm" disabled>Merge Selected</button>
+                        <button id="btn-remove-selected" class="btn btn-danger btn-sm" disabled>Remove Selected</button>
+                    </div>
+
+                    <div class="engineer-table-container">
+                        <table class="engineer-table" id="engineer-summary-table">
+                            <thead>
+                                <tr>
+                                    <th class="checkbox-cell">
+                                        <input type="checkbox" id="select-all-engineers">
+                                    </th>
+                                    <th data-sort="engineer_id">Engineer ID</th>
+                                    <th data-sort="activity_count">Activities</th>
+                                    <th data-sort="split">Split</th>
+                                    <th data-sort="sources">Sources</th>
+                                </tr>
+                            </thead>
+                            <tbody id="engineer-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-muted" style="text-align: center; padding: 32px;">
+                                        No data loaded. Upload NDJSON files to get started.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div class="section">
-                    <h3>5. Preprocess</h3>
-                    <div class="controls">
-                        <input type="number" id="max-activities-per-engineer" placeholder="Max activities/engineer" title="Leave empty to use config value or no limit" style="width: 180px;">
-                        <button id="btn-preprocess" class="btn btn-primary" disabled>Preprocess Data</button>
-                        <button id="btn-normalization" class="btn btn-secondary" disabled>Apply Normalization</button>
+                <!-- Section 1 Logs -->
+                <div class="card">
+                    <div class="logs-header">
+                        <h3>Logs</h3>
+                        <button id="btn-clear-data-logs" class="btn btn-secondary btn-sm">Clear</button>
                     </div>
-                    <div id="preprocess-status" class="status-message"></div>
+                    <div id="data-logs" class="logs-container"></div>
+                </div>
+            </div>
 
-                    <!-- Preprocessing/Embedding Logs -->
-                    <div class="section-logs-wrapper" id="embedding-logs-wrapper">
-                        <div class="section-logs-header">
-                            <h4>Preprocessing Logs</h4>
-                            <button class="section-logs-toggle" onclick="toggleSectionLogs('embedding')">Show Logs</button>
+            <!-- ================================================================
+                 SECTION 2: Processing Pipeline (Segment B)
+                 ================================================================ -->
+            <div id="section-processing" class="section-content">
+                <!-- Error Banner (hidden by default) -->
+                <div id="pipeline-error-banner" class="error-banner hidden">
+                    <div class="error-banner-header">
+                        <div class="error-banner-icon">!</div>
+                        <div>
+                            <div class="error-banner-title">Pipeline Failed</div>
+                            <div class="error-banner-step" id="error-step-info">Step B.X failed</div>
                         </div>
-                        <div class="section-logs" id="embedding-logs"></div>
+                    </div>
+                    <div class="error-banner-message" id="error-message-content">
+                        Error details will appear here...
+                    </div>
+                    <div class="error-banner-suggestion">
+                        <strong>Suggested action:</strong> <span id="error-suggestion">Check the logs for more details.</span>
+                    </div>
+                    <div class="error-banner-actions">
+                        <button id="btn-retry-pipeline" class="btn btn-primary">Retry from Failed Step</button>
+                        <button id="btn-retry-full" class="btn btn-secondary">Restart Full Pipeline</button>
+                        <button id="btn-dismiss-error" class="btn btn-secondary btn-sm">Dismiss</button>
+                    </div>
+                    <div class="error-banner-completed hidden" id="error-completed-steps">
+                        Steps completed before failure: <span id="completed-steps-list">None</span>
                     </div>
                 </div>
-            </section>
 
-            <!-- Training Section -->
-            <section class="card">
-                <h2>Training</h2>
-
-                <div class="section">
-                    <h3>1. Train VAE Model</h3>
-                    <div class="controls">
-                        <button id="btn-train-vae" class="btn btn-primary" disabled>Train VAE</button>
-                        <button id="btn-train-from-existing" class="btn btn-secondary" disabled>Train From Existing VAE</button>
-                        <button id="btn-stop-training" class="btn btn-danger" style="display: none;">Stop Training</button>
+                <!-- Pipeline Visualization -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Pipeline Status</h2>
+                        <button id="btn-refresh-r2-status" class="btn btn-secondary btn-sm">Refresh Status</button>
                     </div>
-                    <div id="existing-model-input" style="display: none; margin-top: 8px;">
-                        <input type="text" id="existing-model-path" placeholder="Path to existing VAE checkpoint (e.g., /path/to/vae_checkpoint.pt)" style="width: 400px; padding: 6px;">
-                        <button id="btn-start-from-existing" class="btn btn-primary">Start Training</button>
-                        <button id="btn-cancel-from-existing" class="btn btn-secondary">Cancel</button>
-                    </div>
-                    <div id="train-status" class="status-message"></div>
 
-                    <!-- Training Logs -->
-                    <div class="section-logs-wrapper" id="training-logs-wrapper">
-                        <div class="section-logs-header">
-                            <h4>Training Logs</h4>
-                            <button class="section-logs-toggle" onclick="toggleSectionLogs('training')">Show Logs</button>
+                    <div class="pipeline-container">
+                        <div class="pipeline-steps" id="pipeline-steps">
+                            <div class="pipeline-step pending" data-step="B.1">
+                                <div class="step-indicator">B1</div>
+                                <div class="step-label">Stats</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.2">
+                                <div class="step-indicator">B2</div>
+                                <div class="step-label">Embed</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.3">
+                                <div class="step-indicator">B3</div>
+                                <div class="step-label">Normalize</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.4">
+                                <div class="step-indicator">B4</div>
+                                <div class="step-label">Prep</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.5">
+                                <div class="step-indicator">B5</div>
+                                <div class="step-label">Train</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.6">
+                                <div class="step-indicator">B6</div>
+                                <div class="step-label">Score</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.7">
+                                <div class="step-indicator">B7</div>
+                                <div class="step-label">Assign</div>
+                            </div>
+                            <div class="pipeline-step pending" data-step="B.8">
+                                <div class="step-indicator">B8</div>
+                                <div class="step-label">SHAP</div>
+                            </div>
                         </div>
-                        <div class="section-logs" id="training-logs"></div>
                     </div>
-                </div>
-            </section>
 
-            <!-- Pattern Identification Section -->
-            <section class="card">
-                <h2>Pattern Identification</h2>
-
-                <div class="section">
-                    <h3>1. Score & Assign Messages</h3>
-                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Score all messages through VAE and assign representative examples to each pattern.</p>
-                    <div class="controls">
-                        <button id="btn-batch-score" class="btn btn-primary" disabled>Run Batch Scoring</button>
-                    </div>
-                    <div id="batch-status" class="status-message"></div>
-
-                    <!-- Scoring Logs -->
-                    <div class="section-logs-wrapper" id="scoring-logs-wrapper">
-                        <div class="section-logs-header">
-                            <h4>Scoring Logs</h4>
-                            <button class="section-logs-toggle" onclick="toggleSectionLogs('scoring')">Show Logs</button>
+                    <!-- Progress Display -->
+                    <div id="pipeline-progress" class="hidden">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
                         </div>
-                        <div class="section-logs" id="scoring-logs"></div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>2. SHAP Analysis</h3>
-                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Extract hierarchical weights showing how patterns compose.</p>
-                    <div class="controls">
-                        <button id="btn-shap-analysis" class="btn btn-primary" disabled>Run SHAP Analysis</button>
-                    </div>
-                    <div id="shap-status" class="status-message"></div>
-
-                    <!-- SHAP Logs -->
-                    <div class="section-logs-wrapper" id="shap-logs-wrapper">
-                        <div class="section-logs-header">
-                            <h4>SHAP Analysis Logs</h4>
-                            <button class="section-logs-toggle" onclick="toggleSectionLogs('shap')">Show Logs</button>
+                        <div class="progress-text">
+                            <span id="progress-step">Preparing...</span>
+                            <span id="progress-percent">0%</span>
                         </div>
-                        <div class="section-logs" id="shap-logs"></div>
                     </div>
                 </div>
 
-                <div class="section">
-                    <h3>3. Pattern Naming</h3>
-                    <p style="color: #666; font-size: 0.9em; margin: 4px 0 8px 0;">Use LLM to name patterns based on message examples and hierarchical composition.</p>
-                    <div class="controls">
-                        <button id="btn-identify" class="btn btn-primary" disabled>Identify Patterns</button>
+                <!-- Starting Point Selector -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Run Pipeline</h2>
                     </div>
-                    <div id="identify-status" class="status-message"></div>
 
-                    <!-- Naming Logs -->
-                    <div class="section-logs-wrapper" id="naming-logs-wrapper">
-                        <div class="section-logs-header">
-                            <h4>Pattern Naming Logs</h4>
-                            <button class="section-logs-toggle" onclick="toggleSectionLogs('naming')">Show Logs</button>
+                    <div class="starting-point-selector">
+                        <label class="text-sm text-muted">Select starting point:</label>
+                        <div class="starting-point-options" id="starting-point-options">
+                            <div class="starting-point-option selected" data-step="B.1">
+                                <div class="option-title">Full Pipeline</div>
+                                <div class="option-desc">Run all steps from the beginning</div>
+                                <div class="option-prereq">Requires: activities.csv</div>
+                            </div>
+                            <div class="starting-point-option disabled" data-step="B.5">
+                                <div class="option-title">From Training</div>
+                                <div class="option-desc">Skip embedding, start at VAE training</div>
+                                <div class="option-prereq">Requires: embeddings, aux_features</div>
+                            </div>
+                            <div class="starting-point-option disabled" data-step="B.6">
+                                <div class="option-title">From Batch Scoring</div>
+                                <div class="option-desc">Re-score with existing model</div>
+                                <div class="option-prereq">Requires: checkpoint, train_input</div>
+                            </div>
+                            <div class="starting-point-option disabled" data-step="B.8">
+                                <div class="option-title">SHAP Only</div>
+                                <div class="option-desc">Re-run SHAP analysis</div>
+                                <div class="option-prereq">Requires: checkpoint, activations</div>
+                            </div>
                         </div>
-                        <div class="section-logs" id="naming-logs"></div>
+                    </div>
+
+                    <div class="controls">
+                        <button id="btn-start-pipeline" class="btn btn-primary" disabled>Start Processing</button>
+                        <button id="btn-stop-pipeline" class="btn btn-danger hidden">Stop</button>
+                    </div>
+                    <div id="processing-status-message" class="status-message hidden"></div>
+                </div>
+
+                <!-- R2 File Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>R2 Storage Status</h2>
+                    </div>
+                    <div class="r2-status-grid" id="r2-status-grid">
+                        <!-- Populated by JavaScript -->
                     </div>
                 </div>
 
-                <div class="section">
-                    <h3>4. Population Analysis</h3>
+                <!-- Section 2 Logs -->
+                <div class="card">
+                    <div class="logs-header">
+                        <h3>Processing Logs</h3>
+                        <button id="btn-clear-processing-logs" class="btn btn-secondary btn-sm">Clear</button>
+                    </div>
+                    <div id="processing-logs" class="logs-container"></div>
+                </div>
+            </div>
+
+            <!-- ================================================================
+                 SECTION 3: Pattern Naming (Segment C)
+                 ================================================================ -->
+            <div id="section-naming" class="section-content">
+                <!-- Naming Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Pattern Naming</h2>
+                    </div>
+
+                    <p class="text-muted mb-4">
+                        Generate human-readable names and descriptions for discovered patterns using LLM analysis.
+                    </p>
+
                     <div class="controls">
-                        <button id="btn-population-viewer" class="btn btn-secondary" disabled>Open Population Viewer</button>
+                        <button id="btn-name-patterns" class="btn btn-primary" disabled>Generate Names</button>
+                        <button id="btn-refresh-patterns" class="btn btn-secondary" disabled>Refresh List</button>
+                        <button id="btn-population-viewer" class="btn btn-secondary" disabled>Population Viewer</button>
+                    </div>
+                    <div id="naming-status-message" class="status-message hidden"></div>
+
+                    <!-- Progress Display -->
+                    <div id="naming-progress" class="hidden mt-4">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="naming-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="naming-progress-text">Naming patterns...</span>
+                            <span id="naming-progress-percent">0%</span>
+                        </div>
                     </div>
                 </div>
-            </section>
 
-            <!-- Evaluation Section -->
-            <section class="card">
-                <h2>Evaluation</h2>
+                <!-- Pattern List -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Patterns</h2>
+                        <div class="text-sm text-muted" id="pattern-count">0 patterns</div>
+                    </div>
 
-                <div class="section">
-                    <h3>1. Select Engineer</h3>
-                    <div class="controls">
-                        <select id="engineer-select" class="select" disabled>
+                    <div class="pattern-list" id="pattern-list">
+                        <div class="text-muted" style="text-align: center; padding: 32px;">
+                            No patterns available. Run processing pipeline first.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3 Logs -->
+                <div class="card">
+                    <div class="logs-header">
+                        <h3>Naming Logs</h3>
+                        <button id="btn-clear-naming-logs" class="btn btn-secondary btn-sm">Clear</button>
+                    </div>
+                    <div id="naming-logs" class="logs-container"></div>
+                </div>
+            </div>
+
+            <!-- ================================================================
+                 SECTION 4: Individual Scoring (Segment D)
+                 ================================================================ -->
+            <div id="section-scoring" class="section-content">
+                <!-- Engineer Selection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Score Individual Engineer</h2>
+                    </div>
+
+                    <div class="controls mb-4">
+                        <select id="scoring-engineer-select" class="select" disabled>
                             <option value="">Select an engineer...</option>
                         </select>
-                        <button id="btn-refresh-engineers" class="btn btn-secondary" disabled>Refresh List</button>
+                        <button id="btn-refresh-scoring-engineers" class="btn btn-secondary btn-sm" disabled>Refresh</button>
                     </div>
-                </div>
 
-                <div class="section">
-                    <h3>2. Score & Report</h3>
                     <div class="controls">
-                        <button id="btn-score" class="btn btn-primary" disabled>Score Engineer</button>
-                        <button id="btn-report" class="btn btn-primary" disabled>Generate Report</button>
+                        <button id="btn-score-engineer" class="btn btn-primary" disabled>Score Engineer</button>
+                        <button id="btn-generate-report" class="btn btn-success" disabled>Generate Report</button>
+                        <button id="btn-view-report" class="btn btn-secondary" disabled>View Full Report</button>
                     </div>
-                    <div id="eval-status" class="status-message"></div>
+                    <div id="scoring-status-message" class="status-message hidden"></div>
                 </div>
 
-                <div class="section">
-                    <h3>3. Results</h3>
-                    <div class="controls">
-                        <button id="btn-view-report" class="btn btn-secondary" disabled>View Report</button>
-                        <button id="btn-download-report" class="btn btn-secondary" disabled>Download Report</button>
+                <!-- Scores Display -->
+                <div class="card" id="scores-card" style="display: none;">
+                    <div class="card-header">
+                        <h2>Scores</h2>
+                        <button id="btn-download-scores" class="btn btn-secondary btn-sm">Download JSON</button>
                     </div>
-                    <div id="scores-container" class="scores-container" style="display: none;">
-                        <h4>Scores</h4>
-                        <pre id="scores-content" class="scores-content"></pre>
-                    </div>
-                    <div id="report-container" class="report-container" style="display: none;">
-                        <h4>Report</h4>
-                        <pre id="report-content" class="report-content"></pre>
-                    </div>
+                    <pre class="scores-display" id="scores-display"></pre>
                 </div>
-            </section>
 
-            <!-- Logs Section -->
-            <section class="card">
-                <h2>Logs</h2>
-                <div class="log-controls">
-                    <button id="btn-refresh-logs" class="btn btn-secondary">Refresh Logs</button>
-                    <button id="btn-clear-logs" class="btn btn-secondary">Clear Display</button>
+                <!-- Report Display -->
+                <div class="card" id="report-card" style="display: none;">
+                    <div class="card-header">
+                        <h2>Report Summary</h2>
+                        <button id="btn-download-report" class="btn btn-secondary btn-sm">Download</button>
+                    </div>
+                    <div class="report-display" id="report-display"></div>
                 </div>
-                <div id="logs-container" class="logs-container"></div>
-            </section>
+
+                <!-- Section 4 Logs -->
+                <div class="card">
+                    <div class="logs-header">
+                        <h3>Scoring Logs</h3>
+                        <button id="btn-clear-scoring-logs" class="btn btn-secondary btn-sm">Clear</button>
+                    </div>
+                    <div id="scoring-logs" class="logs-container"></div>
+                </div>
+            </div>
         </main>
     </div>
 
     <script>
-// API base URL - handle /bpd prefix for cloud deployment
+// ============================================================================
+// Configuration & State
+// ============================================================================
 const API_BASE = window.location.pathname.startsWith('/bpd')
     ? `${window.location.origin}/bpd`
     : window.location.origin;
 
-// State
-let currentEngineerId = null;
-let statusCheckInterval = null;
-let engineerSummaryData = [];  // Store engineer data for sorting
-let currentSortColumn = 'activity_count';  // Default sort column
-let currentSortDirection = 'desc';  // Default sort direction
-let ws = null;  // WebSocket connection
-
-// Project state management
-let currentProjectId = localStorage.getItem('bpd_project_id') || null;
-let currentProjectName = localStorage.getItem('bpd_project_name') || null;
-
-// Helper to get project-specific API base
-function getProjectApiBase() {
-    if (!currentProjectId) {
-        throw new Error('No project selected');
-    }
-    return `${API_BASE}/api/projects/${currentProjectId}`;
-}
-
-// Helper to check if project is selected
-function requireProject() {
-    if (!currentProjectId) {
-        alert('Please select or create a project first');
-        return false;
-    }
-    return true;
-}
-
-// Project management functions
-async function loadProjects() {
-    const select = document.getElementById('project-select');
-    const statusEl = document.getElementById('project-status');
-
-    try {
-        const response = await fetch(`${API_BASE}/api/projects`);
-        if (!response.ok) throw new Error('Failed to fetch projects');
-
-        const projects = await response.json();
-
-        // Clear and repopulate
-        select.innerHTML = '<option value="">Select a project...</option>';
-        projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.id;
-            option.textContent = `${project.name} (${project.status})`;
-            option.dataset.name = project.name;
-            option.dataset.created = project.created_at;
-            select.appendChild(option);
-        });
-
-        // Restore previous selection if valid
-        if (currentProjectId) {
-            const exists = projects.some(p => p.id === currentProjectId);
-            if (exists) {
-                select.value = currentProjectId;
-                showProjectInfo();
-            } else {
-                // Previous project no longer exists
-                clearProjectSelection();
-            }
-        }
-
-    } catch (error) {
-        console.error('Failed to load projects:', error);
-        showStatus(statusEl, `Error loading projects: ${error.message}`, 'error');
-    }
-}
-
-async function createProject() {
-    const nameInput = document.getElementById('new-project-name');
-    const statusEl = document.getElementById('project-status');
-    const name = nameInput.value.trim();
-
-    if (!name) {
-        showStatus(statusEl, 'Please enter a project name', 'error');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/api/projects`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create project');
-        }
-
-        const project = await response.json();
-
-        showStatus(statusEl, `Project "${name}" created!`, 'success');
-        nameInput.value = '';
-
-        // Reload projects and select the new one
-        await loadProjects();
-        document.getElementById('project-select').value = project.id;
-        await selectProject(project.id, name);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-    }
-}
-
-async function selectProject(projectId, projectName) {
-    const statusEl = document.getElementById('project-status');
-
-    if (!projectId) {
-        clearProjectSelection();
-        return;
-    }
-
-    currentProjectId = projectId;
-    currentProjectName = projectName || document.getElementById('project-select').selectedOptions[0]?.dataset.name || projectId;
-
-    // Persist to localStorage
-    localStorage.setItem('bpd_project_id', currentProjectId);
-    localStorage.setItem('bpd_project_name', currentProjectName);
-
-    showProjectInfo();
-
-    // Reconnect WebSocket with new project ID
-    reconnectWebSocket();
-
-    // Update status and enable buttons
-    await updateStatus();
-
-    showStatus(statusEl, `Project "${currentProjectName}" selected`, 'success');
-
-    // Show delete button
-    document.getElementById('btn-delete-project').style.display = 'inline-block';
-}
-
-function clearProjectSelection() {
-    currentProjectId = null;
-    currentProjectName = null;
-    localStorage.removeItem('bpd_project_id');
-    localStorage.removeItem('bpd_project_name');
-
-    document.getElementById('project-info').style.display = 'none';
-    document.getElementById('btn-delete-project').style.display = 'none';
-    document.getElementById('project-select').value = '';
-
-    // Disable all pipeline buttons
-    disableAllPipelineButtons();
-}
-
-function showProjectInfo() {
-    const infoEl = document.getElementById('project-info');
-    const select = document.getElementById('project-select');
-    const selectedOption = select.selectedOptions[0];
-
-    document.getElementById('current-project-name').textContent = currentProjectName;
-    document.getElementById('current-project-id').textContent = currentProjectId;
-
-    if (selectedOption && selectedOption.dataset.created) {
-        const created = new Date(selectedOption.dataset.created);
-        document.getElementById('current-project-created').textContent = created.toLocaleDateString();
-    }
-
-    infoEl.style.display = 'block';
-    document.getElementById('btn-delete-project').style.display = 'inline-block';
-}
-
-async function deleteProject() {
-    if (!currentProjectId) return;
-
-    const confirmed = confirm(`Are you sure you want to delete project "${currentProjectName}"?\n\nThis will permanently delete all data, models, and results for this project.`);
-    if (!confirmed) return;
-
-    const statusEl = document.getElementById('project-status');
-
-    try {
-        const response = await fetch(`${API_BASE}/api/projects/${currentProjectId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete project');
-        }
-
-        showStatus(statusEl, `Project "${currentProjectName}" deleted`, 'success');
-        clearProjectSelection();
-        await loadProjects();
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-    }
-}
-
-function disableAllPipelineButtons() {
-    // Data collection
-    document.getElementById('btn-fetch-ndjson').disabled = true;
-    document.getElementById('btn-generate-synthetic').disabled = true;
-    document.getElementById('btn-refresh-synthetic-summary').disabled = true;
-    document.getElementById('btn-refresh-engineer-summary').disabled = true;
-    document.getElementById('btn-preprocess').disabled = true;
-    document.getElementById('btn-normalization').disabled = true;
-
-    // Training
-    document.getElementById('btn-train-vae').disabled = true;
-    document.getElementById('btn-train-from-existing').disabled = true;
-
-    // Pattern identification
-    document.getElementById('btn-batch-score').disabled = true;
-    document.getElementById('btn-shap-analysis').disabled = true;
-    document.getElementById('btn-identify').disabled = true;
-    document.getElementById('btn-population-viewer').disabled = true;
-
-    // Evaluation
-    document.getElementById('btn-refresh-engineers').disabled = true;
-    document.getElementById('engineer-select').disabled = true;
-    document.getElementById('btn-score').disabled = true;
-    document.getElementById('btn-report').disabled = true;
-}
-
-function reconnectWebSocket() {
-    // Close existing connection
-    if (ws) {
-        ws.close();
-        ws = null;
-    }
-
-    // Only reconnect if project is selected
-    if (currentProjectId) {
-        connectWebSocket();
-    }
-}
-
-// Section logs management - maps section names to container IDs
-const sectionLogContainers = {
-    'embedding': 'embedding-logs',
-    'preprocessing': 'embedding-logs',
-    'training': 'training-logs',
-    'scoring': 'scoring-logs',
-    'shap': 'shap-logs',
-    'naming': 'naming-logs',
-    'general': 'logs-container',
+// Application State
+const state = {
+    projectId: localStorage.getItem('bpd_project_id') || null,
+    projectName: localStorage.getItem('bpd_project_name') || null,
+    currentSection: 'data',
+    selectedStartingPoint: 'B.1',
+    selectedEngineerId: null,
+    r2Status: {},
+    hetznerStatus: {},
+    pipelineRunning: false,
+    failedStep: null,
+    ws: null,
+    engineerData: [],
+    patternData: [],
 };
 
-function toggleSectionLogs(section) {
-    const containerId = sectionLogContainers[section] || 'logs-container';
-    const container = document.getElementById(containerId);
-    const wrapper = document.getElementById(`${containerId.replace('-logs', '')}-logs-wrapper`);
-    const button = wrapper?.querySelector('.section-logs-toggle');
+// R2 file configuration
+const R2_FILES = {
+    embeddings: { label: 'Embeddings', icon: '📊' },
+    aux_features: { label: 'Aux Features', icon: '📈' },
+    normalized_embeddings: { label: 'Normalized', icon: '📐' },
+    train_input: { label: 'Train Input', icon: '📦' },
+    message_database: { label: 'Message DB', icon: '💬' },
+    checkpoint: { label: 'Checkpoint', icon: '🎯' },
+    activations: { label: 'Activations', icon: '⚡' },
+};
 
-    if (container) {
-        const isActive = container.classList.toggle('active');
-        if (button) {
-            button.textContent = isActive ? 'Hide Logs' : 'Show Logs';
+// Pipeline steps configuration
+const PIPELINE_STEPS = [
+    { id: 'B.1', label: 'Stats', outputs: ['aux_features'] },
+    { id: 'B.2', label: 'Embed', outputs: ['embeddings'] },
+    { id: 'B.3', label: 'Normalize', outputs: ['normalized_embeddings'] },
+    { id: 'B.4', label: 'Prep', outputs: ['train_input', 'message_database'] },
+    { id: 'B.5', label: 'Train', outputs: ['checkpoint'] },
+    { id: 'B.6', label: 'Score', outputs: ['activations'] },
+    { id: 'B.7', label: 'Assign', outputs: [] },
+    { id: 'B.8', label: 'SHAP', outputs: [] },
+];
+
+// Starting point prerequisites
+const STARTING_POINTS = {
+    'B.1': { r2: [], hetzner: ['activities.csv'] },
+    'B.5': { r2: ['embeddings', 'aux_features'], hetzner: ['activities.csv'] },
+    'B.6': { r2: ['checkpoint', 'train_input', 'message_database'], hetzner: [] },
+    'B.8': { r2: ['checkpoint', 'activations'], hetzner: [] },
+};
+
+// ============================================================================
+// API Helpers
+// ============================================================================
+function getProjectApiBase() {
+    if (!state.projectId) {
+        throw new Error('No project selected');
+    }
+    return `${API_BASE}/api/projects/${state.projectId}`;
+}
+
+async function apiGet(endpoint) {
+    const response = await fetch(`${getProjectApiBase()}${endpoint}`);
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+async function apiPost(endpoint, data = {}) {
+    const response = await fetch(`${getProjectApiBase()}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+// ============================================================================
+// UI Helpers
+// ============================================================================
+function $(selector) {
+    return document.querySelector(selector);
+}
+
+function $$(selector) {
+    return document.querySelectorAll(selector);
+}
+
+function showStatus(elementId, message, type = 'info') {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = message;
+    el.className = `status-message ${type}`;
+    el.classList.remove('hidden');
+}
+
+function hideStatus(elementId) {
+    const el = document.getElementById(elementId);
+    if (el) el.classList.add('hidden');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(isoString) {
+    return new Date(isoString).toLocaleString();
+}
+
+// ============================================================================
+// Section Navigation
+// ============================================================================
+function switchSection(sectionId) {
+    state.currentSection = sectionId;
+
+    // Update tabs
+    $$('.section-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.section === sectionId);
+    });
+
+    // Update content
+    $$('.section-content').forEach(content => {
+        content.classList.toggle('active', content.id === `section-${sectionId}`);
+    });
+
+    // Refresh section data
+    if (state.projectId) {
+        switch (sectionId) {
+            case 'data':
+                refreshEngineerSummary();
+                break;
+            case 'processing':
+                refreshR2Status();
+                break;
+            case 'naming':
+                refreshPatternList();
+                break;
+            case 'scoring':
+                refreshScoringEngineers();
+                break;
         }
     }
 }
 
-function appendSectionLog(section, message, level = 'info') {
-    const containerId = sectionLogContainers[section] || 'logs-container';
-    const container = document.getElementById(containerId);
+// ============================================================================
+// Logging
+// ============================================================================
+function appendLog(section, message, level = 'info') {
+    const logContainers = {
+        data: 'data-logs',
+        processing: 'processing-logs',
+        naming: 'naming-logs',
+        scoring: 'scoring-logs',
+    };
 
+    const containerId = logContainers[section] || 'processing-logs';
+    const container = document.getElementById(containerId);
     if (!container) return;
 
     const timestamp = new Date().toLocaleTimeString();
@@ -926,103 +1473,40 @@ function appendSectionLog(section, message, level = 'info') {
 
     container.appendChild(logLine);
     container.scrollTop = container.scrollHeight;
-
-    // Auto-show logs when new content arrives
-    if (!container.classList.contains('active')) {
-        container.classList.add('active');
-        const wrapper = container.closest('.section-logs-wrapper');
-        const button = wrapper?.querySelector('.section-logs-toggle');
-        if (button) {
-            button.textContent = 'Hide Logs';
-        }
-    }
 }
 
-function clearSectionLogs(section) {
-    const containerId = sectionLogContainers[section] || 'logs-container';
+function clearLogs(section) {
+    const logContainers = {
+        data: 'data-logs',
+        processing: 'processing-logs',
+        naming: 'naming-logs',
+        scoring: 'scoring-logs',
+    };
+
+    const containerId = logContainers[section];
     const container = document.getElementById(containerId);
-    if (container) {
-        container.innerHTML = '';
-    }
+    if (container) container.innerHTML = '';
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function handleWebSocketMessage(data) {
-    const section = data.section || 'general';
-    const eventType = data.type;
-    let level = 'info';
-    let message = '';
-
-    if (eventType === 'job_status') {
-        message = data.message || 'Status update';
-    } else if (eventType === 'job_progress') {
-        const pct = Math.round((data.progress || 0) * 100);
-        const extra = data.processed ? ` (${data.processed}/${data.total})` : '';
-        message = `Progress: ${pct}%${extra}`;
-    } else if (eventType === 'job_epoch') {
-        const metrics = data.metrics || {};
-        const metricsStr = Object.entries(metrics)
-            .slice(0, 5)  // Limit to 5 metrics for readability
-            .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(4) : v}`)
-            .join(', ');
-        const best = data.is_best ? ' [BEST]' : '';
-        message = `Epoch ${data.epoch}: ${metricsStr}${best}`;
-    } else if (eventType === 'job_completed') {
-        message = data.message || 'Completed';
-        level = 'success';
-    } else if (eventType === 'job_failed') {
-        message = `ERROR: ${data.error}`;
-        level = 'error';
-    } else {
-        return;  // Unknown event type
-    }
-
-    // Append to section-specific logs
-    appendSectionLog(section, message, level);
-
-    // Also append to main logs for comprehensive view
-    if (section !== 'general') {
-        const mainContainer = document.getElementById('logs-container');
-        if (mainContainer) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logLine = document.createElement('div');
-            logLine.className = `log-line log-${level}`;
-            logLine.innerHTML = `<span style="color: #7f8c8d;">[${timestamp}]</span> <span style="color: #9b59b6;">[${section.toUpperCase()}]</span> ${escapeHtml(message)}`;
-            mainContainer.appendChild(logLine);
-            mainContainer.scrollTop = mainContainer.scrollHeight;
-        }
-    }
-}
-
+// ============================================================================
+// WebSocket
+// ============================================================================
 function connectWebSocket() {
-    // Don't connect if no project selected
-    if (!currentProjectId) {
-        console.log('WebSocket: No project selected, skipping connection');
-        return;
-    }
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        return;  // Already connected
-    }
+    if (!state.projectId) return;
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use /bpd prefix for cloud deployment
     const wsPrefix = window.location.pathname.startsWith('/bpd') ? '/bpd' : '';
-    const wsUrl = `${protocol}//${window.location.host}${wsPrefix}/ws/projects/${currentProjectId}/events`;
+    const wsUrl = `${protocol}//${window.location.host}${wsPrefix}/ws/projects/${state.projectId}/events`;
 
     try {
-        ws = new WebSocket(wsUrl);
+        state.ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-            console.log('WebSocket connected to project:', currentProjectId);
+        state.ws.onopen = () => {
+            console.log('WebSocket connected');
         };
 
-        ws.onmessage = (event) => {
+        state.ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 handleWebSocketMessage(data);
@@ -1031,16 +1515,14 @@ function connectWebSocket() {
             }
         };
 
-        ws.onclose = () => {
+        state.ws.onclose = () => {
             console.log('WebSocket disconnected, reconnecting in 5s...');
             setTimeout(() => {
-                if (currentProjectId) {
-                    connectWebSocket();
-                }
+                if (state.projectId) connectWebSocket();
             }, 5000);
         };
 
-        ws.onerror = (error) => {
+        state.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
         };
     } catch (e) {
@@ -1048,1254 +1530,1265 @@ function connectWebSocket() {
     }
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
-    setupEventListeners();
-    startStatusPolling();
-});
+function handleWebSocketMessage(data) {
+    const eventType = data.type;
+    const section = data.section || 'processing';
 
-function initializeApp() {
-    // Load projects first
-    loadProjects().then(() => {
-        // Only update status and connect WebSocket if project is selected
-        if (currentProjectId) {
-            updateStatus();
-            connectWebSocket();
-        } else {
-            disableAllPipelineButtons();
-        }
-    });
-    refreshLogs();
-}
+    // Map section to log container
+    const sectionMap = {
+        embedding: 'processing',
+        preprocessing: 'processing',
+        training: 'processing',
+        scoring: 'processing',
+        shap: 'processing',
+        naming: 'naming',
+        general: 'processing',
+    };
 
-function setupEventListeners() {
-    // Button listeners
-    document.getElementById('btn-preprocess').addEventListener('click', preprocessData);
-    document.getElementById('btn-normalization').addEventListener('click', applyNormalization);
-    document.getElementById('btn-train-vae').addEventListener('click', trainVAE);
-    // Pattern identification - new order: batch_score -> shap_analysis -> identify_patterns
-    document.getElementById('btn-batch-score').addEventListener('click', batchScore);
-    document.getElementById('btn-shap-analysis').addEventListener('click', runSHAPAnalysis);
-    document.getElementById('btn-identify').addEventListener('click', identifyPatterns);
-    document.getElementById('btn-population-viewer').addEventListener('click', openPopulationViewer);
-    document.getElementById('btn-refresh-engineers').addEventListener('click', refreshEngineers);
-    document.getElementById('btn-score').addEventListener('click', scoreEngineer);
-    document.getElementById('btn-report').addEventListener('click', generateReport);
-    document.getElementById('btn-view-report').addEventListener('click', viewReport);
-    document.getElementById('btn-refresh-logs').addEventListener('click', refreshLogs);
-    document.getElementById('btn-clear-logs').addEventListener('click', clearLogs);
-    document.getElementById('btn-download-report').addEventListener('click', downloadReport);
-    document.getElementById('engineer-select').addEventListener('change', onEngineerSelected);
+    const logSection = sectionMap[section] || 'processing';
+    let level = 'info';
+    let message = '';
 
-    // Data loading and engineer management listeners
-    document.getElementById('btn-fetch-ndjson').addEventListener('click', fetchNDJSON);
-    document.getElementById('btn-refresh-engineer-summary').addEventListener('click', refreshEngineerSummary);
+    switch (eventType) {
+        case 'job_status':
+            message = data.message || 'Status update';
+            break;
 
-    // File input change handler
-    document.getElementById('ndjson-file').addEventListener('change', (e) => {
-        const fileName = e.target.files[0]?.name || 'No file selected';
-        document.getElementById('ndjson-file-name').textContent = fileName;
-    });
+        case 'job_progress':
+            const pct = Math.round((data.progress || 0) * 100);
+            message = data.message || `Progress: ${pct}%`;
 
-    // Train from existing VAE listeners
-    document.getElementById('btn-train-from-existing').addEventListener('click', showExistingModelInput);
-    document.getElementById('btn-start-from-existing').addEventListener('click', trainFromExistingVAE);
-    document.getElementById('btn-cancel-from-existing').addEventListener('click', hideExistingModelInput);
-
-    // Stop training button
-    document.getElementById('btn-stop-training').addEventListener('click', stopTraining);
-
-    // Synthetic profile listeners
-    document.getElementById('btn-generate-synthetic').addEventListener('click', generateSyntheticProfiles);
-    document.getElementById('btn-refresh-synthetic-summary').addEventListener('click', refreshSyntheticSummary);
-    document.getElementById('btn-add-synthetic').addEventListener('click', addSyntheticToActivities);
-    document.getElementById('btn-set-train').addEventListener('click', () => setEngineerSplit('train'));
-    document.getElementById('btn-set-validation').addEventListener('click', () => setEngineerSplit('validation'));
-    document.getElementById('btn-remove-selected').addEventListener('click', removeSelectedEngineers);
-    document.getElementById('btn-merge-engineers').addEventListener('click', mergeSelectedEngineers);
-    document.getElementById('select-all-engineers').addEventListener('change', toggleSelectAllEngineers);
-
-    // Sortable table headers
-    document.querySelectorAll('#engineer-summary-table th[data-sort]').forEach(th => {
-        th.addEventListener('click', () => sortEngineerTable(th.dataset.sort));
-    });
-
-    // Project management listeners
-    document.getElementById('project-select').addEventListener('change', (e) => {
-        const selectedOption = e.target.selectedOptions[0];
-        selectProject(e.target.value, selectedOption?.dataset.name);
-    });
-    document.getElementById('btn-refresh-projects').addEventListener('click', loadProjects);
-    document.getElementById('btn-create-project').addEventListener('click', createProject);
-    document.getElementById('btn-delete-project').addEventListener('click', deleteProject);
-}
-
-function startStatusPolling() {
-    updateStatus();
-    statusCheckInterval = setInterval(updateStatus, 5000); // Every 5 seconds
-}
-
-async function updateStatus() {
-    try {
-        if (!currentProjectId) {
-            disableAllPipelineButtons();
-            return;
-        }
-        const response = await fetch(`${getProjectApiBase()}/status`);
-        const data = await response.json();
-
-        const status = data.status;
-        const canRun = data.can_run;
-
-        // Enable/disable buttons based on file existence
-        document.getElementById('btn-preprocess').disabled = !canRun.preprocess;
-        document.getElementById('btn-normalization').disabled = !canRun.train_vae;  // Enabled when preprocessed data exists
-        document.getElementById('btn-train-vae').disabled = !canRun.train_vae;
-        document.getElementById('btn-train-from-existing').disabled = !canRun.train_vae;
-
-        // Pattern identification buttons - NEW dependency chain
-        document.getElementById('btn-batch-score').disabled = !canRun.batch_score;
-        document.getElementById('btn-shap-analysis').disabled = !canRun.shap_analysis;
-        document.getElementById('btn-identify').disabled = !canRun.identify_patterns;
-        // Population viewer works with or without pattern names (uses placeholders if not named)
-        document.getElementById('btn-population-viewer').disabled = !canRun.population_viewer;
-
-        // Evaluation buttons
-        document.getElementById('btn-refresh-engineers').disabled = !status.data_collected;
-        document.getElementById('engineer-select').disabled = !status.data_collected;
-        document.getElementById('btn-score').disabled = !canRun.score_engineer || !currentEngineerId;
-
-        // Auto-refresh engineers list if data was just collected
-        if (status.data_collected && document.getElementById('engineer-select').options.length === 1) {
-            refreshEngineers();
-        }
-
-    } catch (error) {
-        console.error('Failed to update status:', error);
-    }
-}
-
-async function batchScore() {
-    const btn = document.getElementById('btn-batch-score');
-    const statusEl = document.getElementById('batch-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Starting batch scoring and message assignment...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-        const response = await fetch(`${getProjectApiBase()}/batch-score`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Batch scoring failed');
-        }
-
-        showStatus(statusEl, 'Batch scoring started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'batch_scoring') {
-                clearInterval(pollInterval);
-                if (status.status.batch_scored) {
-                    showStatus(statusEl, 'Batch scoring and message assignment complete!', 'success');
-                } else if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                }
-                btn.disabled = false;
+            // Update pipeline progress UI
+            if (data.step) {
+                updatePipelineProgress(data.step, data.progress, data.step_name);
             }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-async function refreshEngineers() {
-    const select = document.getElementById('engineer-select');
-
-    try {
-        if (!requireProject()) return;
-        const response = await fetch(`${getProjectApiBase()}/data/engineers`);
-        if (!response.ok) throw new Error('Failed to fetch engineers');
-
-        const data = await response.json();
-
-        // Clear and repopulate
-        select.innerHTML = '<option value="">Select an engineer...</option>';
-        data.engineers.forEach(engineer => {
-            const option = document.createElement('option');
-            option.value = engineer.engineer_id;
-            option.textContent = engineer.engineer_id;
-            select.appendChild(option);
-        });
-
-    } catch (error) {
-        console.error('Failed to refresh engineers:', error);
-    }
-}
-
-async function onEngineerSelected(event) {
-    currentEngineerId = event.target.value;
-
-    // Clear previous results
-    document.getElementById('report-container').style.display = 'none';
-    document.getElementById('scores-container').style.display = 'none';
-    document.getElementById('eval-status').innerHTML = '';
-
-    // Check if score file exists for this engineer
-    await updateButtonStates();
-}
-
-async function updateButtonStates() {
-    // Update general status
-    await updateStatus();
-
-    // If an engineer is selected, check if their score file exists
-    if (currentEngineerId && currentProjectId) {
-        try {
-            // Check if score exists by trying to fetch it
-            const scoreResponse = await fetch(`${getProjectApiBase()}/scoring/individual/${currentEngineerId}`);
-            const scoreExists = scoreResponse.ok;
-
-            // Generate Report button ONLY depends on individual score file existence
-            const reportBtn = document.getElementById('btn-report');
-            reportBtn.disabled = !scoreExists;
-
-            // Check if report exists
-            const reportResponse = await fetch(`${getProjectApiBase()}/scoring/report/${currentEngineerId}`);
-            const reportExists = reportResponse.ok;
-
-            // View Report button depends on report file existence
-            const viewReportBtn = document.getElementById('btn-view-report');
-            viewReportBtn.disabled = !reportExists;
-
-            // Download Report button depends on report file existence
-            const downloadReportBtn = document.getElementById('btn-download-report');
-            downloadReportBtn.disabled = !reportExists;
-
-            // Score button needs batch scores to be available (for percentile calculations)
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-            const scoreBtn = document.getElementById('btn-score');
-            scoreBtn.disabled = !status.can_run.score_engineer;
-
-        } catch (error) {
-            console.error('Failed to check score existence:', error);
-        }
-    }
-}
-
-async function scoreEngineer() {
-    if (!currentEngineerId) return;
-
-    const btn = document.getElementById('btn-score');
-    const statusEl = document.getElementById('eval-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Scoring engineer...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-        const response = await fetch(`${getProjectApiBase()}/scoring/individual`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ engineer_id: currentEngineerId })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Scoring failed');
-        }
-
-        const scores = await response.json();
-
-        // Display scores
-        document.getElementById('scores-content').textContent = JSON.stringify(scores, null, 2);
-        document.getElementById('scores-container').style.display = 'block';
-
-        showStatus(statusEl, 'Scoring complete!', 'success');
-        btn.disabled = false;
-
-        // Update button states - Generate Report should now be enabled
-        await updateButtonStates();
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-async function generateReport() {
-    if (!currentEngineerId) return;
-
-    const btn = document.getElementById('btn-report');
-    const statusEl = document.getElementById('eval-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Generating report...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-        const response = await fetch(`${getProjectApiBase()}/scoring/report/${currentEngineerId}`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Report generation failed');
-        }
-
-        const data = await response.json();
-
-        // Display report
-        document.getElementById('report-content').textContent = data.report;
-        document.getElementById('report-container').style.display = 'block';
-
-        showStatus(statusEl, 'Report generated!', 'success');
-
-        // Update button states to enable View Report and Download Report buttons
-        await updateButtonStates();
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-function viewReport() {
-    // Get current engineer
-    const engineerSelect = document.getElementById('engineer-select');
-    const engineerId = engineerSelect.value;
-
-    if (!engineerId) {
-        alert('Please select an engineer first');
-        return;
-    }
-
-    // Open report viewer in new tab (uses route, not static file)
-    const viewerUrl = `report_viewer.html?engineer_id=${encodeURIComponent(engineerId)}`;
-    window.open(viewerUrl, '_blank');
-}
-
-function openPopulationViewer() {
-    // Open population viewer in new tab
-    window.open('population_viewer.html', '_blank');
-}
-
-async function refreshLogs() {
-    // Logs are now delivered via WebSocket in cloud deployment
-    const logsContainer = document.getElementById('logs-container');
-    logsContainer.innerHTML = '<div class="log-line log-info">Logs are streamed via WebSocket. Waiting for activity...</div>';
-}
-
-function appendLog(text) {
-    const logsContainer = document.getElementById('logs-container');
-    const logLine = document.createElement('div');
-    logLine.className = 'log-line';
-
-    // Add color based on log level
-    if (text.includes('ERROR')) {
-        logLine.classList.add('log-error');
-    } else if (text.includes('WARNING')) {
-        logLine.classList.add('log-warning');
-    } else if (text.includes('INFO')) {
-        logLine.classList.add('log-info');
-    }
-
-    logLine.textContent = text;
-    logsContainer.appendChild(logLine);
-}
-
-function clearLogs() {
-    document.getElementById('logs-container').innerHTML = '';
-}
-
-function downloadReport() {
-    if (!currentEngineerId || !currentProjectId) return;
-
-    // Download via the scoring report endpoint
-    window.location.href = `${getProjectApiBase()}/scoring/report/${currentEngineerId}`;
-}
-
-function showStatus(element, message, type) {
-    element.textContent = message;
-    element.className = `status-message ${type}`;
-    element.style.display = 'block';
-}
-
-async function preprocessData() {
-    const btn = document.getElementById('btn-preprocess');
-    const statusEl = document.getElementById('preprocess-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Starting preprocessing...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-
-        // Get optional max activities override
-        const maxActivitiesInput = document.getElementById('max-activities-per-engineer');
-        const maxActivities = maxActivitiesInput.value ? parseInt(maxActivitiesInput.value) : null;
-
-        const response = await fetch(`${getProjectApiBase()}/preprocess`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(maxActivities !== null ? { max_activities_per_engineer: maxActivities } : {})
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Preprocessing failed');
-        }
-
-        showStatus(statusEl, 'Preprocessing started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'preprocessing') {
-                clearInterval(pollInterval);
-                showStatus(statusEl, 'Preprocessing complete!', 'success');
-                btn.disabled = false;
-            } else if (status.status.last_error) {
-                clearInterval(pollInterval);
-                showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                btn.disabled = false;
-            }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-async function applyNormalization() {
-    const btn = document.getElementById('btn-normalization');
-    const statusEl = document.getElementById('preprocess-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Starting normalization...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-
-        const response = await fetch(`${getProjectApiBase()}/preprocess`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ normalize_only: true })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Normalization failed');
-        }
-
-        showStatus(statusEl, 'Normalization started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'normalization') {
-                clearInterval(pollInterval);
-                if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'Normalization complete! Original files backed up with -base suffix.', 'success');
-                }
-                btn.disabled = false;
-            }
-        }, 2000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-async function trainVAE() {
-    const btn = document.getElementById('btn-train-vae');
-    const stopBtn = document.getElementById('btn-stop-training');
-    const statusEl = document.getElementById('train-status');
-
-    btn.disabled = true;
-    stopBtn.style.display = 'inline-block';
-    showStatus(statusEl, 'Starting VAE training (this may take 20+ minutes)...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            stopBtn.style.display = 'none';
-            return;
-        }
-
-        const response = await fetch(`${getProjectApiBase()}/train`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'VAE training failed');
-        }
-
-        showStatus(statusEl, 'VAE training started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'training_vae') {
-                clearInterval(pollInterval);
-                stopBtn.style.display = 'none';
-                if (status.status.models_trained) {
-                    showStatus(statusEl, 'VAE training complete!', 'success');
-                } else if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'VAE training stopped.', 'info');
-                }
-                btn.disabled = false;
-            }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-        stopBtn.style.display = 'none';
-    }
-}
-
-function showExistingModelInput() {
-    document.getElementById('existing-model-input').style.display = 'block';
-    document.getElementById('btn-train-from-existing').disabled = true;
-}
-
-function hideExistingModelInput() {
-    document.getElementById('existing-model-input').style.display = 'none';
-    document.getElementById('btn-train-from-existing').disabled = false;
-    document.getElementById('existing-model-path').value = '';
-}
-
-async function trainFromExistingVAE() {
-    const modelPath = document.getElementById('existing-model-path').value.trim();
-    if (!modelPath) {
-        alert('Please enter the path to an existing VAE checkpoint');
-        return;
-    }
-
-    const btn = document.getElementById('btn-start-from-existing');
-    const stopBtn = document.getElementById('btn-stop-training');
-    const statusEl = document.getElementById('train-status');
-
-    btn.disabled = true;
-    stopBtn.style.display = 'inline-block';
-    hideExistingModelInput();
-    showStatus(statusEl, `Starting VAE training from existing model: ${modelPath}...`, 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            stopBtn.style.display = 'none';
-            return;
-        }
-
-        const response = await fetch(`${getProjectApiBase()}/train`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resume_from: modelPath })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'VAE training from existing model failed');
-        }
-
-        showStatus(statusEl, 'VAE training from existing model started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'training_vae_from_existing') {
-                clearInterval(pollInterval);
-                stopBtn.style.display = 'none';
-                if (status.status.models_trained) {
-                    showStatus(statusEl, 'VAE training from existing model complete!', 'success');
-                } else if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'VAE training stopped.', 'info');
-                }
-                btn.disabled = false;
-            }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-        stopBtn.style.display = 'none';
-    }
-}
-
-async function stopTraining() {
-    const statusEl = document.getElementById('train-status');
-    // Stop training is not yet supported in cloud deployment
-    showStatus(statusEl, 'Stop training is not yet supported in cloud deployment. Training will complete its full run.', 'info');
-}
-
-async function runSHAPAnalysis() {
-    const btn = document.getElementById('btn-shap-analysis');
-    const statusEl = document.getElementById('shap-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Starting SHAP analysis...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-
-        const response = await fetch(`${getProjectApiBase()}/shap`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'SHAP analysis failed');
-        }
-
-        showStatus(statusEl, 'SHAP analysis started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'shap_analysis') {
-                clearInterval(pollInterval);
-                if (status.status.patterns_interpreted) {
-                    showStatus(statusEl, 'SHAP analysis complete!', 'success');
-                } else if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                }
-                btn.disabled = false;
-            }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-async function identifyPatterns() {
-    const btn = document.getElementById('btn-identify');
-    const statusEl = document.getElementById('identify-status');
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Starting pattern naming with LLM...', 'info');
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-
-        const response = await fetch(`${getProjectApiBase()}/name-patterns`, {
-            method: 'POST'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Pattern naming failed');
-        }
-
-        showStatus(statusEl, 'Pattern naming started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            await updateStatus();
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'pattern_naming') {
-                clearInterval(pollInterval);
-                if (status.status.patterns_identified) {
-                    showStatus(statusEl, 'Pattern naming complete!', 'success');
-                } else if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                }
-                btn.disabled = false;
-            }
-        }, 3000);
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
-    }
-}
-
-// Data Loading Functions
-
-async function fetchNDJSON() {
-    const btn = document.getElementById('btn-fetch-ndjson');
-    const statusEl = document.getElementById('ndjson-status');
-
-    const fileInput = document.getElementById('ndjson-file');
-    const basePath = document.getElementById('ndjson-path').value.trim();
-    const dateStart = document.getElementById('ndjson-date-start').value;
-    const dateEnd = document.getElementById('ndjson-date-end').value;
-
-    const hasFile = fileInput.files.length > 0;
-
-    if (!hasFile && !basePath) {
-        showStatus(statusEl, 'Please select a file or enter a folder path/URL', 'error');
-        return;
-    }
-
-    btn.disabled = true;
-
-    try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
-
-        // If file is selected, upload it first
-        if (hasFile) {
-            const file = fileInput.files[0];
-            showStatus(statusEl, `Uploading ${file.name}...`, 'info');
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const uploadResponse = await fetch(`${getProjectApiBase()}/data/upload/ndjson`, {
-                method: 'POST',
-                body: formData
+            break;
+
+        case 'job_epoch':
+            const metrics = data.metrics || {};
+            const metricsStr = Object.entries(metrics)
+                .slice(0, 4)
+                .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(4) : v}`)
+                .join(', ');
+            message = `Epoch ${data.epoch}: ${metricsStr}`;
+            break;
+
+        case 'job_completed':
+            message = data.message || 'Completed';
+            level = 'success';
+            state.pipelineRunning = false;
+            refreshR2Status();
+            updatePipelineUI();
+            break;
+
+        case 'job_failed':
+            message = `ERROR: ${data.error}`;
+            level = 'error';
+            state.pipelineRunning = false;
+            updatePipelineUI();
+
+            // Show prominent error banner
+            showPipelineError({
+                step: data.failed_step || data.step,
+                stepName: data.failed_step_name || data.step_name,
+                error: data.error,
+                stepsCompleted: data.steps_completed || [],
             });
+            break;
 
-            if (!uploadResponse.ok) {
-                const error = await uploadResponse.json();
-                throw new Error(error.detail || 'File upload failed');
-            }
+        default:
+            return;
+    }
 
-            const uploadResult = await uploadResponse.json();
-            showStatus(statusEl, `File uploaded. Loading data...`, 'info');
+    appendLog(logSection, message, level);
+}
 
-            // Now fetch from the uploaded file path
-            await loadNDJSONFromPath(uploadResult.path, dateStart, dateEnd, statusEl, btn);
+function updatePipelineProgress(stepId, progress, stepName) {
+    // Update step indicators
+    const steps = $$('.pipeline-step');
+    let foundCurrent = false;
+
+    steps.forEach(step => {
+        const stepDataId = step.dataset.step;
+
+        if (stepDataId === stepId) {
+            step.className = 'pipeline-step in-progress';
+            foundCurrent = true;
+        } else if (!foundCurrent) {
+            step.className = 'pipeline-step completed';
         } else {
-            // Load from path/URL directly
-            const sourceType = basePath.startsWith('http') ? 'URL' : basePath.endsWith('.zip') ? 'zip file' : 'folder';
-            showStatus(statusEl, `Loading data from ${sourceType}: ${basePath}...`, 'info');
-            await loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn);
+            step.className = 'pipeline-step pending';
         }
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-        btn.disabled = false;
+    });
+
+    // Update progress bar
+    const progressBar = $('#progress-bar');
+    const progressStep = $('#progress-step');
+    const progressPercent = $('#progress-percent');
+    const progressContainer = $('#pipeline-progress');
+
+    if (progressContainer) {
+        progressContainer.classList.remove('hidden');
+    }
+
+    if (progressBar) {
+        progressBar.style.width = `${Math.round(progress * 100)}%`;
+    }
+
+    if (progressStep) {
+        progressStep.textContent = stepName || stepId;
+    }
+
+    if (progressPercent) {
+        progressPercent.textContent = `${Math.round(progress * 100)}%`;
     }
 }
 
-async function loadNDJSONFromPath(basePath, dateStart, dateEnd, statusEl, btn) {
+// ============================================================================
+// Project Management
+// ============================================================================
+async function loadProjects() {
+    const select = $('#project-select');
 
     try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
+        const response = await fetch(`${API_BASE}/api/projects`);
+        if (!response.ok) throw new Error('Failed to fetch projects');
 
-        const requestBody = {
-            input_path: basePath
-        };
+        const projects = await response.json();
 
-        // Only include date filters if provided
-        if (dateStart) {
-            requestBody.date_start = dateStart;
-        }
-        if (dateEnd) {
-            requestBody.date_end = dateEnd;
-        }
+        // Separate root projects and variants
+        const rootProjects = projects.filter(p => !p.parent_id);
+        const variantsByParent = {};
+        projects.filter(p => p.parent_id).forEach(v => {
+            if (!variantsByParent[v.parent_id]) variantsByParent[v.parent_id] = [];
+            variantsByParent[v.parent_id].push(v);
+        });
 
-        const response = await fetch(`${getProjectApiBase()}/data/fetch/ndjson`, {
+        select.innerHTML = '<option value="">Select a project...</option>';
+
+        // Render root projects with their variants nested below
+        rootProjects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = `${project.name} (${project.status || 'new'})`;
+            option.dataset.name = project.name;
+            option.dataset.isRoot = 'true';
+            select.appendChild(option);
+
+            // Add variants as indented options
+            const variants = variantsByParent[project.id] || [];
+            variants.forEach(variant => {
+                const varOption = document.createElement('option');
+                varOption.value = variant.id;
+                varOption.textContent = `  \u2514\u2500 ${variant.name} (${variant.status || 'new'})`;
+                varOption.dataset.name = variant.name;
+                varOption.dataset.isRoot = 'false';
+                varOption.dataset.parentId = project.id;
+                select.appendChild(varOption);
+            });
+        });
+
+        // Restore previous selection
+        if (state.projectId) {
+            const exists = projects.some(p => p.id === state.projectId);
+            if (exists) {
+                select.value = state.projectId;
+            } else {
+                clearProjectSelection();
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+async function createProject() {
+    const nameInput = $('#new-project-name');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert('Please enter a project name');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({ name }),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'Data loading failed');
+            throw new Error(error.detail || 'Failed to create project');
         }
 
-        showStatus(statusEl, 'Data loading started. Check logs for progress.', 'info');
+        const project = await response.json();
+        nameInput.value = '';
 
-        const pollInterval = setInterval(async () => {
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'fetching_ndjson') {
-                clearInterval(pollInterval);
-                if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'Data loading complete! Refresh summary to see engineers.', 'success');
-                }
-                btn.disabled = false;
-            }
-        }, 3000);
+        await loadProjects();
+        $('#project-select').value = project.id;
+        await selectProject(project.id, name);
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function selectProject(projectId, projectName) {
+    if (!projectId) {
+        clearProjectSelection();
+        return;
+    }
+
+    state.projectId = projectId;
+    const selectedOption = $('#project-select').selectedOptions[0];
+    state.projectName = projectName || selectedOption?.dataset.name || projectId;
+    state.isRootProject = selectedOption?.dataset.isRoot === 'true';
+    state.parentId = selectedOption?.dataset.parentId || null;
+
+    localStorage.setItem('bpd_project_id', state.projectId);
+    localStorage.setItem('bpd_project_name', state.projectName);
+
+    // Show delete button
+    $('#btn-delete-project').classList.remove('hidden');
+
+    // Show create variant button only for root projects
+    if (state.isRootProject) {
+        $('#btn-create-variant').classList.remove('hidden');
+    } else {
+        $('#btn-create-variant').classList.add('hidden');
+    }
+
+    // Connect WebSocket
+    if (state.ws) {
+        state.ws.close();
+        state.ws = null;
+    }
+    connectWebSocket();
+
+    // Enable UI and refresh data
+    enableProjectUI();
+    await refreshCurrentSection();
+}
+
+function clearProjectSelection() {
+    state.projectId = null;
+    state.projectName = null;
+    state.isRootProject = null;
+    state.parentId = null;
+    localStorage.removeItem('bpd_project_id');
+    localStorage.removeItem('bpd_project_name');
+
+    $('#project-select').value = '';
+    $('#btn-delete-project').classList.add('hidden');
+    $('#btn-create-variant').classList.add('hidden');
+
+    disableProjectUI();
+}
+
+async function deleteProject() {
+    if (!state.projectId) return;
+
+    const confirmed = confirm(`Delete project "${state.projectName}"?\n\nThis will permanently delete all data and results.`);
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/projects/${state.projectId}`, {
+            method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        // Handle deletion blocked by variants borrowing files
+        if (response.status === 409 && result.error === 'deletion_blocked') {
+            const borrowedFiles = result.borrowed_files || [];
+            const fileList = borrowedFiles.map(bf =>
+                `  - ${bf.variant_name}: ${bf.file_key}`
+            ).join('\n');
+
+            alert(`Cannot delete project: variants still borrow files.\n\nBorrowed files:\n${fileList}\n\nPlease delete the variants first, or run pipeline steps on them so they own their own copies.`);
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to delete project');
+        }
+
+        // Show detached variants if any
+        if (result.detached_variants && result.detached_variants.length > 0) {
+            console.log(`Detached ${result.detached_variants.length} variants that now own all their files`);
+        }
+
+        clearProjectSelection();
+        await loadProjects();
+
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// ============================================================================
+// Variant Management (Phase 5)
+// ============================================================================
+function showCreateVariantDialog() {
+    if (!state.projectId || !state.isRootProject) {
+        alert('Please select a root project to create a variant');
+        return;
+    }
+
+    const startingPoint = prompt(
+        `Create variant of "${state.projectName}"\n\n` +
+        `Enter starting point:\n` +
+        `  B.5 - From Training (inherits embeddings)\n` +
+        `  B.6 - From Batch Scoring (inherits checkpoint)\n` +
+        `  B.8 - From SHAP (inherits activations)\n\n` +
+        `Enter step (e.g., B.5):`,
+        'B.6'
+    );
+
+    if (!startingPoint) return;
+
+    const validSteps = ['B.5', 'B.6', 'B.8'];
+    if (!validSteps.includes(startingPoint.toUpperCase())) {
+        alert(`Invalid starting point. Please use one of: ${validSteps.join(', ')}`);
+        return;
+    }
+
+    const variantName = prompt(
+        `Enter name for the variant (or leave blank for default):`,
+        ''
+    );
+
+    createVariant(startingPoint.toUpperCase(), variantName || null);
+}
+
+async function createVariant(startingStep, variantName) {
+    try {
+        const body = { starting_step: startingStep };
+        if (variantName) body.name = variantName;
+
+        const response = await fetch(`${API_BASE}/api/projects/${state.projectId}/variants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create variant');
+        }
+
+        const variant = await response.json();
+        await loadProjects();
+
+        // Select the new variant
+        $('#project-select').value = variant.id;
+        await selectProject(variant.id, variant.name);
+
+        alert(`Variant created: ${variant.name}`);
+
+    } catch (error) {
+        alert(`Error creating variant: ${error.message}`);
+    }
+}
+
+function enableProjectUI() {
+    // Section 1: Data
+    $('#btn-fetch-ndjson').disabled = false;
+    $('#btn-refresh-engineer-summary').disabled = false;
+
+    // Section 2: Processing
+    $('#btn-refresh-r2-status').disabled = false;
+
+    // Section 3: Naming
+    $('#btn-refresh-patterns').disabled = false;
+
+    // Section 4: Scoring
+    $('#btn-refresh-scoring-engineers').disabled = false;
+}
+
+function disableProjectUI() {
+    // Section 1: Data
+    $('#btn-fetch-ndjson').disabled = true;
+    $('#btn-refresh-engineer-summary').disabled = true;
+    $('#btn-set-train').disabled = true;
+    $('#btn-set-validation').disabled = true;
+    $('#btn-merge-engineers').disabled = true;
+    $('#btn-remove-selected').disabled = true;
+
+    // Section 2: Processing
+    $('#btn-start-pipeline').disabled = true;
+    $('#btn-refresh-r2-status').disabled = true;
+
+    // Section 3: Naming
+    $('#btn-name-patterns').disabled = true;
+    $('#btn-refresh-patterns').disabled = true;
+    $('#btn-population-viewer').disabled = true;
+
+    // Section 4: Scoring
+    $('#scoring-engineer-select').disabled = true;
+    $('#btn-refresh-scoring-engineers').disabled = true;
+    $('#btn-score-engineer').disabled = true;
+    $('#btn-generate-report').disabled = true;
+    $('#btn-view-report').disabled = true;
+}
+
+async function refreshCurrentSection() {
+    switch (state.currentSection) {
+        case 'data':
+            await refreshEngineerSummary();
+            break;
+        case 'processing':
+            await refreshR2Status();
+            break;
+        case 'naming':
+            await refreshPatternList();
+            break;
+        case 'scoring':
+            await refreshScoringEngineers();
+            break;
+    }
+}
+
+// ============================================================================
+// Section 1: Data Collection
+// ============================================================================
+async function fetchNDJSON() {
+    const fileInput = $('#ndjson-file');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showStatus('data-status-message', 'Please select a file to upload', 'error');
+        return;
+    }
+
+    const btn = $('#btn-fetch-ndjson');
+    btn.disabled = true;
+    showStatus('data-status-message', 'Uploading and processing data...', 'info');
+    appendLog('data', 'Starting data upload...');
+
+    try {
+        // Upload file
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const uploadResponse = await fetch(`${getProjectApiBase()}/data/upload/ndjson`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.detail || 'Upload failed');
+        }
+
+        appendLog('data', 'File uploaded, processing...', 'info');
+
+        // Trigger NDJSON processing
+        const processResponse = await fetch(`${getProjectApiBase()}/data/fetch/ndjson`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ input_path: file.name }),
+        });
+
+        if (!processResponse.ok) {
+            const error = await processResponse.json();
+            throw new Error(error.detail || 'Processing failed');
+        }
+
+        showStatus('data-status-message', 'Data loaded successfully!', 'success');
+        appendLog('data', 'Data processing complete', 'success');
+
+        // Refresh engineer list
+        await refreshEngineerSummary();
+
+    } catch (error) {
+        showStatus('data-status-message', `Error: ${error.message}`, 'error');
+        appendLog('data', `Error: ${error.message}`, 'error');
+    } finally {
         btn.disabled = false;
     }
 }
 
 async function refreshEngineerSummary() {
-    const statusEl = document.getElementById('engineer-summary-status');
-    const container = document.getElementById('engineer-summary-container');
-
-    showStatus(statusEl, 'Loading engineer summary...', 'info');
+    if (!state.projectId) return;
 
     try {
-        if (!requireProject()) return;
+        const data = await apiGet('/data/engineers');
+        state.engineerData = data.engineers || [];
 
-        const response = await fetch(`${getProjectApiBase()}/data/engineers`);
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to fetch engineer summary');
-        }
-
-        const data = await response.json();
-
-        // Update counts
-        document.getElementById('train-count').textContent = data.train_count;
-        document.getElementById('validation-count').textContent = data.validation_count;
-        document.getElementById('bot-count').textContent = data.bot_count;
-        document.getElementById('total-engineers').textContent = data.total_engineers;
-
-        // Store data for sorting
-        engineerSummaryData = data.engineers;
-
-        // Sort and render
-        sortEngineerTable(currentSortColumn, false);
-
-        container.style.display = 'block';
-        statusEl.style.display = 'none';
+        renderEngineerTable(state.engineerData);
+        updateEngineerSelectionButtons();
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        console.error('Failed to refresh engineers:', error);
+        renderEngineerTable([]);
     }
 }
 
-function sortEngineerTable(column, toggleDirection = true) {
-    // Toggle direction if clicking the same column
-    if (toggleDirection) {
-        if (column === currentSortColumn) {
-            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            currentSortColumn = column;
-            // Default direction based on column type
-            currentSortDirection = (column === 'activity_count' || column === 'is_bot' || column === 'is_internal') ? 'desc' : 'asc';
-        }
-    }
+function renderEngineerTable(engineers) {
+    const tbody = $('#engineer-table-body');
 
-    // Sort the data
-    engineerSummaryData.sort((a, b) => {
-        let aVal, bVal;
-
-        switch (column) {
-            case 'engineer_id':
-                aVal = a.engineer_id.toLowerCase();
-                bVal = b.engineer_id.toLowerCase();
-                break;
-            case 'activity_count':
-                aVal = a.activity_count;
-                bVal = b.activity_count;
-                break;
-            case 'split':
-                aVal = a.split;
-                bVal = b.split;
-                break;
-            case 'sources':
-                aVal = a.sources.join(', ').toLowerCase();
-                bVal = b.sources.join(', ').toLowerCase();
-                break;
-            case 'is_bot':
-                aVal = a.is_bot ? 1 : 0;
-                bVal = b.is_bot ? 1 : 0;
-                break;
-            case 'is_internal':
-                aVal = a.is_internal ? 1 : 0;
-                bVal = b.is_internal ? 1 : 0;
-                break;
-            case 'projects':
-                aVal = (a.projects || '').toLowerCase();
-                bVal = (b.projects || '').toLowerCase();
-                break;
-            default:
-                return 0;
-        }
-
-        if (aVal < bVal) return currentSortDirection === 'asc' ? -1 : 1;
-        if (aVal > bVal) return currentSortDirection === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    renderEngineerTable();
-    updateSortIndicators();
-}
-
-function renderEngineerTable() {
-    const tbody = document.getElementById('engineer-summary-body');
-    tbody.innerHTML = '';
-
-    engineerSummaryData.forEach(eng => {
-        const row = document.createElement('tr');
-        const botIcon = eng.is_bot ? '<span title="Bot" style="font-size: 1.2em;">&#129302;</span>' : '<span title="Human" style="color: #888;">&#128100;</span>';
-        const internalIcon = eng.is_internal === undefined ? '<span style="color: #888;">-</span>' :
-            (eng.is_internal ? '<span title="Internal" style="color: #28a745;">&#10004;</span>' : '<span title="External" style="color: #dc3545;">&#10006;</span>');
-        const projectBadges = (eng.projects || '').split(',')
-            .filter(p => p)
-            .map(p => `<span style="display: inline-block; padding: 2px 6px; margin: 1px; background: #e0e0e0; border-radius: 4px; font-size: 0.8em;">${p}</span>`)
-            .join('');
-
-        row.innerHTML = `
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">
-                <input type="checkbox" class="engineer-checkbox" value="${eng.engineer_id}">
-            </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${eng.engineer_id}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${eng.activity_count}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">
-                <span style="color: ${eng.split === 'train' ? '#28a745' : '#007bff'};">${eng.split}</span>
-            </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${eng.sources.join(', ')}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${botIcon}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${internalIcon}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${projectBadges}</td>
+    if (engineers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-muted" style="text-align: center; padding: 32px;">
+                    No data loaded. Upload NDJSON files to get started.
+                </td>
+            </tr>
         `;
-        tbody.appendChild(row);
-    });
-
-    // Add change listeners to checkboxes
-    document.querySelectorAll('.engineer-checkbox').forEach(cb => {
-        cb.addEventListener('change', updateActionButtons);
-    });
-}
-
-function updateSortIndicators() {
-    // Clear all indicators
-    ['engineer_id', 'activity_count', 'split', 'sources', 'is_bot', 'is_internal', 'projects'].forEach(col => {
-        const indicator = document.getElementById(`sort-indicator-${col}`);
-        if (indicator) {
-            indicator.textContent = '';
-        }
-    });
-
-    // Set current indicator
-    const currentIndicator = document.getElementById(`sort-indicator-${currentSortColumn}`);
-    if (currentIndicator) {
-        currentIndicator.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
+        return;
     }
+
+    tbody.innerHTML = engineers.map(eng => `
+        <tr data-engineer-id="${escapeHtml(eng.engineer_id)}">
+            <td class="checkbox-cell">
+                <input type="checkbox" class="engineer-checkbox" value="${escapeHtml(eng.engineer_id)}">
+            </td>
+            <td>${escapeHtml(eng.engineer_id)}</td>
+            <td>${eng.activity_count || 0}</td>
+            <td>
+                <span class="split-badge ${eng.split || 'train'}">${eng.split || 'train'}</span>
+            </td>
+            <td>${(eng.sources || []).join(', ') || '-'}</td>
+        </tr>
+    `).join('');
 }
 
-function toggleSelectAllEngineers(event) {
-    const checked = event.target.checked;
-    document.querySelectorAll('.engineer-checkbox').forEach(cb => {
-        cb.checked = checked;
-    });
-    updateActionButtons();
-}
+function updateEngineerSelectionButtons() {
+    const checkboxes = $$('.engineer-checkbox:checked');
+    const hasSelection = checkboxes.length > 0;
 
-function updateActionButtons() {
-    const selectedCount = document.querySelectorAll('.engineer-checkbox:checked').length;
-    const hasSelection = selectedCount > 0;
-
-    document.getElementById('btn-set-train').disabled = !hasSelection;
-    document.getElementById('btn-set-validation').disabled = !hasSelection;
-    document.getElementById('btn-remove-selected').disabled = !hasSelection;
-    document.getElementById('btn-merge-engineers').disabled = !hasSelection;
-}
-
-function getSelectedEngineerIds() {
-    const checkboxes = document.querySelectorAll('.engineer-checkbox:checked');
-    return Array.from(checkboxes).map(cb => cb.value);
+    $('#btn-set-train').disabled = !hasSelection;
+    $('#btn-set-validation').disabled = !hasSelection;
+    $('#btn-remove-selected').disabled = !hasSelection;
+    $('#btn-merge-engineers').disabled = checkboxes.length < 2;
 }
 
 async function setEngineerSplit(split) {
-    const engineerIds = getSelectedEngineerIds();
-    if (engineerIds.length === 0) return;
-
-    const statusEl = document.getElementById('action-status');
+    const selected = Array.from($$('.engineer-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
 
     try {
-        if (!requireProject()) return;
-
-        const response = await fetch(`${getProjectApiBase()}/data/engineers/set-split`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ engineer_ids: engineerIds, split: split })
+        await apiPost('/data/engineers/set-split', {
+            engineer_ids: selected,
+            split: split,
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || `Failed to set split to ${split}`);
-        }
-
-        const data = await response.json();
-        showStatus(statusEl, `${data.message} (${data.rows_updated} rows)`, 'success');
-
-        // Refresh the summary
         await refreshEngineerSummary();
+        appendLog('data', `Set ${selected.length} engineers to ${split}`, 'success');
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        appendLog('data', `Error: ${error.message}`, 'error');
     }
 }
 
 async function removeSelectedEngineers() {
-    const engineerIds = getSelectedEngineerIds();
-    if (engineerIds.length === 0) return;
+    const selected = Array.from($$('.engineer-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
 
-    const confirmed = confirm(`Are you sure you want to remove ${engineerIds.length} engineer(s)?\n\nThis will delete all their activities from the CSV.`);
+    const confirmed = confirm(`Remove ${selected.length} engineer(s)?`);
     if (!confirmed) return;
 
-    const statusEl = document.getElementById('action-status');
-
     try {
-        if (!requireProject()) return;
-
-        const response = await fetch(`${getProjectApiBase()}/data/engineers/remove`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ engineer_ids: engineerIds })
+        await apiPost('/data/engineers/remove', {
+            engineer_ids: selected,
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to remove engineers');
-        }
-
-        const data = await response.json();
-        showStatus(statusEl, `${data.message} (${data.rows_deleted} rows)`, 'success');
-
-        // Refresh the summary
         await refreshEngineerSummary();
+        appendLog('data', `Removed ${selected.length} engineers`, 'success');
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        appendLog('data', `Error: ${error.message}`, 'error');
     }
 }
 
 async function mergeSelectedEngineers() {
-    const sourceIds = getSelectedEngineerIds();
-    if (sourceIds.length === 0) return;
+    const selected = Array.from($$('.engineer-checkbox:checked')).map(cb => cb.value);
+    if (selected.length < 2) return;
 
-    const targetId = document.getElementById('merge-target-id').value.trim();
-    if (!targetId) {
-        alert('Please enter a target ID to merge into');
+    const targetId = prompt(`Enter name for merged engineer (default: ${selected[0]}):`);
+    if (targetId === null) return;
+
+    try {
+        await apiPost('/data/engineers/merge', {
+            engineer_ids: selected,
+            target_id: targetId || selected[0],
+        });
+
+        await refreshEngineerSummary();
+        appendLog('data', `Merged ${selected.length} engineers`, 'success');
+
+    } catch (error) {
+        appendLog('data', `Error: ${error.message}`, 'error');
+    }
+}
+
+// ============================================================================
+// Section 2: Processing Pipeline
+// ============================================================================
+async function refreshR2Status() {
+    if (!state.projectId) return;
+
+    try {
+        const status = await apiGet('/pipeline/r2-status');
+        state.r2Status = status.r2 || {};
+        state.hetznerStatus = status.hetzner || {};
+
+        renderR2Status(state.r2Status);
+        updateStartingPointOptions();
+        updatePipelineSteps();
+
+    } catch (error) {
+        console.error('Failed to refresh R2 status:', error);
+        renderR2Status({});
+    }
+}
+
+function renderR2Status(status) {
+    const grid = $('#r2-status-grid');
+
+    grid.innerHTML = Object.entries(R2_FILES).map(([key, config]) => {
+        const fileStatus = status[key] || { exists: false };
+        const existsClass = fileStatus.exists ? 'exists' : 'missing';
+        const meta = fileStatus.exists
+            ? `${formatBytes(fileStatus.size_bytes || 0)}`
+            : 'Not available';
+
+        return `
+            <div class="r2-file-item ${existsClass}">
+                <div class="r2-file-icon">${config.icon}</div>
+                <div class="r2-file-info">
+                    <div class="r2-file-name">${config.label}</div>
+                    <div class="r2-file-meta">${meta}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateStartingPointOptions() {
+    const options = $$('.starting-point-option');
+
+    options.forEach(option => {
+        const stepId = option.dataset.step;
+        const prereqs = STARTING_POINTS[stepId];
+
+        // Check R2 prerequisites
+        const r2Met = prereqs.r2.every(file => state.r2Status[file]?.exists);
+
+        // Check Hetzner prerequisites
+        const hetznerMet = prereqs.hetzner.every(file => {
+            // activities.csv check
+            if (file === 'activities.csv') {
+                return state.hetznerStatus['activities.csv']?.exists;
+            }
+            return true;
+        });
+
+        const isAvailable = r2Met && (prereqs.hetzner.length === 0 || hetznerMet);
+
+        option.classList.toggle('disabled', !isAvailable);
+
+        if (option.classList.contains('selected') && !isAvailable) {
+            option.classList.remove('selected');
+            // Select B.1 as fallback
+            $$('.starting-point-option[data-step="B.1"]')[0]?.classList.add('selected');
+            state.selectedStartingPoint = 'B.1';
+        }
+    });
+
+    // Enable/disable start button
+    const hasProject = !!state.projectId;
+    const notRunning = !state.pipelineRunning;
+    $('#btn-start-pipeline').disabled = !hasProject || !notRunning;
+}
+
+function updatePipelineSteps() {
+    const steps = $$('.pipeline-step');
+
+    // Determine completed steps based on R2 status
+    const stepOutputs = {
+        'B.1': ['aux_features'],
+        'B.2': ['embeddings'],
+        'B.3': ['normalized_embeddings'],
+        'B.4': ['train_input', 'message_database'],
+        'B.5': ['checkpoint'],
+        'B.6': ['activations'],
+        'B.7': [],
+        'B.8': [],
+    };
+
+    steps.forEach(step => {
+        const stepId = step.dataset.step;
+        const outputs = stepOutputs[stepId] || [];
+
+        // Step is completed if all its outputs exist
+        const isCompleted = outputs.length === 0
+            ? false
+            : outputs.every(output => state.r2Status[output]?.exists);
+
+        if (!state.pipelineRunning) {
+            step.className = isCompleted ? 'pipeline-step completed' : 'pipeline-step pending';
+        }
+    });
+}
+
+function selectStartingPoint(stepId) {
+    const option = $(`.starting-point-option[data-step="${stepId}"]`);
+    if (!option || option.classList.contains('disabled')) return;
+
+    $$('.starting-point-option').forEach(opt => opt.classList.remove('selected'));
+    option.classList.add('selected');
+    state.selectedStartingPoint = stepId;
+}
+
+async function startPipeline() {
+    if (!state.projectId || state.pipelineRunning) return;
+
+    const btn = $('#btn-start-pipeline');
+    btn.disabled = true;
+    state.pipelineRunning = true;
+
+    // Hide any existing error banner
+    hidePipelineError();
+
+    // Reset all pipeline step indicators to pending
+    $$('.pipeline-step').forEach(step => {
+        step.className = 'pipeline-step pending';
+    });
+
+    showStatus('processing-status-message', 'Starting processing pipeline...', 'info');
+    appendLog('processing', `Starting pipeline from ${state.selectedStartingPoint}...`);
+
+    // Show progress UI
+    $('#pipeline-progress').classList.remove('hidden');
+    $('#btn-stop-pipeline').classList.remove('hidden');
+
+    try {
+        await apiPost('/pipeline/process', {
+            starting_step: state.selectedStartingPoint,
+        });
+
+        showStatus('processing-status-message', 'Pipeline started. Monitor progress below.', 'info');
+
+    } catch (error) {
+        showStatus('processing-status-message', `Error: ${error.message}`, 'error');
+        appendLog('processing', `Error: ${error.message}`, 'error');
+        state.pipelineRunning = false;
+        updatePipelineUI();
+    }
+}
+
+function updatePipelineUI() {
+    $('#btn-start-pipeline').disabled = state.pipelineRunning;
+    $('#btn-stop-pipeline').classList.toggle('hidden', !state.pipelineRunning);
+
+    if (!state.pipelineRunning) {
+        $('#pipeline-progress').classList.add('hidden');
+    }
+}
+
+function showPipelineError(errorInfo) {
+    const banner = $('#pipeline-error-banner');
+    const stepInfo = $('#error-step-info');
+    const messageContent = $('#error-message-content');
+    const suggestion = $('#error-suggestion');
+    const completedStepsDiv = $('#error-completed-steps');
+    const completedStepsList = $('#completed-steps-list');
+
+    // Store failed step for retry
+    state.failedStep = errorInfo.step;
+
+    // Populate step info
+    if (errorInfo.step && errorInfo.stepName) {
+        stepInfo.textContent = `Step ${errorInfo.step} (${errorInfo.stepName}) failed`;
+    } else if (errorInfo.step) {
+        stepInfo.textContent = `Step ${errorInfo.step} failed`;
+    } else {
+        stepInfo.textContent = 'Pipeline failed';
+    }
+
+    // Populate error message
+    messageContent.textContent = errorInfo.error || 'Unknown error occurred';
+
+    // Generate suggestion based on error type
+    const errorText = (errorInfo.error || '').toLowerCase();
+    let suggestionText = 'Check the logs above for more details and retry when ready.';
+
+    if (errorText.includes('timeout') || errorText.includes('timed out')) {
+        suggestionText = 'The operation timed out. This may be due to large data volume. Consider restarting or splitting the data.';
+    } else if (errorText.includes('memory') || errorText.includes('oom')) {
+        suggestionText = 'Ran out of memory. Consider processing with a smaller batch size or fewer engineers.';
+    } else if (errorText.includes('r2') || errorText.includes('storage')) {
+        suggestionText = 'Storage access failed. Check R2 credentials and connectivity, then retry.';
+    } else if (errorText.includes('model') || errorText.includes('checkpoint')) {
+        suggestionText = 'Model or checkpoint error. Verify the model files exist and are not corrupted.';
+    } else if (errorText.includes('cuda') || errorText.includes('gpu')) {
+        suggestionText = 'GPU error occurred. The GPU may be out of memory or unavailable. Retry may resolve this.';
+    }
+
+    suggestion.textContent = suggestionText;
+
+    // Show completed steps if any
+    if (errorInfo.stepsCompleted && errorInfo.stepsCompleted.length > 0) {
+        completedStepsDiv.classList.remove('hidden');
+        completedStepsList.textContent = errorInfo.stepsCompleted.join(', ');
+    } else {
+        completedStepsDiv.classList.add('hidden');
+    }
+
+    // Mark the failed step in the UI
+    if (errorInfo.step) {
+        const stepEl = $(`.pipeline-step[data-step="${errorInfo.step}"]`);
+        if (stepEl) {
+            stepEl.className = 'pipeline-step failed';
+        }
+    }
+
+    // Show the banner
+    banner.classList.remove('hidden');
+
+    // Scroll to the banner
+    banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hidePipelineError() {
+    const banner = $('#pipeline-error-banner');
+    banner.classList.add('hidden');
+    state.failedStep = null;
+}
+
+async function retryFromFailedStep() {
+    if (!state.failedStep) {
+        // If no failed step recorded, just restart from the selected starting point
+        hidePipelineError();
+        await startPipeline();
         return;
     }
 
-    const confirmed = confirm(`Merge ${sourceIds.length} engineer(s) into "${targetId}"?\n\nSelected IDs: ${sourceIds.join(', ')}`);
-    if (!confirmed) return;
+    hidePipelineError();
 
-    const statusEl = document.getElementById('action-status');
+    // Set the starting point to the failed step
+    const failedStep = state.failedStep;
+    state.selectedStartingPoint = failedStep;
+
+    // Update UI to show selected step
+    $$('.starting-point-option').forEach(opt => opt.classList.remove('selected'));
+    const targetOption = $(`.starting-point-option[data-step="${failedStep}"]`);
+    if (targetOption && !targetOption.classList.contains('disabled')) {
+        targetOption.classList.add('selected');
+    }
+
+    await startPipeline();
+}
+
+async function retryFullPipeline() {
+    hidePipelineError();
+
+    // Reset to B.1
+    state.selectedStartingPoint = 'B.1';
+
+    // Update UI
+    $$('.starting-point-option').forEach(opt => opt.classList.remove('selected'));
+    $(`.starting-point-option[data-step="B.1"]`)?.classList.add('selected');
+
+    await startPipeline();
+}
+
+// ============================================================================
+// Section 3: Pattern Naming
+// ============================================================================
+async function refreshPatternList() {
+    if (!state.projectId) return;
 
     try {
-        if (!requireProject()) return;
+        const data = await apiGet('/patterns');
+        state.patternData = data.patterns || [];
 
-        const response = await fetch(`${getProjectApiBase()}/data/engineers/merge`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_ids: sourceIds, target_id: targetId })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to merge engineers');
-        }
-
-        const data = await response.json();
-        showStatus(statusEl, `${data.message} (${data.rows_updated} rows)`, 'success');
-
-        // Clear the target input
-        document.getElementById('merge-target-id').value = '';
-
-        // Refresh the summary
-        await refreshEngineerSummary();
+        renderPatternList(state.patternData);
+        updateNamingButtons();
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        console.error('Failed to refresh patterns:', error);
+        renderPatternList([]);
     }
 }
 
-// Synthetic Profile Functions
+function renderPatternList(patterns) {
+    const container = $('#pattern-list');
+    const countEl = $('#pattern-count');
 
-async function generateSyntheticProfiles() {
-    const btn = document.getElementById('btn-generate-synthetic');
-    const statusEl = document.getElementById('synthetic-status');
+    countEl.textContent = `${patterns.length} patterns`;
 
-    const copiesPerProfile = parseInt(document.getElementById('synthetic-copies').value) || 3;
+    if (patterns.length === 0) {
+        container.innerHTML = `
+            <div class="text-muted" style="text-align: center; padding: 32px;">
+                No patterns available. Run processing pipeline first.
+            </div>
+        `;
+        return;
+    }
 
+    container.innerHTML = patterns.map(pattern => {
+        const level = extractLevel(pattern.level || pattern.id);
+        return `
+            <div class="pattern-item" data-pattern-id="${escapeHtml(pattern.id)}">
+                <span class="pattern-level ${level}">${level}</span>
+                <span class="pattern-name">${escapeHtml(pattern.name || pattern.id)}</span>
+                <span class="pattern-status">${pattern.name ? 'Named' : 'Unnamed'}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function extractLevel(patternIdOrLevel) {
+    const str = patternIdOrLevel.toLowerCase();
+    if (str.includes('unified')) return 'unified';
+    if (str.includes('top')) return 'top';
+    if (str.includes('mid')) return 'mid';
+    return 'bottom';
+}
+
+function updateNamingButtons() {
+    const hasPatterns = state.patternData.length > 0;
+
+    $('#btn-name-patterns').disabled = !hasPatterns && !state.projectId;
+    $('#btn-population-viewer').disabled = !hasPatterns;
+
+    // Enable naming if we have hierarchical weights (from SHAP analysis)
+    if (state.projectId) {
+        $('#btn-name-patterns').disabled = false;
+    }
+}
+
+async function namePatterns() {
+    const btn = $('#btn-name-patterns');
     btn.disabled = true;
-    showStatus(statusEl, 'Starting synthetic profile generation...', 'info');
+
+    showStatus('naming-status-message', 'Starting pattern naming...', 'info');
+    appendLog('naming', 'Starting LLM pattern naming...');
+
+    $('#naming-progress').classList.remove('hidden');
 
     try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
+        await apiPost('/pipeline/name-patterns');
 
-        const response = await fetch(`${getProjectApiBase()}/data/synthetic/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ copies_per_profile: copiesPerProfile })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Synthetic generation failed');
-        }
-
-        showStatus(statusEl, 'Synthetic generation started. Check logs for progress.', 'info');
-
-        const pollInterval = setInterval(async () => {
-            const status = await fetch(`${getProjectApiBase()}/status`).then(r => r.json());
-
-            if (status.status.current_task !== 'generating_synthetic') {
-                clearInterval(pollInterval);
-                if (status.status.last_error) {
-                    showStatus(statusEl, `Error: ${status.status.last_error}`, 'error');
-                } else {
-                    showStatus(statusEl, 'Synthetic generation complete! Refresh summary to see profiles.', 'success');
-                    await refreshSyntheticSummary();
-                }
-                btn.disabled = false;
-            } else {
-                const progress = status.status.synthetic_generation_progress || 0;
-                const total = status.status.synthetic_generation_total || 0;
-                if (total > 0) {
-                    showStatus(statusEl, `Generating... ${progress}/${total} profiles`, 'info');
-                }
-            }
-        }, 3000);
+        showStatus('naming-status-message', 'Naming started. Monitor progress below.', 'info');
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        showStatus('naming-status-message', `Error: ${error.message}`, 'error');
+        appendLog('naming', `Error: ${error.message}`, 'error');
         btn.disabled = false;
+        $('#naming-progress').classList.add('hidden');
     }
 }
 
-async function refreshSyntheticSummary() {
-    const statusEl = document.getElementById('synthetic-status');
-    const container = document.getElementById('synthetic-summary-container');
-    const addBtn = document.getElementById('btn-add-synthetic');
-
-    showStatus(statusEl, 'Loading synthetic profile summary...', 'info');
-
-    try {
-        if (!requireProject()) return;
-
-        const response = await fetch(`${getProjectApiBase()}/data/synthetic/summary`);
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to fetch synthetic summary');
-        }
-
-        const data = await response.json();
-
-        // Update counts
-        document.getElementById('synthetic-template-count').textContent = data.template_count;
-        document.getElementById('synthetic-profile-count').textContent = data.total_profiles;
-
-        // Update details
-        const detailsEl = document.getElementById('synthetic-details');
-        if (data.profile_details.length > 0) {
-            detailsEl.innerHTML = data.profile_details.map(d =>
-                `<div><strong>${d.template_name}:</strong> ${d.profile_count} profiles</div>`
-            ).join('');
-            addBtn.disabled = false;
-        } else {
-            detailsEl.innerHTML = '<div style="color: #666;">No synthetic profiles generated yet.</div>';
-            addBtn.disabled = true;
-        }
-
-        container.style.display = 'block';
-        statusEl.style.display = 'none';
-
-    } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
-    }
+function openPopulationViewer() {
+    const url = state.projectId
+        ? `population_viewer.html?project_id=${state.projectId}`
+        : 'population_viewer.html';
+    window.open(url, '_blank');
 }
 
-async function addSyntheticToActivities() {
-    const btn = document.getElementById('btn-add-synthetic');
-    const statusEl = document.getElementById('synthetic-status');
-    const split = document.getElementById('synthetic-split').value;
+// ============================================================================
+// Section 4: Individual Scoring
+// ============================================================================
+async function refreshScoringEngineers() {
+    if (!state.projectId) return;
 
-    const confirmed = confirm(`Add all synthetic profiles to activities.csv as "${split}" data?\n\nThis will convert JSON profiles to CSV rows and merge them with existing activities.`);
-    if (!confirmed) return;
-
-    btn.disabled = true;
-    showStatus(statusEl, 'Adding synthetic profiles to activities...', 'info');
+    const select = $('#scoring-engineer-select');
 
     try {
-        if (!requireProject()) {
-            btn.disabled = false;
-            return;
-        }
+        const data = await apiGet('/data/engineers');
+        const engineers = data.engineers || [];
 
-        const response = await fetch(`${getProjectApiBase()}/data/synthetic/add-to-activities`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ split: split })
+        select.innerHTML = '<option value="">Select an engineer...</option>';
+        engineers.forEach(eng => {
+            const option = document.createElement('option');
+            option.value = eng.engineer_id;
+            option.textContent = eng.engineer_id;
+            select.appendChild(option);
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to add synthetic profiles');
-        }
-
-        const data = await response.json();
-
-        let message = `Added ${data.profiles_added} profiles (${data.activities_added} activities)`;
-        if (data.errors && data.errors.length > 0) {
-            message += ` with ${data.errors.length} errors`;
-        }
-
-        showStatus(statusEl, message, 'success');
-
-        // Refresh engineer summary to show new engineers
-        await refreshEngineerSummary();
+        select.disabled = engineers.length === 0;
 
     } catch (error) {
-        showStatus(statusEl, `Error: ${error.message}`, 'error');
+        console.error('Failed to refresh scoring engineers:', error);
+        select.innerHTML = '<option value="">No engineers available</option>';
+        select.disabled = true;
+    }
+}
+
+function onScoringEngineerSelected(event) {
+    state.selectedEngineerId = event.target.value;
+
+    // Hide previous results
+    $('#scores-card').style.display = 'none';
+    $('#report-card').style.display = 'none';
+
+    updateScoringButtons();
+}
+
+async function updateScoringButtons() {
+    if (!state.selectedEngineerId || !state.projectId) {
+        $('#btn-score-engineer').disabled = true;
+        $('#btn-generate-report').disabled = true;
+        $('#btn-view-report').disabled = true;
+        return;
+    }
+
+    // Check if checkpoint exists
+    const hasCheckpoint = state.r2Status?.checkpoint?.exists;
+    $('#btn-score-engineer').disabled = !hasCheckpoint;
+
+    // Check if scores exist for this engineer
+    try {
+        const response = await fetch(`${getProjectApiBase()}/scoring/individual/${state.selectedEngineerId}`);
+        const scoresExist = response.ok;
+
+        $('#btn-generate-report').disabled = !scoresExist;
+
+        // Check if report exists
+        const reportResponse = await fetch(`${getProjectApiBase()}/scoring/report/${state.selectedEngineerId}`);
+        const reportExists = reportResponse.ok;
+
+        $('#btn-view-report').disabled = !reportExists;
+
+    } catch (error) {
+        $('#btn-generate-report').disabled = true;
+        $('#btn-view-report').disabled = true;
+    }
+}
+
+async function scoreEngineer() {
+    if (!state.selectedEngineerId) return;
+
+    const btn = $('#btn-score-engineer');
+    btn.disabled = true;
+
+    showStatus('scoring-status-message', 'Scoring engineer...', 'info');
+    appendLog('scoring', `Scoring ${state.selectedEngineerId}...`);
+
+    try {
+        const scores = await apiPost('/scoring/individual', {
+            engineer_id: state.selectedEngineerId,
+        });
+
+        // Display scores
+        $('#scores-display').textContent = JSON.stringify(scores, null, 2);
+        $('#scores-card').style.display = 'block';
+
+        showStatus('scoring-status-message', 'Scoring complete!', 'success');
+        appendLog('scoring', 'Scoring complete', 'success');
+
+        await updateScoringButtons();
+
+    } catch (error) {
+        showStatus('scoring-status-message', `Error: ${error.message}`, 'error');
+        appendLog('scoring', `Error: ${error.message}`, 'error');
     } finally {
         btn.disabled = false;
     }
 }
+
+async function generateReport() {
+    if (!state.selectedEngineerId) return;
+
+    const btn = $('#btn-generate-report');
+    btn.disabled = true;
+
+    showStatus('scoring-status-message', 'Generating report...', 'info');
+    appendLog('scoring', `Generating report for ${state.selectedEngineerId}...`);
+
+    try {
+        const result = await apiPost(`/scoring/report/${state.selectedEngineerId}`);
+
+        // Display report
+        $('#report-display').innerHTML = result.report || 'No report content';
+        $('#report-card').style.display = 'block';
+
+        showStatus('scoring-status-message', 'Report generated!', 'success');
+        appendLog('scoring', 'Report generated', 'success');
+
+        await updateScoringButtons();
+
+    } catch (error) {
+        showStatus('scoring-status-message', `Error: ${error.message}`, 'error');
+        appendLog('scoring', `Error: ${error.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function viewFullReport() {
+    if (!state.selectedEngineerId) return;
+
+    const url = `report_viewer.html?engineer_id=${encodeURIComponent(state.selectedEngineerId)}&project_id=${state.projectId}`;
+    window.open(url, '_blank');
+}
+
+function downloadScores() {
+    const content = $('#scores-display').textContent;
+    downloadJSON(content, `scores_${state.selectedEngineerId}.json`);
+}
+
+function downloadReport() {
+    const content = $('#report-display').textContent;
+    downloadText(content, `report_${state.selectedEngineerId}.md`);
+}
+
+function downloadJSON(content, filename) {
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function downloadText(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// File Upload Handling
+// ============================================================================
+function setupFileUpload() {
+    const uploadArea = $('#upload-area');
+    const fileInput = $('#ndjson-file');
+    const fileDisplay = $('#selected-file-display');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            showSelectedFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            showSelectedFile(e.target.files[0]);
+        }
+    });
+}
+
+function showSelectedFile(file) {
+    const fileDisplay = $('#selected-file-display');
+    fileDisplay.textContent = `Selected: ${file.name} (${formatBytes(file.size)})`;
+    fileDisplay.classList.remove('hidden');
+}
+
+// ============================================================================
+// Event Listeners Setup
+// ============================================================================
+function setupEventListeners() {
+    // Section tabs
+    $$('.section-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchSection(tab.dataset.section));
+    });
+
+    // Project management
+    $('#project-select').addEventListener('change', (e) => {
+        const option = e.target.selectedOptions[0];
+        selectProject(e.target.value, option?.dataset.name);
+    });
+    $('#btn-refresh-projects').addEventListener('click', loadProjects);
+    $('#btn-create-project').addEventListener('click', createProject);
+    $('#btn-delete-project').addEventListener('click', deleteProject);
+    $('#btn-create-variant').addEventListener('click', showCreateVariantDialog);
+
+    // Section 1: Data
+    $('#btn-fetch-ndjson').addEventListener('click', fetchNDJSON);
+    $('#btn-refresh-engineer-summary').addEventListener('click', refreshEngineerSummary);
+    $('#btn-set-train').addEventListener('click', () => setEngineerSplit('train'));
+    $('#btn-set-validation').addEventListener('click', () => setEngineerSplit('validation'));
+    $('#btn-merge-engineers').addEventListener('click', mergeSelectedEngineers);
+    $('#btn-remove-selected').addEventListener('click', removeSelectedEngineers);
+    $('#select-all-engineers').addEventListener('change', (e) => {
+        $$('.engineer-checkbox').forEach(cb => cb.checked = e.target.checked);
+        updateEngineerSelectionButtons();
+    });
+    $('#btn-clear-data-logs').addEventListener('click', () => clearLogs('data'));
+
+    // Engineer checkbox changes
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('engineer-checkbox')) {
+            updateEngineerSelectionButtons();
+        }
+    });
+
+    // Section 2: Processing
+    $('#btn-refresh-r2-status').addEventListener('click', refreshR2Status);
+    $('#btn-start-pipeline').addEventListener('click', startPipeline);
+    $('#btn-clear-processing-logs').addEventListener('click', () => clearLogs('processing'));
+
+    // Error banner buttons
+    $('#btn-retry-pipeline').addEventListener('click', retryFromFailedStep);
+    $('#btn-retry-full').addEventListener('click', retryFullPipeline);
+    $('#btn-dismiss-error').addEventListener('click', hidePipelineError);
+
+    // Starting point selection
+    $$('.starting-point-option').forEach(option => {
+        option.addEventListener('click', () => selectStartingPoint(option.dataset.step));
+    });
+
+    // Section 3: Naming
+    $('#btn-name-patterns').addEventListener('click', namePatterns);
+    $('#btn-refresh-patterns').addEventListener('click', refreshPatternList);
+    $('#btn-population-viewer').addEventListener('click', openPopulationViewer);
+    $('#btn-clear-naming-logs').addEventListener('click', () => clearLogs('naming'));
+
+    // Section 4: Scoring
+    $('#scoring-engineer-select').addEventListener('change', onScoringEngineerSelected);
+    $('#btn-refresh-scoring-engineers').addEventListener('click', refreshScoringEngineers);
+    $('#btn-score-engineer').addEventListener('click', scoreEngineer);
+    $('#btn-generate-report').addEventListener('click', generateReport);
+    $('#btn-view-report').addEventListener('click', viewFullReport);
+    $('#btn-download-scores').addEventListener('click', downloadScores);
+    $('#btn-download-report').addEventListener('click', downloadReport);
+    $('#btn-clear-scoring-logs').addEventListener('click', () => clearLogs('scoring'));
+}
+
+// ============================================================================
+// Initialization
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    setupFileUpload();
+    setupEventListeners();
+    loadProjects();
+
+    // Initialize if project was previously selected
+    if (state.projectId) {
+        enableProjectUI();
+        connectWebSocket();
+        refreshCurrentSection();
+    } else {
+        disableProjectUI();
+    }
+});
     </script>
 </body>
 </html>

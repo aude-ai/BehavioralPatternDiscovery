@@ -16,16 +16,24 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+# =============================================================================
+# SEGMENT A: Data Collection (Hetzner)
+# =============================================================================
+
+
 @celery_app.task(bind=True, max_retries=3)
 def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
     """
-    Fetch data from NDJSON source.
+    Fetch data from NDJSON source (Segment A).
 
     Supports multiple source types via config["input_path"]:
     - Local folder path (e.g., "/data/ndjson/")
     - Local zip file (e.g., "/data/export.zip")
     - URL to zip file (e.g., "https://api.example.com/export.zip")
+
+    Output: activities.csv saved to Hetzner storage
     """
+    # Direct imports - these modules have no torch dependencies
     from src.data.collection.ndjson_loader import NDJSONLoader
     from src.data.collection.data_source import resolve_data_source
 
@@ -38,7 +46,10 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            source_path = config.get("input_path", "")
+            if "input_path" not in config or not config["input_path"]:
+                raise ValueError("input_path is required in config")
+
+            source_path = config["input_path"]
             with resolve_data_source(source_path) as resolved_path:
                 resolved_config = config.copy()
                 resolved_config["input_path"] = str(resolved_path)
@@ -70,165 +81,23 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
             raise
 
 
-@celery_app.task(bind=True)
-def preprocess_data(self, project_id: str, job_id: str, config: dict):
-    """
-    Run preprocessing (CPU portion only).
-
-    This extracts statistical features and prepares text for embedding.
-    The actual embedding is done via Modal.
-    """
-    import pandas as pd
-
-    from src.data.processing.statistical_features import StatisticalFeatureExtractor
-
-    with get_db_context() as db:
-        try:
-            db.query(JobModel).filter(JobModel.id == job_id).update(
-                {"status": JobStatus.RUNNING}
-            )
-            db.commit()
-
-            storage = StorageService(project_id)
-
-            activities_df = pd.read_csv(storage.activities_path)
-
-            feature_extractor = StatisticalFeatureExtractor(config)
-            aux_features = feature_extractor.extract(activities_df)
-
-            storage.save_numpy(storage.train_aux_vars_path, aux_features)
-
-            texts = activities_df["text"].tolist()
-
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.COMPLETED,
-                "progress": 1.0,
-                "result": {
-                    "num_texts": len(texts),
-                    "aux_features_shape": list(aux_features.shape),
-                },
-            })
-            db.commit()
-
-            return {
-                "status": "completed",
-                "texts": texts,
-                "num_texts": len(texts),
-            }
-
-        except Exception as e:
-            logger.exception(f"Failed to preprocess: {e}")
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.FAILED,
-                "error": str(e),
-            })
-            db.commit()
-            raise
-
-
-@celery_app.task(bind=True)
-def normalize_embeddings(self, project_id: str, job_id: str, config: dict):
-    """Apply normalization pipeline to embeddings."""
-    from src.data.processing.normalizer import NormalizationPipeline
-
-    with get_db_context() as db:
-        try:
-            db.query(JobModel).filter(JobModel.id == job_id).update(
-                {"status": JobStatus.RUNNING}
-            )
-            db.commit()
-
-            storage = StorageService(project_id)
-
-            # Load compressed embeddings
-            embeddings = storage.load_numpy_compressed(storage.train_features_path)
-
-            norm_config = config.get("processing", {}).get("normalization", {})
-            if norm_config.get("enabled", True) and norm_config.get("pipeline"):
-                pipeline = NormalizationPipeline(config)
-                pipeline.fit(embeddings)
-                normalized = pipeline.transform(embeddings)
-                # Save back compressed
-                storage.save_numpy_compressed(storage.train_features_path, normalized)
-
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.COMPLETED,
-                "progress": 1.0,
-            })
-            db.commit()
-
-            return {"status": "completed"}
-
-        except Exception as e:
-            logger.exception(f"Failed to normalize: {e}")
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.FAILED,
-                "error": str(e),
-            })
-            db.commit()
-            raise
-
-
-@celery_app.task(bind=True)
-def assign_messages(self, project_id: str, job_id: str, config: dict):
-    """Assign messages to patterns based on activations."""
-    import h5py
-
-    from src.pattern_identification.message_assigner import MessageAssigner
-
-    with get_db_context() as db:
-        try:
-            db.query(JobModel).filter(JobModel.id == job_id).update(
-                {"status": JobStatus.RUNNING}
-            )
-            db.commit()
-
-            storage = StorageService(project_id)
-
-            # Load compressed message database
-            message_db = storage.load_pickle_compressed(storage.message_database_path)
-            population_stats = storage.load_json(storage.population_stats_path)
-
-            # Decompress activations to temp file for h5py access
-            tmp_activations = storage.decompress_to_temp(storage.activations_path)
-            try:
-                activations = {}
-                with h5py.File(tmp_activations, "r") as f:
-                    for key in f.keys():
-                        activations[key] = f[key][:]
-            finally:
-                tmp_activations.unlink()
-
-            assigner = MessageAssigner(config)
-            message_examples = assigner.assign(
-                activations=activations,
-                message_db=message_db,
-                population_stats=population_stats,
-            )
-
-            storage.save_json(storage.message_examples_path, message_examples)
-
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.COMPLETED,
-                "progress": 1.0,
-            })
-            db.commit()
-
-            return {"status": "completed"}
-
-        except Exception as e:
-            logger.exception(f"Failed to assign messages: {e}")
-            db.query(JobModel).filter(JobModel.id == job_id).update({
-                "status": JobStatus.FAILED,
-                "error": str(e),
-            })
-            db.commit()
-            raise
+# =============================================================================
+# SEGMENT C: Pattern Naming (Hetzner)
+# =============================================================================
 
 
 @celery_app.task(bind=True)
 def name_patterns(self, project_id: str, job_id: str, config: dict):
-    """Generate pattern names using LLM."""
+    """
+    Generate pattern names using LLM (Segment C).
+
+    Requires (from Segment B, sent to Hetzner as small JSONs):
+    - message_examples.json (from B.7)
+    - hierarchical_weights.json (from B.8)
+
+    Output: pattern_names.json saved to Hetzner storage
+    """
+    # Direct import - this module only uses LLM APIs, no torch
     from src.pattern_identification.pattern_naming import PatternNamer
 
     with get_db_context() as db:
@@ -241,7 +110,12 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             storage = StorageService(project_id)
 
             message_examples = storage.load_json(storage.message_examples_path)
+            if message_examples is None:
+                raise FileNotFoundError(f"message_examples.json not found at {storage.message_examples_path}")
+
             hierarchical_weights = storage.load_json(storage.hierarchical_weights_path)
+            if hierarchical_weights is None:
+                raise FileNotFoundError(f"hierarchical_weights.json not found at {storage.hierarchical_weights_path}")
 
             namer = PatternNamer(config)
             pattern_names = namer.name_patterns(
@@ -269,9 +143,23 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             raise
 
 
+# =============================================================================
+# SEGMENT D.2: Report Generation (Hetzner)
+# =============================================================================
+
+
 @celery_app.task(bind=True)
 def generate_report(self, project_id: str, job_id: str, engineer_id: str, config: dict):
-    """Generate report for an engineer."""
+    """
+    Generate report for an engineer using LLM (Segment D.2).
+
+    Requires:
+    - Individual scores (from D.1, saved to Hetzner)
+    - Pattern names (from Segment C)
+
+    Output: Report JSON saved to Hetzner storage
+    """
+    # Direct import - this module only uses LLM APIs, no torch
     from src.scoring.report_generator import ReportGenerator
 
     with get_db_context() as db:
@@ -285,8 +173,12 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
 
             scores_path = storage.base_path / f"scoring/individual/{engineer_id}.json"
             scores = storage.load_json(scores_path)
+            if scores is None:
+                raise FileNotFoundError(f"Individual scores not found at {scores_path}")
 
             pattern_names = storage.load_json(storage.pattern_names_path)
+            if pattern_names is None:
+                raise FileNotFoundError(f"pattern_names.json not found at {storage.pattern_names_path}")
 
             generator = ReportGenerator(config)
             report = generator.generate(

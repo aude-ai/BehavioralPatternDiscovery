@@ -1,12 +1,15 @@
 """Pipeline orchestration routes."""
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Job, JobType
 from ..services import ProjectService, StorageService
+from ..services.r2_service import get_all_r2_file_info, validate_prerequisites
 from ..tasks import cpu_tasks, gpu_tasks
 
 router = APIRouter()
@@ -20,17 +23,29 @@ def load_all_configs() -> dict:
     if _config_cache:
         return _config_cache
 
+    import logging
     from src.core.config import load_config
 
+    logger = logging.getLogger(__name__)
     config_dir = Path(__file__).parent.parent.parent.parent / "config"
 
-    config_files = ["data.yaml", "model.yaml", "training.yaml", "pattern_identification.yaml", "scoring.yaml"]
+    # Required config files
+    required_files = [
+        "data.yaml",
+        "model.yaml",
+        "training.yaml",
+        "pattern_identification.yaml",
+        "scoring.yaml",
+        "cloud.yaml",
+    ]
 
-    for filename in config_files:
+    for filename in required_files:
         config_path = config_dir / filename
-        if config_path.exists():
-            key = filename.replace(".yaml", "")
-            _config_cache[key] = load_config(config_path)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Required config file not found: {config_path}")
+        key = filename.replace(".yaml", "")
+        _config_cache[key] = load_config(config_path)
+        logger.info(f"Loaded config: {filename}")
 
     return _config_cache
 
@@ -39,30 +54,45 @@ def get_pipeline_config(user_overrides: dict = None) -> dict:
     """
     Build merged pipeline config from config files and user overrides.
 
-    Returns a flattened config structure for tasks. Keys from pattern_identification.yaml
-    and scoring.yaml are merged at top level for direct access by tasks.
+    Returns a flattened config structure for tasks.
     """
     configs = load_all_configs()
 
-    # Start with processing config from data.yaml
-    data_config = configs.get("data", {})
+    # Validate required config sections exist
+    if "data" not in configs:
+        raise ValueError("Missing required config: data.yaml")
+    if "model" not in configs:
+        raise ValueError("Missing required config: model.yaml")
+    if "training" not in configs:
+        raise ValueError("Missing required config: training.yaml")
+    if "pattern_identification" not in configs:
+        raise ValueError("Missing required config: pattern_identification.yaml")
+    if "scoring" not in configs:
+        raise ValueError("Missing required config: scoring.yaml")
+    if "cloud" not in configs:
+        raise ValueError("Missing required config: cloud.yaml")
+
+    data_config = configs["data"]
+
+    # Validate required sections in data config
+    if "processing" not in data_config:
+        raise ValueError("Missing required config section: data.processing")
+
     merged = {
-        "processing": data_config.get("processing", {}),
-        "collection": data_config.get("collection", {}),
-        "paths": data_config.get("paths", {}),
-        "model": configs.get("model", {}),
-        "training": configs.get("training", {}),
+        "processing": data_config["processing"],
+        "collection": data_config.get("collection", {}),  # Optional
+        "paths": data_config.get("paths", {}),  # Optional
+        "model": configs["model"],
+        "training": configs["training"],
+        "cloud": configs["cloud"],
     }
 
     # Flatten pattern_identification.yaml keys to top level
-    # (message_assignment, pattern_naming, shap, batch_scoring, etc.)
-    pattern_id_config = configs.get("pattern_identification", {})
-    for key, value in pattern_id_config.items():
+    for key, value in configs["pattern_identification"].items():
         merged[key] = value
 
     # Flatten scoring.yaml keys to top level
-    scoring_config = configs.get("scoring", {})
-    for key, value in scoring_config.items():
+    for key, value in configs["scoring"].items():
         merged[key] = value
 
     # Apply user overrides
@@ -85,140 +115,91 @@ def get_services(project_id: str, db: Session = Depends(get_db)):
     return service, storage, project
 
 
-@router.post("/preprocess", response_model=Job)
-def start_preprocessing(
+# =============================================================================
+# SEGMENT B: Processing Pipeline (triggers Modal)
+# =============================================================================
+
+
+class ProcessRequest(BaseModel):
+    """Request body for processing pipeline."""
+    starting_step: str = "B.1"
+    config: Optional[dict] = None
+    force: bool = False
+
+
+@router.post("/process", response_model=Job)
+def start_processing_pipeline(
     project_id: str,
-    config: dict = None,
+    request: ProcessRequest,
     db: Session = Depends(get_db),
 ):
-    """Start preprocessing pipeline."""
+    """
+    Start the unified processing pipeline on Modal (Segment B).
+
+    Starting points:
+    - B.1: Full pipeline (requires activities.csv on Hetzner)
+    - B.5: From training (requires embeddings, aux_features in R2)
+    - B.6: From batch scoring (requires checkpoint, train_input, message_database in R2)
+    - B.8: SHAP only (requires checkpoint, activations in R2)
+
+    Pipeline runs B.1 -> B.2 -> B.3 -> B.4 -> B.5 -> B.6 -> B.7 -> B.8 sequentially,
+    starting from the specified step.
+    """
     service = ProjectService(db)
     project = service.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    job = service.create_job(project_id, JobType.PREPROCESS)
-    merged_config = get_pipeline_config(config)
-
-    cpu_tasks.preprocess_data.delay(project_id, job.id, merged_config)
-
-    return job
-
-
-@router.post("/embed", response_model=Job)
-def start_embedding(
-    project_id: str,
-    config: dict = None,
-    db: Session = Depends(get_db),
-):
-    """Start embedding on Modal."""
-    service = ProjectService(db)
     storage = StorageService(project_id)
 
-    if not storage.train_aux_vars_path.exists():
-        raise HTTPException(status_code=400, detail="Run preprocessing first")
+    # Validate Hetzner prerequisites
+    if request.starting_step == "B.1":
+        if not storage.activities_path.exists():
+            raise HTTPException(
+                status_code=400,
+                detail="activities.csv not found. Run data collection first (Segment A).",
+            )
 
-    # Load texts from activities
-    import pandas as pd
+    # Validate R2 prerequisites for later starting points
+    if request.starting_step != "B.1":
+        valid, error = validate_prerequisites(project_id, request.starting_step)
+        if not valid:
+            raise HTTPException(status_code=400, detail=error)
 
-    activities = pd.read_csv(storage.activities_path)
-    texts = activities["text"].tolist()
-
-    job = service.create_job(project_id, JobType.EMBED)
-    merged_config = get_pipeline_config(config)
-
-    gpu_tasks.trigger_embedding.delay(project_id, job.id, texts, merged_config)
-
-    return job
-
-
-@router.post("/train", response_model=Job)
-def start_training(
-    project_id: str,
-    config: dict = None,
-    db: Session = Depends(get_db),
-):
-    """
-    Start VAE training on Modal.
-
-    Automatically prepares training data (combines embeddings + aux features,
-    creates message_database) before spawning the Modal training function.
-    """
-    service = ProjectService(db)
-    storage = StorageService(project_id)
-
-    if not storage.train_features_path.exists():
-        raise HTTPException(status_code=400, detail="Run embedding first")
-
+    # Create job
     job = service.create_job(project_id, JobType.TRAIN)
-    merged_config = get_pipeline_config(config)
+    merged_config = get_pipeline_config(request.config)
 
-    gpu_tasks.trigger_training.delay(project_id, job.id, merged_config)
+    # Trigger Modal processing pipeline
+    gpu_tasks.trigger_processing_pipeline.delay(
+        project_id=project_id,
+        job_id=job.id,
+        starting_step=request.starting_step,
+        config=merged_config,
+        force=request.force,
+    )
 
     return job
 
 
-@router.post("/batch-score", response_model=Job)
-def start_batch_scoring(
-    project_id: str,
-    config: dict = None,
-    db: Session = Depends(get_db),
-):
-    """Start batch scoring on Modal."""
+@router.get("/r2-status")
+def get_r2_status(project_id: str, db: Session = Depends(get_db)):
+    """
+    Get R2 file status for a project.
+
+    Returns existence and metadata for all R2 files used by Segment B.
+    """
     service = ProjectService(db)
-    storage = StorageService(project_id)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    if not storage.checkpoint_path.exists():
-        raise HTTPException(status_code=400, detail="Train model first")
-
-    job = service.create_job(project_id, JobType.BATCH_SCORE)
-    merged_config = get_pipeline_config(config)
-
-    gpu_tasks.trigger_batch_score.delay(project_id, job.id, merged_config)
-
-    return job
+    return get_all_r2_file_info(project_id)
 
 
-@router.post("/shap", response_model=Job)
-def start_shap_analysis(
-    project_id: str,
-    config: dict = None,
-    db: Session = Depends(get_db),
-):
-    """Start SHAP analysis on Modal."""
-    service = ProjectService(db)
-    storage = StorageService(project_id)
-
-    if not storage.activations_path.exists():
-        raise HTTPException(status_code=400, detail="Run batch scoring first")
-
-    job = service.create_job(project_id, JobType.SHAP_ANALYZE)
-    merged_config = get_pipeline_config(config)
-
-    gpu_tasks.trigger_shap_analysis.delay(project_id, job.id, merged_config)
-
-    return job
-
-
-@router.post("/assign-messages", response_model=Job)
-def start_message_assignment(
-    project_id: str,
-    config: dict = None,
-    db: Session = Depends(get_db),
-):
-    """Assign messages to patterns."""
-    service = ProjectService(db)
-    storage = StorageService(project_id)
-
-    if not storage.activations_path.exists():
-        raise HTTPException(status_code=400, detail="Run batch scoring first")
-
-    job = service.create_job(project_id, JobType.NAME_PATTERNS)  # Reusing type
-    merged_config = get_pipeline_config(config)
-
-    cpu_tasks.assign_messages.delay(project_id, job.id, merged_config)
-
-    return job
+# =============================================================================
+# SEGMENT C: Pattern Naming (runs on Hetzner)
+# =============================================================================
 
 
 @router.post("/name-patterns", response_model=Job)
@@ -227,12 +208,31 @@ def start_pattern_naming(
     config: dict = None,
     db: Session = Depends(get_db),
 ):
-    """Name patterns using LLM."""
+    """
+    Name patterns using LLM (Segment C).
+
+    Runs on Hetzner. Requires:
+    - message_examples.json (from B.7, sent to Hetzner)
+    - hierarchical_weights.json (from B.8, sent to Hetzner)
+    """
     service = ProjectService(db)
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     storage = StorageService(project_id)
 
     if not storage.message_examples_path.exists():
-        raise HTTPException(status_code=400, detail="Run message assignment first")
+        raise HTTPException(
+            status_code=400,
+            detail="message_examples.json not found. Run processing pipeline first (Segment B).",
+        )
+
+    if not storage.hierarchical_weights_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail="hierarchical_weights.json not found. Run processing pipeline first (Segment B).",
+        )
 
     job = service.create_job(project_id, JobType.NAME_PATTERNS)
     merged_config = get_pipeline_config(config)
@@ -240,6 +240,11 @@ def start_pattern_naming(
     cpu_tasks.name_patterns.delay(project_id, job.id, merged_config)
 
     return job
+
+
+# =============================================================================
+# JOB MANAGEMENT
+# =============================================================================
 
 
 @router.get("/jobs", response_model=list[Job])

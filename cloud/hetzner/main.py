@@ -78,10 +78,20 @@ def get_frontend_config():
     from src.core.config import load_config
 
     config_path = Path(__file__).parent.parent.parent / "config" / "scoring.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Required config file not found: {config_path}")
+
     scoring_config = load_config(config_path)
 
-    # Return frontend-relevant config values
-    report_content = scoring_config.get("report", {}).get("content", {})
+    # Validate required config structure
+    if "report" not in scoring_config:
+        raise ValueError("Missing required config section: report in scoring.yaml")
+    if "content" not in scoring_config["report"]:
+        raise ValueError("Missing required config section: report.content in scoring.yaml")
+
+    report_content = scoring_config["report"]["content"]
+
+    # Return frontend-relevant config values (with documented defaults)
     return {
         "strength_threshold": report_content.get("strength_threshold", 70),
         "weakness_threshold": report_content.get("weakness_threshold", 40),

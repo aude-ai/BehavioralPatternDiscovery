@@ -109,13 +109,17 @@ def fetch_from_ndjson(
 
     # Load base config from config/data.yaml
     data_config = load_data_config()
-    collection_config = data_config.get("collection", {})
+
+    if "collection" not in data_config:
+        raise HTTPException(status_code=500, detail="Missing required config section: collection in data.yaml")
+
+    collection_config = data_config["collection"]
 
     # Build config for NDJSONLoader from the data.yaml structure
     ndjson_config = {
-        "parser_configs": collection_config.get("parsers", {}),
-        "excluded_sections": collection_config.get("ndjson", {}).get("excluded_sections", []),
-        "text_cleanup": collection_config.get("text_cleanup", {}),
+        "parser_configs": collection_config.get("parsers", {}),  # Optional parser overrides
+        "excluded_sections": collection_config.get("ndjson", {}).get("excluded_sections", []),  # Optional exclusions
+        "text_cleanup": collection_config.get("text_cleanup", {}),  # Optional cleanup config
     }
 
     # Merge with user-provided overrides
@@ -154,7 +158,14 @@ def get_data_status(
 
     storage = StorageService(project_id)
 
+    # R2 file status (large processing outputs)
+    from ..services.r2_service import get_r2_file_info
+    embeddings_info = get_r2_file_info(project_id, "embeddings")
+    checkpoint_info = get_r2_file_info(project_id, "checkpoint")
+    message_db_info = get_r2_file_info(project_id, "message_database")
+
     return {
+        # Local Hetzner files
         "activities": {
             "exists": storage.file_exists(storage.activities_path),
             "size": storage.get_file_size(storage.activities_path),
@@ -163,17 +174,21 @@ def get_data_status(
             "exists": storage.file_exists(storage.engineer_metadata_path),
             "size": storage.get_file_size(storage.engineer_metadata_path),
         },
+        # R2 files
         "message_database": {
-            "exists": storage.file_exists(storage.message_database_path),
-            "size": storage.get_file_size(storage.message_database_path),
+            "exists": message_db_info.get("exists", False),
+            "size": message_db_info.get("size_bytes", 0),
+            "location": "r2",
         },
         "embeddings": {
-            "exists": storage.file_exists(storage.train_features_path),
-            "size": storage.get_file_size(storage.train_features_path),
+            "exists": embeddings_info.get("exists", False),
+            "size": embeddings_info.get("size_bytes", 0),
+            "location": "r2",
         },
         "checkpoint": {
-            "exists": storage.file_exists(storage.checkpoint_path),
-            "size": storage.get_file_size(storage.checkpoint_path),
+            "exists": checkpoint_info.get("exists", False),
+            "size": checkpoint_info.get("size_bytes", 0),
+            "location": "r2",
         },
     }
 
@@ -251,8 +266,11 @@ def set_engineer_split(
     if not storage.file_exists(storage.activities_path):
         raise HTTPException(status_code=404, detail="No activities file found")
 
-    engineer_ids = request.get("engineer_ids", [])
-    split = request.get("split", "train")
+    if "engineer_ids" not in request:
+        raise HTTPException(status_code=400, detail="engineer_ids is required")
+
+    engineer_ids = request["engineer_ids"]
+    split = request.get("split", "train")  # Default to train if not specified
 
     if split not in ("train", "validation"):
         raise HTTPException(status_code=400, detail="Split must be 'train' or 'validation'")
@@ -293,7 +311,10 @@ def remove_engineers(
     if not storage.file_exists(storage.activities_path):
         raise HTTPException(status_code=404, detail="No activities file found")
 
-    engineer_ids = request.get("engineer_ids", [])
+    if "engineer_ids" not in request:
+        raise HTTPException(status_code=400, detail="engineer_ids is required")
+
+    engineer_ids = request["engineer_ids"]
 
     df = pd.read_csv(storage.activities_path)
     original_count = len(df)
@@ -328,8 +349,13 @@ def merge_engineers(
     if not storage.file_exists(storage.activities_path):
         raise HTTPException(status_code=404, detail="No activities file found")
 
-    source_ids = request.get("source_ids", [])
-    target_id = request.get("target_id")
+    if "source_ids" not in request:
+        raise HTTPException(status_code=400, detail="source_ids is required")
+    if "target_id" not in request:
+        raise HTTPException(status_code=400, detail="target_id is required")
+
+    source_ids = request["source_ids"]
+    target_id = request["target_id"]
 
     if not target_id:
         raise HTTPException(status_code=400, detail="target_id is required")

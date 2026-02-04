@@ -6,7 +6,7 @@ from typing import Generator, Optional
 from uuid import uuid4
 
 import redis
-from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, JSON
+from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, JSON, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -61,6 +61,10 @@ class ProjectModel(Base):
     config_overrides = Column(JSON, nullable=True)
     status = Column(String, default="created")
     metadata_ = Column("metadata", JSON, nullable=True)
+
+    # Variant support (Phase 5)
+    parent_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)
+    owned_files = Column(JSON, nullable=True, default=dict)
 
 
 class JobModel(Base):

@@ -5,7 +5,10 @@ import modal
 
 def get_hetzner_url() -> str:
     """Get Hetzner base URL from environment (includes /bpd prefix)."""
-    return os.environ.get("HETZNER_BASE_URL", "https://yourdomain.com/bpd")
+    url = os.environ.get("HETZNER_BASE_URL")
+    if url is None:
+        raise ValueError("HETZNER_BASE_URL environment variable is required")
+    return url
 
 
 def get_internal_key() -> str:

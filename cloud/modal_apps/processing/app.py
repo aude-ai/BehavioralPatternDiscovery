@@ -78,33 +78,89 @@ app_image = (
 model_cache = modal.Volume.from_name("bpd-model-cache", create_if_missing=True)
 training_volume = modal.Volume.from_name("bpd-training", create_if_missing=True)
 
-# Step metadata
-STEPS = {
-    "B.1": {"name": "Statistical Features", "gpu": False},
-    "B.2": {"name": "Text Embedding", "gpu": True},
-    "B.3": {"name": "Normalization", "gpu": False},
-    "B.4": {"name": "Training Preparation", "gpu": False},
-    "B.5": {"name": "VAE Training", "gpu": True},
-    "B.6": {"name": "Batch Scoring", "gpu": True},
-    "B.7": {"name": "Message Assignment", "gpu": False},
-    "B.8": {"name": "SHAP Analysis", "gpu": True},
-}
+# Step metadata loaded from cloud.yaml
+def _load_pipeline_config() -> dict:
+    """Load pipeline config from cloud.yaml."""
+    import yaml
 
-STEP_ORDER = ["B.1", "B.2", "B.3", "B.4", "B.5", "B.6", "B.7", "B.8"]
+    config_path = Path("/app/config/cloud.yaml")
+    if not config_path.exists():
+        raise FileNotFoundError(f"Cloud config not found at {config_path}")
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+
+    if "pipeline" not in config:
+        raise ValueError("Missing required config section: pipeline in cloud.yaml")
+    if "steps" not in config["pipeline"]:
+        raise ValueError("Missing required config section: pipeline.steps in cloud.yaml")
+
+    return config["pipeline"]
+
+
+def get_step_metadata() -> dict[str, dict]:
+    """Get step metadata from cloud.yaml."""
+    pipeline_config = _load_pipeline_config()
+    return pipeline_config["steps"]
+
+
+def get_step_order() -> list[str]:
+    """Get ordered list of steps from cloud.yaml."""
+    steps = get_step_metadata()
+    # Sort by step key (B.1, B.2, etc.)
+    return sorted(steps.keys())
 
 
 def get_steps_to_run(starting_step: str) -> list[str]:
     """Get list of steps to run from starting point to end."""
-    if starting_step not in STEP_ORDER:
+    step_order = get_step_order()
+    if starting_step not in step_order:
         raise ValueError(f"Invalid starting step: {starting_step}")
 
-    start_idx = STEP_ORDER.index(starting_step)
-    return STEP_ORDER[start_idx:]
+    start_idx = step_order.index(starting_step)
+    return step_order[start_idx:]
+
+
+def _get_step_outputs(step: str) -> dict:
+    """Get the R2 and Hetzner outputs for a step from cloud.yaml."""
+    config = _load_pipeline_config()
+    step_config = config["steps"].get(step, {})
+    return {
+        "r2_outputs": step_config.get("r2_outputs", []),
+        "hetzner_outputs": step_config.get("hetzner_outputs", []),
+    }
+
+
+def _check_step_outputs_exist(project_id: str, step: str) -> tuple[bool, list[str]]:
+    """
+    Check if all outputs for a step already exist.
+
+    Returns:
+        (all_exist, missing_outputs)
+    """
+    from cloud.modal_apps.common.r2_storage import r2_file_exists
+
+    outputs = _get_step_outputs(step)
+    missing = []
+
+    # Check R2 outputs
+    for r2_output in outputs["r2_outputs"]:
+        if not r2_file_exists(project_id, r2_output):
+            missing.append(f"r2:{r2_output}")
+
+    # Note: We can't easily check Hetzner outputs from Modal,
+    # so we only check R2 outputs for resume capability.
+    # If R2 outputs exist, we assume the step completed.
+
+    return len(missing) == 0, missing
 
 
 def get_hetzner_url() -> str:
     """Get Hetzner base URL from environment."""
-    return os.environ.get("HETZNER_BASE_URL", "https://yourdomain.com/bpd")
+    url = os.environ.get("HETZNER_BASE_URL")
+    if url is None:
+        raise ValueError("HETZNER_BASE_URL environment variable is required")
+    return url
 
 
 def get_headers() -> dict:
@@ -213,6 +269,7 @@ def run_processing_pipeline(
     job_id: str,
     starting_step: str,
     config: dict,
+    force: bool = False,
 ) -> dict:
     """
     Run the processing pipeline from a given starting step.
@@ -225,6 +282,8 @@ def run_processing_pipeline(
         job_id: Job ID for progress tracking
         starting_step: Step to start from (B.1, B.5, B.6, or B.8)
         config: Full merged pipeline configuration
+        force: If True, re-run steps even if outputs exist. If False (default),
+               skip steps whose outputs already exist in R2.
 
     Returns:
         Dict with completion status and metadata
@@ -244,10 +303,17 @@ def run_processing_pipeline(
     steps_to_run = get_steps_to_run(starting_step)
     total_steps = len(steps_to_run)
 
+    # Extract inheritance info from config
+    parent_id = config.get("parent_id")
+    owned_files = config.get("owned_files") or {}
+
     try:
         # Validate prerequisites
         callback.status(f"Validating prerequisites for {starting_step}...")
-        valid, error = validate_prerequisites(project_id, starting_step)
+        valid, error = validate_prerequisites(
+            project_id, starting_step,
+            parent_id=parent_id, owned_files=owned_files
+        )
         if not valid:
             raise ValueError(f"Prerequisites not met: {error}")
 
@@ -262,11 +328,37 @@ def run_processing_pipeline(
         state.activities_df = activities_df
 
         # Run each step
+        step_metadata = get_step_metadata()
+        steps_skipped = []
+        steps_run = []
+
         for i, step in enumerate(steps_to_run):
-            step_name = STEPS[step]["name"]
+            step_name = step_metadata[step]["name"]
             overall_progress = i / total_steps
 
-            callback.status(f"Running {step}: {step_name}...")
+            # Check if step outputs already exist (resume capability)
+            outputs_exist, missing = _check_step_outputs_exist(project_id, step)
+
+            if outputs_exist and not force:
+                logger.info(f"SKIPPING {step} ({step_name}): outputs already exist in R2")
+                callback.status(f"Skipping {step}: {step_name} (outputs exist)")
+                callback("progress", {
+                    "segment": "B",
+                    "step": step,
+                    "step_name": step_name,
+                    "step_progress": 1.0,
+                    "overall_progress": (i + 1) / total_steps,
+                    "skipped": True,
+                })
+                steps_skipped.append(step)
+                continue
+
+            if outputs_exist and force:
+                logger.info(f"RE-RUNNING {step} ({step_name}): force=True, outputs will be overwritten")
+                callback.status(f"Re-running {step}: {step_name} (force mode)...")
+            else:
+                callback.status(f"Running {step}: {step_name}...")
+
             callback("progress", {
                 "segment": "B",
                 "step": step,
@@ -276,8 +368,20 @@ def run_processing_pipeline(
             })
 
             # Run the step
-            step_fn = STEP_FUNCTIONS[step]
-            step_fn(state)
+            try:
+                step_fn = STEP_FUNCTIONS[step]
+                step_fn(state)
+                steps_run.append(step)
+            except Exception as e:
+                # Include step info in error callback
+                logger.exception(f"Pipeline failed at step {step} ({step_name}): {e}")
+                callback("failed", {
+                    "error": str(e),
+                    "failed_step": step,
+                    "failed_step_name": step_name,
+                    "steps_completed": steps_run,
+                })
+                raise RuntimeError(f"Step {step} ({step_name}) failed: {e}") from e
 
             # Report step completion
             callback("progress", {
@@ -288,15 +392,22 @@ def run_processing_pipeline(
                 "overall_progress": (i + 1) / total_steps,
             })
 
-        callback.completed("Processing pipeline completed successfully")
+        if steps_skipped:
+            callback.completed(f"Pipeline completed: {len(steps_run)} steps run, {len(steps_skipped)} skipped")
+        else:
+            callback.completed("Processing pipeline completed successfully")
 
         return {
             "status": "completed",
-            "steps_run": steps_to_run,
+            "steps_requested": steps_to_run,
+            "steps_run": steps_run,
+            "steps_skipped": steps_skipped,
             "project_id": project_id,
+            "force": force,
         }
 
     except Exception as e:
+        # This catches errors before steps start (e.g., prerequisite validation)
         logger.exception(f"Pipeline failed: {e}")
         callback.failed(str(e))
         raise
@@ -314,6 +425,10 @@ class PipelineState:
         self.project_id = project_id
         self.config = config
         self.callback = callback
+
+        # Variant inheritance support (Phase 5)
+        self.parent_id = config.get("parent_id")
+        self.owned_files = config.get("owned_files") or {}
 
         # Data that can be passed between steps
         self.activities_df = None
@@ -387,9 +502,18 @@ def step_b2_text_embedding(state: PipelineState):
     texts = state.activities_df["text"].tolist()
     total = len(texts)
 
+    if "processing" not in state.config:
+        raise ValueError("Missing required config section: processing")
+    if "text_encoder" not in state.config["processing"]:
+        raise ValueError("Missing required config section: processing.text_encoder")
+
     encoder_config = state.config["processing"]["text_encoder"]
+    if "type" not in encoder_config:
+        raise ValueError("Missing required config key: processing.text_encoder.type")
+
     encoder_type = encoder_config["type"]
     encoder_settings = encoder_config.get(encoder_type, {})
+    # batch_size has documented default of 32 if not specified
     batch_size = encoder_settings.get("batch_size", 32)
 
     state.callback.status(f"Embedding {total} texts with {encoder_type}...")
@@ -432,13 +556,21 @@ def step_b3_normalization(state: PipelineState):
     # Load embeddings if not in state (starting from B.5)
     if state.embeddings is None:
         state.callback.status("Loading embeddings from R2...")
-        state.embeddings = download_numpy_from_r2(state.project_id, "embeddings")
+        state.embeddings = download_numpy_from_r2(
+            state.project_id, "embeddings",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     state.callback.status("Applying normalization pipeline...")
 
-    norm_config = state.config.get("processing", {}).get("normalization", {})
+    if "processing" not in state.config:
+        raise ValueError("Missing required config section: processing")
+    if "normalization" not in state.config["processing"]:
+        raise ValueError("Missing required config section: processing.normalization")
 
-    if norm_config.get("enabled", True) and norm_config.get("pipeline"):
+    norm_config = state.config["processing"]["normalization"]
+
+    if norm_config.get("enabled", True) and "pipeline" in norm_config:
         pipeline = NormalizationPipeline(state.config)
         pipeline.fit(state.embeddings)
         normalized = pipeline.transform(state.embeddings)
@@ -466,36 +598,56 @@ def step_b4_training_prep(state: PipelineState):
     # Load if not in state
     if state.normalized_embeddings is None:
         state.callback.status("Loading normalized embeddings from R2...")
-        state.normalized_embeddings = download_numpy_from_r2(state.project_id, "normalized_embeddings")
+        state.normalized_embeddings = download_numpy_from_r2(
+            state.project_id, "normalized_embeddings",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     if state.aux_features is None:
         state.callback.status("Loading aux features from R2...")
-        state.aux_features = download_numpy_from_r2(state.project_id, "aux_features")
+        state.aux_features = download_numpy_from_r2(
+            state.project_id, "aux_features",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     state.callback.status("Preparing training data...")
 
-    # Combine embeddings + aux features
-    if state.config.get("include_aux_features", True):
+    # Combine embeddings + aux features (default True if not specified)
+    include_aux = state.config.get("include_aux_features", True)
+    if include_aux:
         train_input = np.concatenate([state.normalized_embeddings, state.aux_features], axis=1)
     else:
         train_input = state.normalized_embeddings
 
-    # Create message database
+    # Create message database - DataFrame columns are required
+    required_columns = ["text", "engineer_id", "source", "timestamp"]
+    missing_columns = [col for col in required_columns if col not in state.activities_df.columns]
+    if missing_columns:
+        raise ValueError(f"activities_df missing required columns: {missing_columns}")
+
     messages = []
     for idx, row in state.activities_df.iterrows():
         messages.append({
             "index": idx,
-            "text": row.get("text", ""),
-            "engineer_id": row.get("engineer_id", ""),
-            "source": row.get("source", ""),
-            "timestamp": str(row.get("timestamp", "")),
+            "text": row["text"],
+            "engineer_id": row["engineer_id"],
+            "source": row["source"],
+            "timestamp": str(row["timestamp"]),
         })
 
-    # Extract encoder metadata
-    encoder_config = state.config.get("processing", {}).get("text_encoder", {})
-    encoder_type = encoder_config.get("type", "unknown")
+    # Extract encoder metadata - config is required
+    if "processing" not in state.config:
+        raise ValueError("Missing required config section: processing")
+    if "text_encoder" not in state.config["processing"]:
+        raise ValueError("Missing required config section: processing.text_encoder")
+
+    encoder_config = state.config["processing"]["text_encoder"]
+    if "type" not in encoder_config:
+        raise ValueError("Missing required config key: processing.text_encoder.type")
+
+    encoder_type = encoder_config["type"]
     encoder_settings = encoder_config.get(encoder_type, {})
-    model_name = encoder_settings.get("model_name", "unknown")
+    model_name = encoder_settings.get("model_name", encoder_type)
 
     message_database = {
         "messages": messages,
@@ -536,13 +688,20 @@ def step_b5_vae_training(state: PipelineState):
         download_numpy_from_r2,
         download_pickle_from_r2,
         upload_checkpoint_to_r2,
+        upload_json_to_r2,
     )
 
     # Load if not in state
     if state.train_input is None:
         state.callback.status("Loading training data from R2...")
-        state.train_input = download_numpy_from_r2(state.project_id, "train_input")
-        state.message_database = download_pickle_from_r2(state.project_id, "message_database")
+        state.train_input = download_numpy_from_r2(
+            state.project_id, "train_input",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
+        state.message_database = download_pickle_from_r2(
+            state.project_id, "message_database",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     state.callback.status("Initializing model...")
 
@@ -564,12 +723,19 @@ def step_b5_vae_training(state: PipelineState):
 
     state.callback.status("Starting training...")
 
+    if "training" not in state.config:
+        raise ValueError("Missing required config section: training")
+    if "max_epochs" not in state.config["training"]:
+        raise ValueError("Missing required config key: training.max_epochs")
+
+    max_epochs = state.config["training"]["max_epochs"]
+
     def on_epoch_end(epoch: int, metrics: dict, is_best: bool):
         state.callback("progress", {
             "segment": "B",
             "step": "B.5",
             "step_name": "VAE Training",
-            "step_progress": epoch / state.config["training"].get("max_epochs", 100),
+            "step_progress": epoch / max_epochs,
             "message": f"Epoch {epoch}, loss: {metrics.get('total_loss', 0):.4f}",
         })
         if wandb_enabled:
@@ -606,7 +772,16 @@ def step_b5_vae_training(state: PipelineState):
     # Upload to R2
     upload_checkpoint_to_r2(checkpoint_path, state.project_id)
 
-    state.callback.status("Training completed, checkpoint uploaded to R2")
+    # Upload model metadata as JSON (for Hetzner access without torch)
+    checkpoint_data = torch.load(checkpoint_path, map_location="cpu")
+    model_metadata = {
+        "config": checkpoint_data.get("config"),
+        "metadata": checkpoint_data.get("metadata"),
+        "training_epochs": checkpoint_data.get("epoch"),
+    }
+    upload_json_to_r2(model_metadata, state.project_id, "model_metadata")
+
+    state.callback.status("Training completed, checkpoint and metadata uploaded to R2")
 
 
 def step_b6_batch_scoring(state: PipelineState):
@@ -629,7 +804,10 @@ def step_b6_batch_scoring(state: PipelineState):
     if state.model is None:
         state.callback.status("Loading model from R2...")
         checkpoint_path = Path("/tmp/checkpoint.pt")
-        download_checkpoint_from_r2(state.project_id, checkpoint_path)
+        download_checkpoint_from_r2(
+            state.project_id, checkpoint_path,
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         model_config = checkpoint["config"]
@@ -647,10 +825,16 @@ def step_b6_batch_scoring(state: PipelineState):
     # Load training data if not in state
     if state.train_input is None:
         state.callback.status("Loading training data from R2...")
-        state.train_input = download_numpy_from_r2(state.project_id, "train_input")
+        state.train_input = download_numpy_from_r2(
+            state.project_id, "train_input",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     if state.message_database is None:
-        state.message_database = download_pickle_from_r2(state.project_id, "message_database")
+        state.message_database = download_pickle_from_r2(
+            state.project_id, "message_database",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     state.callback.status("Running batch scoring...")
 
@@ -714,7 +898,10 @@ def step_b7_message_assignment(state: PipelineState):
     if state.activations is None:
         state.callback.status("Loading activations from R2...")
         h5_path = Path("/tmp/activations.h5")
-        download_h5_from_r2(state.project_id, h5_path)
+        download_h5_from_r2(
+            state.project_id, h5_path,
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
         state.activations = {}
         with h5py.File(h5_path, "r") as f:
@@ -724,7 +911,10 @@ def step_b7_message_assignment(state: PipelineState):
 
     if state.message_database is None:
         state.callback.status("Loading message database from R2...")
-        state.message_database = download_pickle_from_r2(state.project_id, "message_database")
+        state.message_database = download_pickle_from_r2(
+            state.project_id, "message_database",
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
     if state.population_stats is None:
         # Load from Hetzner
@@ -777,7 +967,10 @@ def step_b8_shap_analysis(state: PipelineState):
     if state.model is None:
         state.callback.status("Loading model from R2...")
         checkpoint_path = Path("/tmp/checkpoint.pt")
-        download_checkpoint_from_r2(state.project_id, checkpoint_path)
+        download_checkpoint_from_r2(
+            state.project_id, checkpoint_path,
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         model_config = checkpoint["config"]
@@ -796,7 +989,10 @@ def step_b8_shap_analysis(state: PipelineState):
     if state.activations is None:
         state.callback.status("Loading activations from R2...")
         h5_path = Path("/tmp/activations.h5")
-        download_h5_from_r2(state.project_id, h5_path)
+        download_h5_from_r2(
+            state.project_id, h5_path,
+            parent_id=state.parent_id, owned_files=state.owned_files
+        )
 
         state.activations = {}
         with h5py.File(h5_path, "r") as f:
@@ -880,9 +1076,16 @@ def score_individual(
 
     from cloud.modal_apps.common.r2_storage import download_checkpoint_from_r2
 
-    # Download checkpoint from R2
+    # Extract inheritance info from config
+    parent_id = config.get("parent_id")
+    owned_files = config.get("owned_files") or {}
+
+    # Download checkpoint from R2 (with inheritance support)
     checkpoint_path = Path("/tmp/checkpoint.pt")
-    download_checkpoint_from_r2(project_id, checkpoint_path)
+    download_checkpoint_from_r2(
+        project_id, checkpoint_path,
+        parent_id=parent_id, owned_files=owned_files
+    )
 
     checkpoint = torch.load(checkpoint_path, map_location="cuda")
     model_config = checkpoint["config"]
@@ -927,7 +1130,12 @@ class ScoringService:
         self.models: dict = {}
         self.dims: dict = {}
 
-    def _load_model(self, project_id: str):
+    def _load_model(
+        self,
+        project_id: str,
+        parent_id: str | None = None,
+        owned_files: dict | None = None,
+    ):
         """Load and cache model for project."""
         import torch
 
@@ -941,9 +1149,12 @@ class ScoringService:
 
         from cloud.modal_apps.common.r2_storage import download_checkpoint_from_r2
 
-        # Download from R2
+        # Download from R2 (with inheritance support)
         checkpoint_path = Path(f"/tmp/checkpoint_{project_id}.pt")
-        download_checkpoint_from_r2(project_id, checkpoint_path)
+        download_checkpoint_from_r2(
+            project_id, checkpoint_path,
+            parent_id=parent_id, owned_files=owned_files
+        )
 
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         checkpoint_path.unlink()
@@ -972,7 +1183,11 @@ class ScoringService:
         """Score individual engineer with cached model."""
         sys.path.insert(0, "/app")
 
-        self._load_model(project_id)
+        # Extract inheritance info from config
+        parent_id = config.get("parent_id")
+        owned_files = config.get("owned_files") or {}
+
+        self._load_model(project_id, parent_id=parent_id, owned_files=owned_files)
         model = self.models[project_id]
 
         from src.scoring import IndividualScorer

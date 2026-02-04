@@ -5,6 +5,13 @@ r2:
   bucket: "bpd-storage"
   region: "auto"
 
+  # Retry configuration for R2 operations
+  retry:
+    max_attempts: 3
+    initial_delay_seconds: 1
+    max_delay_seconds: 10
+    exponential_base: 2
+
   # Path templates - {project_id} is replaced at runtime
   paths:
     # Preprocessing outputs
@@ -16,6 +23,7 @@ r2:
     train_input: "projects/{project_id}/training/train_input.npy.zst"
     message_database: "projects/{project_id}/training/message_database.pkl.zst"
     checkpoint: "projects/{project_id}/training/checkpoint.pt.zst"
+    model_metadata: "projects/{project_id}/training/model_metadata.json"
 
     # Scoring outputs
     activations: "projects/{project_id}/scoring/activations.h5.zst"
@@ -79,6 +87,7 @@ pipeline:
         - "message_database"
       r2_outputs:
         - "checkpoint"
+        - "model_metadata"
 
     B.6:
       name: "Batch Scoring"

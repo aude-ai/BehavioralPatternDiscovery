@@ -163,18 +163,28 @@ def get_model_metadata(
     project_id: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    """Get model architecture and training metadata."""
-    import torch
+    """
+    Get model architecture and training metadata.
 
-    storage = StorageService(project_id)
+    Reads from model_metadata.json stored in R2 (created during training on Modal).
+    This avoids torch dependency on Hetzner.
+    """
+    from ..services.r2_service import get_r2_file_info, download_json_from_r2
 
-    if not storage.checkpoint_path.exists():
-        raise HTTPException(status_code=404, detail="Model not found")
+    # Check if model metadata exists in R2
+    file_info = get_r2_file_info(project_id, "model_metadata")
+    if not file_info.get("exists"):
+        raise HTTPException(
+            status_code=404,
+            detail="Model metadata not found. Run training pipeline first.",
+        )
 
-    checkpoint = torch.load(storage.checkpoint_path, map_location="cpu")
-
-    return {
-        "config": checkpoint.get("config"),
-        "metadata": checkpoint.get("metadata"),
-        "training_epochs": checkpoint.get("epoch"),
-    }
+    # Download and return the JSON metadata
+    try:
+        metadata = download_json_from_r2(project_id, "model_metadata")
+        return metadata
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve model metadata: {e}",
+        )

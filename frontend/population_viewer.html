@@ -574,11 +574,27 @@
     </div>
 
     <script>
+        // Get project ID from URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const PROJECT_ID = urlParams.get('project_id') || localStorage.getItem('bpd_project_id');
+
+        // API base URL with project scope
+        const API_BASE = window.location.pathname.startsWith('/bpd')
+            ? `${window.location.origin}/bpd`
+            : window.location.origin;
+
+        function getApiBase() {
+            if (!PROJECT_ID) {
+                throw new Error('No project selected. Please select a project from the main dashboard.');
+            }
+            return `${API_BASE}/api/projects/${PROJECT_ID}`;
+        }
+
         let allData = null;
 
         async function loadEngineers() {
             try {
-                const response = await fetch('/api/engineers');
+                const response = await fetch(`${getApiBase()}/data/engineers`);
                 const data = await response.json();
 
                 const select = document.getElementById('engineerSelect');
@@ -614,8 +630,8 @@
 
             try {
                 const url = engineerIds
-                    ? `/api/population_viewer_data?engineer_ids=${engineerIds.join(',')}`
-                    : '/api/population_viewer_data';
+                    ? `${getApiBase()}/patterns/population-data?engineer_ids=${engineerIds.join(',')}`
+                    : `${getApiBase()}/patterns/population-data`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -1094,7 +1110,7 @@
 
             try {
                 // Fetch message distribution data from API
-                let url = `/api/message_distribution_data?pattern_key=${backendKey}&pattern_idx=${patternIdx}`;
+                let url = `${getApiBase()}/patterns/message-distribution?pattern_key=${backendKey}&pattern_idx=${patternIdx}`;
                 if (selectedEngineerIds.length > 0) {
                     url += `&engineer_ids=${selectedEngineerIds.join(',')}`;
                 }
@@ -1292,7 +1308,19 @@
         });
 
         // Initialize
-        loadEngineers();
+        if (!PROJECT_ID) {
+            document.querySelector('.main-container').innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 50vh; color: var(--text-primary);">
+                    <div style="text-align: center;">
+                        <h2>No Project Selected</h2>
+                        <p style="color: var(--text-muted); margin: 1rem 0;">Please select a project from the main dashboard first.</p>
+                        <a href="index.html" style="color: var(--accent-primary);">Go to Dashboard</a>
+                    </div>
+                </div>
+            `;
+        } else {
+            loadEngineers();
+        }
     </script>
 </body>
 </html>

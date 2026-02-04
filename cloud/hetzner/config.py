@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Security
     internal_api_key: str
 
+    # R2 Storage (read-only for status checks)
+    r2_access_key_id: Optional[str] = None
+    r2_secret_access_key: Optional[str] = None
+    r2_endpoint_url: Optional[str] = None
+    r2_bucket_name: str = "bpd-storage"
+
     # LLM APIs
     gemini_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None

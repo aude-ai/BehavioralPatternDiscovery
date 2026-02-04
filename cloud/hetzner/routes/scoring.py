@@ -1,6 +1,4 @@
 """Scoring routes."""
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -9,6 +7,7 @@ from ..database import get_db
 from ..models import Job, JobType
 from ..services import ProjectService, StorageService
 from ..tasks import gpu_tasks, cpu_tasks
+from .pipeline import get_pipeline_config
 
 router = APIRouter()
 
@@ -33,8 +32,10 @@ def score_individual(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not storage.checkpoint_path.exists():
-        raise HTTPException(status_code=400, detail="Model not trained yet")
+    # Check R2 for checkpoint (not local storage)
+    from ..services.r2_service import r2_file_exists
+    if not r2_file_exists(project_id, "checkpoint"):
+        raise HTTPException(status_code=400, detail="Model not trained yet. Run processing pipeline first.")
 
     # Load population stats
     population_stats = storage.load_json(storage.population_stats_path)
@@ -43,12 +44,16 @@ def score_individual(
 
     job = service.create_job(project_id, JobType.SCORE_INDIVIDUAL)
 
+    # Get pipeline config for the scorer
+    config = get_pipeline_config()
+
     gpu_tasks.trigger_individual_score.delay(
         project_id=project_id,
         job_id=job.id,
         engineer_id=request.engineer_id,
         messages=request.messages,
         population_stats=population_stats,
+        config=config,
     )
 
     return job
