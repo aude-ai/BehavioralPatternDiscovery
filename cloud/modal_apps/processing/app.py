@@ -192,16 +192,24 @@ class ProgressCallback:
             **(data or {}),
         }
 
+        url = f"{self.hetzner_url}/internal/jobs/{self.job_id}/event"
+
         try:
             response = requests.post(
-                f"{self.hetzner_url}/internal/jobs/{self.job_id}/event",
+                url,
                 headers=self.headers,
                 json=payload,
                 timeout=10,
             )
             response.raise_for_status()
+            logger.debug(f"Callback {event_type} sent to {url}")
+        except requests.exceptions.HTTPError as e:
+            logger.error(
+                f"Callback {event_type} failed: HTTP {e.response.status_code} - "
+                f"URL: {url} - Response: {e.response.text[:500]}"
+            )
         except Exception as e:
-            logger.warning(f"Failed to send progress: {e}")
+            logger.error(f"Callback {event_type} failed: {e} - URL: {url}")
 
     def status(self, message: str):
         """Send status message."""

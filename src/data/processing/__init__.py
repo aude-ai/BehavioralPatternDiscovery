@@ -7,9 +7,11 @@ training data preparation, and preprocessing orchestration.
 
 from .encoders import (
     BaseTextEncoder,
-    JinaEncoder,
+    JinaV3Encoder,
+    JinaV4Encoder,
     NVEmbedEncoder,
     QwenRawEncoder,
+    Qwen3EmbeddingEncoder,
     text_encoder_registry,
     create_text_encoder,
 )
@@ -36,9 +38,11 @@ from .training_data_preparer import (
 __all__ = [
     # Encoders
     "BaseTextEncoder",
-    "JinaEncoder",
+    "JinaV3Encoder",
+    "JinaV4Encoder",
     "NVEmbedEncoder",
     "QwenRawEncoder",
+    "Qwen3EmbeddingEncoder",
     "text_encoder_registry",
     "create_text_encoder",
     # Features
