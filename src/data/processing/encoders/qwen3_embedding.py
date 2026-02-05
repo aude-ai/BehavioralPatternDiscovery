@@ -79,11 +79,14 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
         # Flash attention
         if self.use_flash_attention:
             model_kwargs["attn_implementation"] = "flash_attention_2"
+            # Use both dtype (new) and torch_dtype (legacy) for compatibility
+            model_kwargs["dtype"] = torch.bfloat16
             model_kwargs["torch_dtype"] = torch.bfloat16
 
         # Quantization
         if self.quantization_type == "none":
-            if "torch_dtype" not in model_kwargs:
+            if "dtype" not in model_kwargs:
+                model_kwargs["dtype"] = torch.float16
                 model_kwargs["torch_dtype"] = torch.float16
             model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
 
