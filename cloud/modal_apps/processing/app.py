@@ -465,6 +465,11 @@ def step_b1_statistical_features(state: PipelineState):
 
     from cloud.modal_apps.common.r2_storage import upload_numpy_to_r2
 
+    # Debug: log what we have
+    if state.activities_df is None:
+        raise ValueError("activities_df is None - was it downloaded?")
+    logger.info(f"step_b1: activities_df shape={state.activities_df.shape}, columns={list(state.activities_df.columns)}")
+
     state.callback.status("Extracting statistical features...")
 
     extractor = StatisticalFeatureExtractor(state.config)
