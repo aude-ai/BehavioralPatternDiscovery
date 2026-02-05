@@ -23,10 +23,11 @@ from pathlib import Path
 import modal
 import numpy as np
 
+logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.04.1"
+PIPELINE_VERSION = "2026.02.04.2"
 
 app = modal.App("bpd-processing")
 
@@ -40,6 +41,7 @@ PYTHON_VERSION = "3.11"
 app_image = (
     modal.Image.from_registry(
         "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-devel",
+        force_build=True,  # Force rebuild - remove after first successful deploy
     )
     .apt_install("git", "wget")
     .pip_install(
