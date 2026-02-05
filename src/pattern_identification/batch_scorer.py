@@ -82,6 +82,7 @@ class BatchScorer:
         logger.info(f"  Encoders: {encoder_names}")
         logger.info(f"  Levels: {level_names}")
 
+        last_reported_pct = 0
         with torch.no_grad():
             for start in tqdm(range(0, n_messages, self.batch_size), desc="Batch scoring"):
                 end = min(start + self.batch_size, n_messages)
@@ -90,9 +91,13 @@ class BatchScorer:
                 )
                 self._store_batch(activations, batch_activations, start, end)
 
+                # Report progress every 10%
                 if progress_callback:
                     progress = min(end / n_messages, 1.0)
-                    progress_callback(progress, end, n_messages)
+                    current_pct = int(progress * 10)
+                    if current_pct > last_reported_pct or end == n_messages:
+                        last_reported_pct = current_pct
+                        progress_callback(progress, end, n_messages)
 
         # Compute population statistics
         population_stats = self._compute_population_stats(activations)

@@ -6,7 +6,7 @@
 # Batch Scoring - Score all messages, store activations at all levels
 # -----------------------------------------------------------------------------
 batch_scoring:
-  batch_size: 64
+  batch_size: 2048
   device: "cuda"
 
 # -----------------------------------------------------------------------------
@@ -42,7 +42,7 @@ word_attribution:
   # Skip common stopwords
   skip_stopwords: true
   # Batch size for text encoder
-  batch_size: 128
+  batch_size: 512
   # Device for VAE inference
   device: "cuda"
   # Scoring mode for selecting top words:

@@ -30,24 +30,18 @@ def trigger_processing_pipeline(
     job_id: str,
     starting_step: str,
     config: dict,
-    force: bool = False,
 ):
     """
     Trigger the unified processing pipeline on Modal (Segment B).
 
     Runs steps B.1 through B.8 sequentially, starting from the specified step.
     All large files are stored in R2, only small JSONs come back to Hetzner.
-
-    Args:
-        force: If True, re-run steps even if outputs exist. If False (default),
-               skip steps whose outputs already exist in R2.
     """
     with get_db_context() as db:
         try:
-            force_msg = " (force mode)" if force else ""
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.RUNNING,
-                "progress_message": f"Starting processing pipeline from {starting_step}{force_msg}...",
+                "progress_message": f"Starting processing pipeline from {starting_step}...",
             })
             db.commit()
 
@@ -58,7 +52,6 @@ def trigger_processing_pipeline(
                 job_id=job_id,
                 starting_step=starting_step,
                 config=config,
-                force=force,
             )
 
             db.query(JobModel).filter(JobModel.id == job_id).update({

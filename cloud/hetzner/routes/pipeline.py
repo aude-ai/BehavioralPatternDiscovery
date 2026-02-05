@@ -124,7 +124,6 @@ class ProcessRequest(BaseModel):
     """Request body for processing pipeline."""
     starting_step: str = "B.1"
     config: Optional[dict] = None
-    force: bool = False
 
 
 @router.post("/process", response_model=Job)
@@ -176,7 +175,6 @@ def start_processing_pipeline(
         job_id=job.id,
         starting_step=request.starting_step,
         config=merged_config,
-        force=request.force,
     )
 
     return job

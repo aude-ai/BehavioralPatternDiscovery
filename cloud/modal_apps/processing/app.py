@@ -134,30 +134,6 @@ def _get_step_outputs(step: str) -> dict:
     }
 
 
-def _check_step_outputs_exist(project_id: str, step: str) -> tuple[bool, list[str]]:
-    """
-    Check if all outputs for a step already exist.
-
-    Returns:
-        (all_exist, missing_outputs)
-    """
-    from cloud.modal_apps.common.r2_storage import r2_file_exists
-
-    outputs = _get_step_outputs(step)
-    missing = []
-
-    # Check R2 outputs
-    for r2_output in outputs["r2_outputs"]:
-        if not r2_file_exists(project_id, r2_output):
-            missing.append(f"r2:{r2_output}")
-
-    # Note: We can't easily check Hetzner outputs from Modal,
-    # so we only check R2 outputs for resume capability.
-    # If R2 outputs exist, we assume the step completed.
-
-    return len(missing) == 0, missing
-
-
 def get_hetzner_url() -> str:
     """Get Hetzner base URL from environment."""
     url = os.environ.get("HETZNER_BASE_URL")
@@ -287,21 +263,18 @@ def run_processing_pipeline(
     job_id: str,
     starting_step: str,
     config: dict,
-    force: bool = False,
 ) -> dict:
     """
     Run the processing pipeline from a given starting step.
 
-    All subsequent steps will be executed. Large files are stored in R2,
-    small JSONs are sent to Hetzner.
+    All steps from starting_step onwards will be executed. Large files are
+    stored in R2, small JSONs are sent to Hetzner.
 
     Args:
         project_id: Project identifier
         job_id: Job ID for progress tracking
         starting_step: Step to start from (B.1, B.5, B.6, or B.8)
         config: Full merged pipeline configuration
-        force: If True, re-run steps even if outputs exist. If False (default),
-               skip steps whose outputs already exist in R2.
 
     Returns:
         Dict with completion status and metadata
@@ -347,36 +320,13 @@ def run_processing_pipeline(
 
         # Run each step
         step_metadata = get_step_metadata()
-        steps_skipped = []
         steps_run = []
 
         for i, step in enumerate(steps_to_run):
             step_name = step_metadata[step]["name"]
             overall_progress = i / total_steps
 
-            # Check if step outputs already exist (resume capability)
-            outputs_exist, missing = _check_step_outputs_exist(project_id, step)
-
-            if outputs_exist and not force:
-                logger.info(f"SKIPPING {step} ({step_name}): outputs already exist in R2")
-                callback.status(f"Skipping {step}: {step_name} (outputs exist)")
-                callback("progress", {
-                    "segment": "B",
-                    "step": step,
-                    "step_name": step_name,
-                    "step_progress": 1.0,
-                    "overall_progress": (i + 1) / total_steps,
-                    "skipped": True,
-                })
-                steps_skipped.append(step)
-                continue
-
-            if outputs_exist and force:
-                logger.info(f"RE-RUNNING {step} ({step_name}): force=True, outputs will be overwritten")
-                callback.status(f"Re-running {step}: {step_name} (force mode)...")
-            else:
-                callback.status(f"Running {step}: {step_name}...")
-
+            callback.status(f"Running {step}: {step_name}...")
             callback("progress", {
                 "segment": "B",
                 "step": step,
@@ -391,7 +341,6 @@ def run_processing_pipeline(
                 step_fn(state)
                 steps_run.append(step)
             except Exception as e:
-                # Include step info in error callback
                 logger.exception(f"Pipeline failed at step {step} ({step_name}): {e}")
                 callback("failed", {
                     "error": str(e),
@@ -410,18 +359,13 @@ def run_processing_pipeline(
                 "overall_progress": (i + 1) / total_steps,
             })
 
-        if steps_skipped:
-            callback.completed(f"Pipeline completed: {len(steps_run)} steps run, {len(steps_skipped)} skipped")
-        else:
-            callback.completed("Processing pipeline completed successfully")
+        callback.completed("Processing pipeline completed successfully")
 
         return {
             "status": "completed",
             "steps_requested": steps_to_run,
             "steps_run": steps_run,
-            "steps_skipped": steps_skipped,
             "project_id": project_id,
-            "force": force,
         }
 
     except Exception as e:
@@ -550,19 +494,26 @@ def step_b2_text_embedding(state: PipelineState):
     state.callback.status(f"Embedding {total} texts with {encoder_type}...")
 
     all_embeddings = []
-    for i in range(0, total, batch_size):
+    num_batches = (total + batch_size - 1) // batch_size
+    last_reported_pct = 0
+
+    for batch_idx, i in enumerate(range(0, total, batch_size)):
         batch = texts[i : i + batch_size]
         batch_embeddings = encoder.encode(batch)
         all_embeddings.append(batch_embeddings)
 
+        # Only report progress every 10% or on last batch
         progress = min((i + len(batch)) / total, 1.0)
-        state.callback("progress", {
-            "segment": "B",
-            "step": "B.2",
-            "step_name": "Text Embedding",
-            "step_progress": progress,
-            "message": f"Embedded {i + len(batch)}/{total} texts",
-        })
+        current_pct = int(progress * 10)
+        if current_pct > last_reported_pct or batch_idx == num_batches - 1:
+            last_reported_pct = current_pct
+            state.callback("progress", {
+                "segment": "B",
+                "step": "B.2",
+                "step_name": "Text Embedding",
+                "step_progress": progress,
+                "message": f"Embedded {i + len(batch)}/{total} texts",
+            })
 
     embeddings = np.concatenate(all_embeddings, axis=0)
 
