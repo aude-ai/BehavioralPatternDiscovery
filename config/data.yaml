@@ -177,14 +177,13 @@ processing:
           quant_type: "nf4"
           use_double_quant: true
 
-    # Qwen3-Embedding-8B (4096 dim, 32K context, flash attention)
-    # A100 40GB: ~16GB model, ~24GB free for batching
-    # With max_tokens=8192: batch × 8192 × 4096 × 2 bytes = batch × 67MB
-    # 128 batch = ~8.6GB embeddings, ~25GB with activations (fits in 24GB free)
+    # Qwen3-Embedding-4B (2560 dim, 32K context, flash attention)
+    # A100 40GB: ~8GB model in float16, ~32GB free for batching
     qwen3_embedding:
-      model_name: "Qwen/Qwen3-Embedding-8B"
+      model_name: "Qwen/Qwen3-Embedding-4B"
       max_tokens: 8192
       batch_size: 64
+      output_dim: 2560
       output_dim: 4096
       use_instruction: true
       instruction: "Given a text, retrieve semantically similar passages"

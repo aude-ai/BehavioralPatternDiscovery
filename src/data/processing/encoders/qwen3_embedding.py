@@ -60,8 +60,8 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
         self.model = self._load_model(quant_config)
         self.model.eval()
 
-        # Verify embedding dimension
-        self._embedding_dim = self.output_dim
+        # Get embedding dimension from model config
+        self._embedding_dim = self.model.config.hidden_size
 
         logger.info(
             f"Qwen3-Embedding encoder initialized: dim={self._embedding_dim}, "
@@ -71,43 +71,45 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
 
     def _load_model(self, quant_config: dict) -> Any:
         """Load model with optional quantization and flash attention."""
-        target_dtype = torch.bfloat16 if self.use_flash_attention else torch.float16
+        # Following Hugging Face docs exactly:
+        # model = AutoModel.from_pretrained('Qwen/Qwen3-Embedding-4B',
+        #     attn_implementation="flash_attention_2", torch_dtype=torch.float16).cuda()
 
-        model_kwargs = {
-            "trust_remote_code": True,
-            "torch_dtype": target_dtype,
-            "low_cpu_mem_usage": True,
-        }
-
-        # Flash attention
-        if self.use_flash_attention:
-            model_kwargs["attn_implementation"] = "flash_attention_2"
-
-        # Quantization
         if self.quantization_type == "none":
-            model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
-            # Force dtype conversion and move to GPU
-            model = model.to(dtype=target_dtype, device="cuda")
-            logger.info(f"Model loaded with dtype={model.dtype}, device={next(model.parameters()).device}")
+            model_kwargs = {"torch_dtype": torch.float16}
+
+            if self.use_flash_attention:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+
+            model = AutoModel.from_pretrained(self._model_name, **model_kwargs).cuda()
+
+            # Log actual dtype to verify
+            param = next(model.parameters())
+            logger.info(f"Model loaded: dtype={param.dtype}, device={param.device}")
 
         elif self.quantization_type == "int8":
-            model_kwargs["device_map"] = "auto"
-            model_kwargs["load_in_8bit"] = True
-            model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
+            model = AutoModel.from_pretrained(
+                self._model_name,
+                device_map="auto",
+                load_in_8bit=True,
+                torch_dtype=torch.float16,
+            )
 
         elif self.quantization_type == "int4":
-            model_kwargs["device_map"] = "auto"
             int4_config = quant_config.get("int4", {})
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=getattr(
-                    torch, int4_config.get("compute_dtype", "bfloat16")
+                    torch, int4_config.get("compute_dtype", "float16")
                 ),
                 bnb_4bit_quant_type=int4_config.get("quant_type", "nf4"),
                 bnb_4bit_use_double_quant=int4_config.get("use_double_quant", True),
             )
-            model_kwargs["quantization_config"] = bnb_config
-            model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
+            model = AutoModel.from_pretrained(
+                self._model_name,
+                device_map="auto",
+                quantization_config=bnb_config,
+            )
 
         else:
             raise ValueError(f"Unknown quantization type: {self.quantization_type}")
