@@ -134,31 +134,29 @@ processing:
       model_name: "jinaai/jina-embeddings-v3"
       task: "separation"
       max_tokens: 8192
-      batch_size: 512
+      batch_size: 256
 
     jina_v3:
       model_name: "jinaai/jina-embeddings-v3"
       task: "separation"
       max_tokens: 8192
-      batch_size: 512
+      batch_size: 256
 
     # Jina v4 (2048 dim, ~570M params, ~1.5GB model, multimodal, Matryoshka support)
-    # A100 40GB: ~38GB free for batching
     jina_v4:
       model_name: "jinaai/jina-embeddings-v4"
       task: "retrieval"
       prompt_name: "passage"
       max_tokens: 8192
-      batch_size: 256
+      batch_size: 128
       output_dim: 2048
       matryoshka_dim: null  # Set to 128/256/512/1024 to use smaller dims
 
     # NV-Embed-v2 (~7B params, ~14GB model)
-    # A100 40GB: ~26GB free for batching
     nv_embed:
       model_name: "nvidia/NV-Embed-v2"
       max_tokens: 8192
-      batch_size: 128
+      batch_size: 64
       instruction_prefix: "Instruct: Retrieve semantically similar text\nQuery: "
       quantization:
         enabled: true
@@ -167,11 +165,10 @@ processing:
         use_double_quant: true
 
     # Qwen2.5-3B-Instruct (~3B params, ~6GB model)
-    # A100 40GB: ~34GB free for batching
     qwen_raw:
       model_name: "Qwen/Qwen2.5-3B-Instruct"
       max_tokens: 8192
-      batch_size: 256
+      batch_size: 128
       quantization:
         # Options: none, int8, int4
         type: "none"
@@ -187,7 +184,7 @@ processing:
     qwen3_embedding:
       model_name: "Qwen/Qwen3-Embedding-8B"
       max_tokens: 8192
-      batch_size: 128
+      batch_size: 64
       output_dim: 4096
       use_instruction: true
       instruction: "Given a text, retrieve semantically similar passages"
