@@ -128,34 +128,37 @@ processing:
     # Encoder type: jina, jina_v3, jina_v4, nv_embed, qwen_raw, qwen3_embedding
     type: "qwen3_embedding"
 
-    # Jina v3 (1024 dim, ~570M params) - legacy, use jina_v3 key preferred
+    # Jina v3 (1024 dim, ~570M params, ~1.5GB model)
+    # A100 40GB: ~38GB free for batching
     jina:
       model_name: "jinaai/jina-embeddings-v3"
       task: "separation"
       max_tokens: 8192
-      batch_size: 1024
+      batch_size: 512
 
     jina_v3:
       model_name: "jinaai/jina-embeddings-v3"
       task: "separation"
       max_tokens: 8192
-      batch_size: 1024
+      batch_size: 512
 
-    # Jina v4 (2048 dim, ~570M params, multimodal, Matryoshka support)
+    # Jina v4 (2048 dim, ~570M params, ~1.5GB model, multimodal, Matryoshka support)
+    # A100 40GB: ~38GB free for batching
     jina_v4:
       model_name: "jinaai/jina-embeddings-v4"
       task: "retrieval"
       prompt_name: "passage"
-      max_tokens: 32768
-      batch_size: 1024
+      max_tokens: 8192
+      batch_size: 256
       output_dim: 2048
       matryoshka_dim: null  # Set to 128/256/512/1024 to use smaller dims
 
-    # NV-Embed-v2 (~7B params, ~14GB)
+    # NV-Embed-v2 (~7B params, ~14GB model)
+    # A100 40GB: ~26GB free for batching
     nv_embed:
       model_name: "nvidia/NV-Embed-v2"
-      max_tokens: 32768
-      batch_size: 512
+      max_tokens: 8192
+      batch_size: 128
       instruction_prefix: "Instruct: Retrieve semantically similar text\nQuery: "
       quantization:
         enabled: true
@@ -163,11 +166,12 @@ processing:
         quant_type: "nf4"
         use_double_quant: true
 
-    # Qwen2.5-3B-Instruct (~3B params, ~6GB)
+    # Qwen2.5-3B-Instruct (~3B params, ~6GB model)
+    # A100 40GB: ~34GB free for batching
     qwen_raw:
       model_name: "Qwen/Qwen2.5-3B-Instruct"
-      max_tokens: 32768
-      batch_size: 512
+      max_tokens: 8192
+      batch_size: 256
       quantization:
         # Options: none, int8, int4
         type: "none"
@@ -178,11 +182,12 @@ processing:
 
     # Qwen3-Embedding-8B (4096 dim, 32K context, flash attention)
     # A100 40GB: ~16GB model, ~24GB free for batching
-    # Typical texts are short (100-500 tokens), so large batches work fine
+    # With max_tokens=8192: batch × 8192 × 4096 × 2 bytes = batch × 67MB
+    # 128 batch = ~8.6GB embeddings, ~25GB with activations (fits in 24GB free)
     qwen3_embedding:
       model_name: "Qwen/Qwen3-Embedding-8B"
-      max_tokens: 32768
-      batch_size: 512
+      max_tokens: 8192
+      batch_size: 128
       output_dim: 4096
       use_instruction: true
       instruction: "Given a text, retrieve semantically similar passages"
