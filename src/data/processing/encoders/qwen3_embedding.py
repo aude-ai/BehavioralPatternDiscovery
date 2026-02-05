@@ -71,30 +71,32 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
 
     def _load_model(self, quant_config: dict) -> Any:
         """Load model with optional quantization and flash attention."""
+        target_dtype = torch.bfloat16 if self.use_flash_attention else torch.float16
+
         model_kwargs = {
             "trust_remote_code": True,
-            "device_map": "auto",
+            "torch_dtype": target_dtype,
+            "low_cpu_mem_usage": True,
         }
 
         # Flash attention
         if self.use_flash_attention:
             model_kwargs["attn_implementation"] = "flash_attention_2"
-            # Use both dtype (new) and torch_dtype (legacy) for compatibility
-            model_kwargs["dtype"] = torch.bfloat16
-            model_kwargs["torch_dtype"] = torch.bfloat16
 
         # Quantization
         if self.quantization_type == "none":
-            if "dtype" not in model_kwargs:
-                model_kwargs["dtype"] = torch.float16
-                model_kwargs["torch_dtype"] = torch.float16
             model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
+            # Force dtype conversion and move to GPU
+            model = model.to(dtype=target_dtype, device="cuda")
+            logger.info(f"Model loaded with dtype={model.dtype}, device={next(model.parameters()).device}")
 
         elif self.quantization_type == "int8":
+            model_kwargs["device_map"] = "auto"
             model_kwargs["load_in_8bit"] = True
             model = AutoModel.from_pretrained(self._model_name, **model_kwargs)
 
         elif self.quantization_type == "int4":
+            model_kwargs["device_map"] = "auto"
             int4_config = quant_config.get("int4", {})
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
