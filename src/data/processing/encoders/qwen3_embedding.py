@@ -162,6 +162,16 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
             batch_embeddings = self._encode_batch(batch_texts)
             all_embeddings.append(batch_embeddings)
 
+            # Log memory on first batch to help optimize batch size
+            if i == 0 and torch.cuda.is_available():
+                allocated = torch.cuda.memory_allocated() / 1e9
+                reserved = torch.cuda.memory_reserved() / 1e9
+                peak = torch.cuda.max_memory_allocated() / 1e9
+                logger.info(
+                    f"First batch memory (batch_size={len(batch_texts)}): "
+                    f"allocated={allocated:.2f}GB, reserved={reserved:.2f}GB, peak={peak:.2f}GB"
+                )
+
         embeddings = np.concatenate(all_embeddings, axis=0)
         return embeddings
 
