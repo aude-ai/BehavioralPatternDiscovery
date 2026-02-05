@@ -104,7 +104,7 @@ class NVEmbedEncoder(BaseTextEncoder):
             )
             # Return raw embeddings without normalization
 
-        return embeddings.cpu().numpy().astype(np.float32)
+        return embeddings.cpu().float().numpy()
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text to embedding."""

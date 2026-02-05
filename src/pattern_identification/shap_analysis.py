@@ -288,7 +288,7 @@ class SHAPAnalyzer:
             # Stack outputs: (n_samples, source_dim, target_dim)
             shap_values = np.stack(shap_values, axis=-1)
         elif hasattr(shap_values, "numpy"):
-            shap_values = shap_values.numpy()
+            shap_values = shap_values.float().numpy()
         elif hasattr(shap_values, "values"):
             shap_values = shap_values.values
 

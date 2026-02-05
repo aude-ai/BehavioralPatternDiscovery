@@ -173,7 +173,7 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
             # L2 normalize
             embeddings = F.normalize(embeddings, p=2, dim=1)
 
-        return embeddings.cpu().numpy().astype(np.float32)
+        return embeddings.cpu().float().numpy()
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text to embedding."""

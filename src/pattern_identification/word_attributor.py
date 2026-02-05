@@ -321,9 +321,9 @@ class WordAttributor:
         for enc_name in encoder_names:
             for level in level_names:
                 key = f"{enc_name}_{level}"
-                result[key] = latent_codes[enc_name][level].cpu().numpy()
+                result[key] = latent_codes[enc_name][level].cpu().float().numpy()
 
-        result["unified"] = latent_codes["unified"]["z"].cpu().numpy()
+        result["unified"] = latent_codes["unified"]["z"].cpu().float().numpy()
 
         return result
 

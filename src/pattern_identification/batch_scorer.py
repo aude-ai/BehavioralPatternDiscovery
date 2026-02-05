@@ -144,9 +144,9 @@ class BatchScorer:
         for enc_name in encoder_names:
             for level in level_names:
                 key = f"{enc_name}_{level}"
-                batch_activations[key] = latent_codes[enc_name][level].cpu().numpy()
+                batch_activations[key] = latent_codes[enc_name][level].cpu().float().numpy()
 
-        batch_activations["unified"] = latent_codes["unified"]["z"].cpu().numpy()
+        batch_activations["unified"] = latent_codes["unified"]["z"].cpu().float().numpy()
 
         return batch_activations
 

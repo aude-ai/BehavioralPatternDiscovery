@@ -92,7 +92,7 @@ class JinaV4Encoder(BaseTextEncoder):
 
             # Convert to numpy
             if isinstance(embeddings, torch.Tensor):
-                embeddings = embeddings.cpu().numpy()
+                embeddings = embeddings.cpu().float().numpy()
 
         return embeddings.astype(np.float32)
 

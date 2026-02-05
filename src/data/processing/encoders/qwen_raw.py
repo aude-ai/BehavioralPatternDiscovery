@@ -138,7 +138,7 @@ class QwenRawEncoder(BaseTextEncoder):
             embedding = last_hidden[i, last_token_idx, :]
             embeddings.append(embedding)
 
-        return torch.stack(embeddings).cpu().numpy().astype(np.float32)
+        return torch.stack(embeddings).cpu().float().numpy()
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text to embedding."""

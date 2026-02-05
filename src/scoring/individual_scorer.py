@@ -111,9 +111,9 @@ class IndividualScorer:
                 for enc_name in encoder_names:
                     for level in level_names:
                         key = f"{enc_name}_{level}"
-                        activations[key].append(latent_codes[enc_name][level].cpu().numpy())
+                        activations[key].append(latent_codes[enc_name][level].cpu().float().numpy())
 
-                activations["unified"].append(latent_codes["unified"]["z"].cpu().numpy())
+                activations["unified"].append(latent_codes["unified"]["z"].cpu().float().numpy())
 
         # Concatenate batches
         for key in activations:
