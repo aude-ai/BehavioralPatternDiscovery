@@ -45,7 +45,13 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
         quant_config = qwen_config.get("quantization", {})
         self.quantization_type = quant_config.get("type", "none")
 
-        logger.info(f"Loading Qwen3-Embedding-8B: {self._model_name}")
+        logger.info(f"Loading Qwen3-Embedding: {self._model_name}")
+
+        # Log GPU memory before loading
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1e9
+            reserved = torch.cuda.memory_reserved() / 1e9
+            logger.info(f"GPU memory BEFORE model load: allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
 
         # Load tokenizer with left padding (required for last-token pooling)
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -83,9 +89,12 @@ class Qwen3EmbeddingEncoder(BaseTextEncoder):
 
             model = AutoModel.from_pretrained(self._model_name, **model_kwargs).cuda()
 
-            # Log actual dtype to verify
+            # Log actual dtype and memory to verify
             param = next(model.parameters())
+            allocated = torch.cuda.memory_allocated() / 1e9
+            reserved = torch.cuda.memory_reserved() / 1e9
             logger.info(f"Model loaded: dtype={param.dtype}, device={param.device}")
+            logger.info(f"GPU memory AFTER model load: allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
 
         elif self.quantization_type == "int8":
             model = AutoModel.from_pretrained(

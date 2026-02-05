@@ -536,9 +536,20 @@ def step_b1_statistical_features(state: PipelineState):
 
 def step_b2_text_embedding(state: PipelineState):
     """B.2: Generate text embeddings."""
+    import gc
+    import torch
+
     from src.data.processing.encoders import create_text_encoder
 
     from cloud.modal_apps.common.r2_storage import upload_numpy_to_r2
+
+    # Clear any leftover GPU memory from previous steps
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        allocated = torch.cuda.memory_allocated() / 1e9
+        reserved = torch.cuda.memory_reserved() / 1e9
+        logger.info(f"GPU memory at B.2 start: allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
 
     state.callback.status("Loading embedding model...")
 
