@@ -314,6 +314,17 @@ def run_processing_pipeline(
             callback.status("Downloading activities from Hetzner...")
             activities_df = _download_activities(project_id, hetzner_url, headers)
 
+            # Validate required columns
+            required_cols = ["engineer_id", "text"]
+            missing_cols = [c for c in required_cols if c not in activities_df.columns]
+            if missing_cols:
+                raise ValueError(
+                    f"activities.csv missing required columns: {missing_cols}. "
+                    f"Found columns: {list(activities_df.columns)}"
+                )
+
+            logger.info(f"Loaded activities: {len(activities_df)} rows, columns: {list(activities_df.columns)}")
+
             # Apply per-engineer message limit if configured
             max_per_engineer = (
                 config.get("processing", {})
