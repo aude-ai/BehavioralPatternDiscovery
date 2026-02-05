@@ -22,7 +22,6 @@ from pathlib import Path
 
 import modal
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -340,6 +339,8 @@ def run_processing_pipeline(
                 .get("max_activities_per_engineer")
             )
             if max_per_engineer and max_per_engineer > 0:
+                import pandas as pd_sampling
+
                 original_count = len(activities_df)
                 logger.info(f"Applying sampling: max {max_per_engineer} messages per engineer")
 
@@ -351,7 +352,7 @@ def run_processing_pipeline(
                     sampled_groups.append(group.sample(n=n_sample, random_state=42))
 
                 if sampled_groups:
-                    activities_df = pd.concat(sampled_groups, ignore_index=True)
+                    activities_df = pd_sampling.concat(sampled_groups, ignore_index=True)
                 else:
                     logger.warning("No groups after sampling - keeping original DataFrame")
 
