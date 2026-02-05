@@ -41,7 +41,6 @@ PYTHON_VERSION = "3.11"
 app_image = (
     modal.Image.from_registry(
         "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-devel",
-        force_build=True,  # Force rebuild - remove after first successful deploy
     )
     .apt_install("git", "wget")
     .pip_install(

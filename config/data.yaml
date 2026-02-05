@@ -179,10 +179,12 @@ processing:
 
     # Qwen3-Embedding-4B (2560 dim, 32K context, flash attention)
     # A100 40GB: ~8GB model in float16, ~32GB free for batching
+    # Forward pass activations scale with batch × seq_len × hidden
+    # With long texts (8192 tokens), need small batch to fit
     qwen3_embedding:
       model_name: "Qwen/Qwen3-Embedding-4B"
       max_tokens: 8192
-      batch_size: 64
+      batch_size: 8
       output_dim: 2560
       output_dim: 4096
       use_instruction: true
