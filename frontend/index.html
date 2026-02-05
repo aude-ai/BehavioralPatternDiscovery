@@ -281,9 +281,28 @@ body {
 
 .controls {
     display: flex;
+    flex-direction: column;
     gap: 12px;
+    align-items: flex-start;
+}
+
+.control-row {
+    display: flex;
+    gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+}
+
+.control-row label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.control-row input[type="number"] {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 /* ============================================================================
@@ -1177,8 +1196,14 @@ body {
                     </div>
 
                     <div class="controls">
-                        <button id="btn-start-pipeline" class="btn btn-primary" disabled>Start Processing</button>
-                        <button id="btn-stop-pipeline" class="btn btn-danger hidden">Stop</button>
+                        <div class="control-row">
+                            <label for="max-messages-per-engineer">Max messages per engineer:</label>
+                            <input type="number" id="max-messages-per-engineer" placeholder="No limit" min="1" style="width: 100px;">
+                        </div>
+                        <div class="control-row">
+                            <button id="btn-start-pipeline" class="btn btn-primary" disabled>Start Processing</button>
+                            <button id="btn-stop-pipeline" class="btn btn-danger hidden">Stop</button>
+                        </div>
                     </div>
                     <div id="processing-status-message" class="status-message hidden"></div>
                 </div>
@@ -2354,8 +2379,20 @@ async function startPipeline() {
     $('#btn-stop-pipeline').classList.remove('hidden');
 
     try {
+        // Build config with optional message limit
+        const maxMessages = $('#max-messages-per-engineer').value;
+        const config = {};
+        if (maxMessages && parseInt(maxMessages) > 0) {
+            config.processing = {
+                sampling: {
+                    max_activities_per_engineer: parseInt(maxMessages)
+                }
+            };
+        }
+
         await apiPost('/process', {
             starting_step: state.selectedStartingPoint,
+            config: Object.keys(config).length > 0 ? config : null,
         });
 
         showStatus('processing-status-message', 'Pipeline started. Monitor progress below.', 'info');

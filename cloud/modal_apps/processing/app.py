@@ -314,6 +314,22 @@ def run_processing_pipeline(
             callback.status("Downloading activities from Hetzner...")
             activities_df = _download_activities(project_id, hetzner_url, headers)
 
+            # Apply per-engineer message limit if configured
+            max_per_engineer = (
+                config.get("processing", {})
+                .get("sampling", {})
+                .get("max_activities_per_engineer")
+            )
+            if max_per_engineer and max_per_engineer > 0:
+                original_count = len(activities_df)
+                activities_df = (
+                    activities_df.groupby("engineer_id", group_keys=False)
+                    .apply(lambda g: g.sample(n=min(len(g), max_per_engineer), random_state=42))
+                    .reset_index(drop=True)
+                )
+                callback.status(f"Sampled {len(activities_df)}/{original_count} messages (max {max_per_engineer}/engineer)")
+                logger.info(f"Sampled activities: {original_count} -> {len(activities_df)} (max {max_per_engineer}/engineer)")
+
         # Initialize state that persists between steps
         state = PipelineState(project_id, config, callback)
         state.activities_df = activities_df
