@@ -93,6 +93,15 @@ class StatisticalFeatureExtractor:
         Returns:
             Dict mapping engineer_id to feature array of shape (35,)
         """
+        # Validate required columns
+        required_cols = ["engineer_id", "activity_type", "timestamp"]
+        missing_cols = [c for c in required_cols if c not in activities_df.columns]
+        if missing_cols:
+            raise ValueError(
+                f"activities_df missing required columns: {missing_cols}. "
+                f"Available columns: {list(activities_df.columns)}"
+            )
+
         logger.info(f"Extracting features for {activities_df['engineer_id'].nunique()} engineers")
 
         features_by_engineer: dict[str, np.ndarray] = {}

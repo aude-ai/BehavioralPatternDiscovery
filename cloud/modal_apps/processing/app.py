@@ -22,8 +22,12 @@ from pathlib import Path
 
 import modal
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# Version marker for deployment verification
+PIPELINE_VERSION = "2026.02.04.1"
 
 app = modal.App("bpd-processing")
 
@@ -283,6 +287,10 @@ def run_processing_pipeline(
 
     from cloud.modal_apps.common.r2_storage import validate_prerequisites
 
+    # Log version for deployment verification
+    logger.info(f"=== Processing Pipeline v{PIPELINE_VERSION} ===")
+    logger.info(f"Project: {project_id}, Job: {job_id}, Starting: {starting_step}")
+
     # Set up environment
     os.environ["HF_HOME"] = "/cache/models"
     os.environ["TRANSFORMERS_CACHE"] = "/cache/models"
@@ -333,13 +341,30 @@ def run_processing_pipeline(
             )
             if max_per_engineer and max_per_engineer > 0:
                 original_count = len(activities_df)
-                activities_df = (
-                    activities_df.groupby("engineer_id", group_keys=False)
-                    .apply(lambda g: g.sample(n=min(len(g), max_per_engineer), random_state=42))
-                    .reset_index(drop=True)
-                )
+                logger.info(f"Applying sampling: max {max_per_engineer} messages per engineer")
+
+                # Sample using groupby-apply pattern
+                # Note: groupby preserves all columns, reset_index only affects index
+                sampled_groups = []
+                for eng_id, group in activities_df.groupby("engineer_id", sort=False):
+                    n_sample = min(len(group), max_per_engineer)
+                    sampled_groups.append(group.sample(n=n_sample, random_state=42))
+
+                if sampled_groups:
+                    activities_df = pd.concat(sampled_groups, ignore_index=True)
+                else:
+                    logger.warning("No groups after sampling - keeping original DataFrame")
+
+                # Defensive check - ensure column wasn't lost
+                if "engineer_id" not in activities_df.columns:
+                    raise ValueError(
+                        f"BUG: 'engineer_id' column lost after sampling. "
+                        f"Columns after sampling: {list(activities_df.columns)}"
+                    )
+
                 callback.status(f"Sampled {len(activities_df)}/{original_count} messages (max {max_per_engineer}/engineer)")
                 logger.info(f"Sampled activities: {original_count} -> {len(activities_df)} (max {max_per_engineer}/engineer)")
+                logger.info(f"Columns after sampling: {list(activities_df.columns)}")
 
         # Initialize state that persists between steps
         state = PipelineState(project_id, config, callback)
@@ -465,10 +490,23 @@ def step_b1_statistical_features(state: PipelineState):
 
     from cloud.modal_apps.common.r2_storage import upload_numpy_to_r2
 
-    # Debug: log what we have
+    # Validate activities_df exists
     if state.activities_df is None:
-        raise ValueError("activities_df is None - was it downloaded?")
-    logger.info(f"step_b1: activities_df shape={state.activities_df.shape}, columns={list(state.activities_df.columns)}")
+        raise ValueError("activities_df is None - was it downloaded? Check starting_step is B.1 or B.5")
+
+    # Log DataFrame info for debugging
+    logger.info(f"step_b1: activities_df shape={state.activities_df.shape}")
+    logger.info(f"step_b1: activities_df columns={list(state.activities_df.columns)}")
+    logger.info(f"step_b1: activities_df dtypes:\n{state.activities_df.dtypes}")
+
+    # Validate required columns exist
+    required_cols = ["engineer_id", "text", "activity_type", "timestamp"]
+    missing_cols = [c for c in required_cols if c not in state.activities_df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"activities_df missing required columns: {missing_cols}. "
+            f"Available columns: {list(state.activities_df.columns)}"
+        )
 
     state.callback.status("Extracting statistical features...")
 

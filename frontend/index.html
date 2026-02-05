@@ -281,6 +281,13 @@ body {
 
 .controls {
     display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.controls-vertical {
+    display: flex;
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
@@ -1195,7 +1202,7 @@ body {
                         </div>
                     </div>
 
-                    <div class="controls">
+                    <div class="controls-vertical">
                         <div class="control-row">
                             <label for="max-messages-per-engineer">Max messages per engineer:</label>
                             <input type="number" id="max-messages-per-engineer" placeholder="No limit" min="1" style="width: 100px;">

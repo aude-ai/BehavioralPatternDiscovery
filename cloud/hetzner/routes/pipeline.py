@@ -95,15 +95,26 @@ def get_pipeline_config(user_overrides: dict = None) -> dict:
     for key, value in configs["scoring"].items():
         merged[key] = value
 
-    # Apply user overrides
+    # Apply user overrides with deep merge
     if user_overrides:
-        for key, value in user_overrides.items():
-            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
-                merged[key] = {**merged[key], **value}
-            else:
-                merged[key] = value
+        merged = _deep_merge(merged, user_overrides)
 
     return merged
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """
+    Deep merge override into base dict.
+
+    For nested dicts, recursively merges instead of replacing.
+    """
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 def get_services(project_id: str, db: Session = Depends(get_db)):
