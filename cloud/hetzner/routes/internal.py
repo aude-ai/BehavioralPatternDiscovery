@@ -99,11 +99,11 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
     # Broadcast to WebSocket clients
     section = data.get("section", "processing")
     await broadcast_to_project(project_id, {
+        **data,
         "type": f"job_{event_type}",
         "job_id": job_id,
         "job_type": job.job_type,
         "section": section,
-        **data,
     })
 
     return {"status": "ok"}
