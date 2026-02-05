@@ -51,8 +51,8 @@ app_image = (
         "zstandard",
         "fastapi",
         "uvicorn[standard]",
-        # ML - versions from working local setup
-        "transformers==4.46.0",
+        # ML
+        "transformers>=4.51.0",
         "sentence-transformers",
         "datasets",
         "bitsandbytes",
