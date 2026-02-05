@@ -7,7 +7,6 @@ Uses last-token pooling for embeddings.
 """
 
 import logging
-import sys
 from typing import Any
 
 import numpy as np
@@ -17,8 +16,6 @@ from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 
 from .base import BaseTextEncoder
 
-# Ensure logs go to stdout for Modal
-logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s', stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 
