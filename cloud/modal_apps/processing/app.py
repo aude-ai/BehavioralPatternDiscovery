@@ -1172,7 +1172,7 @@ def score_individual(
 
     from src.core.config import ModelDimensions
     from src.model.vae import MultiEncoderVAE
-    from src.scoring import IndividualScorer
+    from src.scoring.individual_scorer import IndividualScorer
 
     from cloud.modal_apps.common.r2_storage import download_checkpoint_from_r2
 
@@ -1285,7 +1285,7 @@ class ScoringService:
 
         sys.path.insert(0, "/app")
 
-        from src.scoring import IndividualScorer
+        from src.scoring.individual_scorer import IndividualScorer
         from cloud.modal_apps.common.r2_storage import (
             download_pickle_from_r2,
             download_numpy_from_r2,

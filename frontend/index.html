@@ -2761,23 +2761,44 @@ async function scoreEngineer() {
     appendLog('scoring', `Scoring ${state.selectedEngineerId}...`);
 
     try {
-        const scores = await apiPost('/scoring/individual', {
+        const job = await apiPost('/scoring/individual', {
             engineer_id: state.selectedEngineerId,
         });
+        const jobId = job.id;
 
-        // Display scores
-        $('#scores-display').textContent = JSON.stringify(scores, null, 2);
-        $('#scores-card').style.display = 'block';
+        appendLog('scoring', `Job started: ${jobId}`);
 
-        showStatus('scoring-status-message', 'Scoring complete!', 'success');
-        appendLog('scoring', 'Scoring complete', 'success');
+        // Poll for job completion
+        const pollInterval = setInterval(async () => {
+            try {
+                const jobStatus = await apiGet(`/jobs/${jobId}`);
 
-        await updateScoringButtons();
+                if (jobStatus.status === 'completed') {
+                    clearInterval(pollInterval);
+
+                    // Fetch the actual scores
+                    const scores = await apiGet(`/scoring/individual/${state.selectedEngineerId}`);
+                    $('#scores-display').textContent = JSON.stringify(scores, null, 2);
+                    $('#scores-card').style.display = 'block';
+
+                    showStatus('scoring-status-message', 'Scoring complete!', 'success');
+                    appendLog('scoring', 'Scoring complete', 'success');
+                    btn.disabled = false;
+                    await updateScoringButtons();
+                } else if (jobStatus.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showStatus('scoring-status-message', `Error: ${jobStatus.error}`, 'error');
+                    appendLog('scoring', `Error: ${jobStatus.error}`, 'error');
+                    btn.disabled = false;
+                }
+            } catch (pollError) {
+                console.error('Failed to poll job status:', pollError);
+            }
+        }, 2000);
 
     } catch (error) {
         showStatus('scoring-status-message', `Error: ${error.message}`, 'error');
         appendLog('scoring', `Error: ${error.message}`, 'error');
-    } finally {
         btn.disabled = false;
     }
 }
@@ -2792,21 +2813,42 @@ async function generateReport() {
     appendLog('scoring', `Generating report for ${state.selectedEngineerId}...`);
 
     try {
-        const result = await apiPost(`/scoring/report/${state.selectedEngineerId}`);
+        const job = await apiPost(`/scoring/report/${state.selectedEngineerId}`);
+        const jobId = job.id;
 
-        // Display report
-        $('#report-display').innerHTML = result.report || 'No report content';
-        $('#report-card').style.display = 'block';
+        appendLog('scoring', `Report job started: ${jobId}`);
 
-        showStatus('scoring-status-message', 'Report generated!', 'success');
-        appendLog('scoring', 'Report generated', 'success');
+        // Poll for job completion
+        const pollInterval = setInterval(async () => {
+            try {
+                const jobStatus = await apiGet(`/jobs/${jobId}`);
 
-        await updateScoringButtons();
+                if (jobStatus.status === 'completed') {
+                    clearInterval(pollInterval);
+
+                    // Fetch the actual report
+                    const report = await apiGet(`/scoring/report/${state.selectedEngineerId}`);
+                    $('#report-display').innerHTML = report.report || report.content || JSON.stringify(report, null, 2);
+                    $('#report-card').style.display = 'block';
+
+                    showStatus('scoring-status-message', 'Report generated!', 'success');
+                    appendLog('scoring', 'Report generated', 'success');
+                    btn.disabled = false;
+                    await updateScoringButtons();
+                } else if (jobStatus.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showStatus('scoring-status-message', `Error: ${jobStatus.error}`, 'error');
+                    appendLog('scoring', `Error: ${jobStatus.error}`, 'error');
+                    btn.disabled = false;
+                }
+            } catch (pollError) {
+                console.error('Failed to poll job status:', pollError);
+            }
+        }, 2000);
 
     } catch (error) {
         showStatus('scoring-status-message', `Error: ${error.message}`, 'error');
         appendLog('scoring', `Error: ${error.message}`, 'error');
-    } finally {
         btn.disabled = false;
     }
 }

@@ -198,10 +198,40 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
                 raise FileNotFoundError(f"pattern_names.json not found at {storage.pattern_names_path}")
 
             generator = ReportGenerator(config)
-            report = generator.generate(
+
+            # Load message_examples for report context
+            message_examples = storage.load_json(storage.message_examples_path)
+            if message_examples is None:
+                message_examples = {}
+
+            # Transform scores into patterns list for report generator
+            patterns = []
+            raw_scores = scores.get("scores", {})
+            for level_key, level_data in raw_scores.items():
+                percentiles = level_data.get("percentiles", [])
+                level_names = pattern_names.get(level_key, {})
+                for dim_idx, pct in enumerate(percentiles):
+                    dim_key = f"dim_{dim_idx}"
+                    name_info = level_names.get(dim_key, {})
+                    name = name_info.get("name", f"{level_key}_dim{dim_idx}")
+                    patterns.append({
+                        "level": level_key,
+                        "dim": dim_idx,
+                        "name": name,
+                        "percentile": pct,
+                    })
+
+            transformed_scores = {
+                "engineer_id": scores.get("engineer_id", engineer_id),
+                "n_messages": scores.get("n_messages", 0),
+                "patterns": patterns,
+            }
+
+            report = generator.generate_report(
                 engineer_id=engineer_id,
-                scores=scores,
+                scores=transformed_scores,
                 pattern_names=pattern_names,
+                message_examples=message_examples,
             )
 
             report_path = storage.base_path / f"scoring/reports/{engineer_id}.json"
