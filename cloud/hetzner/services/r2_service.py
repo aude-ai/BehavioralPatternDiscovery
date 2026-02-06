@@ -347,3 +347,53 @@ def download_json_from_r2(project_id: str, file_type: str) -> dict:
                 time.sleep(delay)
 
     raise RuntimeError(f"Failed to download {key} from R2 after {max_attempts} attempts")
+
+
+def download_pickle_from_r2(project_id: str, file_type: str) -> list:
+    """
+    Download pickle data (zstd compressed) from R2 with retry logic.
+
+    Args:
+        project_id: Project identifier
+        file_type: Type of file (determines R2 path)
+
+    Returns:
+        Unpickled data (typically a list)
+
+    Raises:
+        Exception: If download fails after retries
+    """
+    import pickle
+    import zstandard as zstd
+
+    client = get_r2_client()
+    if client is None:
+        raise RuntimeError("R2 not configured")
+
+    key = get_r2_key(project_id, file_type)
+    retry_config = get_r2_retry_config()
+    max_attempts = retry_config["max_attempts"]
+    initial_delay = retry_config["initial_delay_seconds"]
+    max_delay = retry_config["max_delay_seconds"]
+    exponential_base = retry_config["exponential_base"]
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            logger.debug(f"R2 GET (pickle): attempt {attempt}/{max_attempts} for {key}")
+            response = client.get_object(Bucket=get_bucket_name(), Key=key)
+            compressed_bytes = response["Body"].read()
+            decompressor = zstd.ZstdDecompressor()
+            pickle_bytes = decompressor.decompress(compressed_bytes)
+            logger.info(f"Downloaded {file_type} from R2: {key} ({len(compressed_bytes):,} bytes compressed)")
+            return pickle.loads(pickle_bytes)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                raise FileNotFoundError(f"File not found in R2: {key}")
+            logger.warning(f"R2 GET: attempt {attempt}/{max_attempts} failed for {key}: {e}")
+
+            if attempt < max_attempts:
+                delay = min(initial_delay * (exponential_base ** (attempt - 1)), max_delay)
+                logger.info(f"R2 GET: retrying in {delay:.1f}s...")
+                time.sleep(delay)
+
+    raise RuntimeError(f"Failed to download {key} from R2 after {max_attempts} attempts")

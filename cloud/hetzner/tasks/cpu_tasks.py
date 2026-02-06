@@ -91,14 +91,15 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
     """
     Generate pattern names using LLM (Segment C).
 
-    Requires (from Segment B, sent to Hetzner as small JSONs):
-    - message_examples.json (from B.7)
-    - hierarchical_weights.json (from B.8)
+    Requires:
+    - message_examples.json (from B.7, on Hetzner)
+    - hierarchical_weights.json (from B.8, on Hetzner)
+    - message_database.pkl.zst (from B.4, in R2)
 
     Output: pattern_names.json saved to Hetzner storage
     """
-    # Direct import - this module only uses LLM APIs, no torch
     from src.pattern_identification.pattern_naming import PatternNamer
+    from ..services.r2_service import download_pickle_from_r2
 
     with get_db_context() as db:
         try:
@@ -117,12 +118,17 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             if hierarchical_weights is None:
                 raise FileNotFoundError(f"hierarchical_weights.json not found at {storage.hierarchical_weights_path}")
 
+            message_database = download_pickle_from_r2(project_id, "message_database")
+
             namer = PatternNamer(config)
-            pattern_names = namer.name_patterns(
+            pattern_names = namer.name_all_patterns(
                 message_examples=message_examples,
                 hierarchical_weights=hierarchical_weights,
-                output_path=storage.pattern_names_path,
+                message_database=message_database,
             )
+
+            # Save pattern names to Hetzner storage
+            storage.save_json(storage.pattern_names_path, pattern_names)
 
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.COMPLETED,
