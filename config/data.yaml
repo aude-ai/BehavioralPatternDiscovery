@@ -126,7 +126,7 @@ processing:
 
   text_encoder:
     # Encoder type: jina, jina_v3, jina_v4, nv_embed, qwen_raw, qwen3_embedding
-    type: "qwen3_embedding"
+    type: "jina_v3"
 
     # Jina v3 (1024 dim, ~570M params, ~1.5GB model)
     # A100 40GB: ~38GB free for batching

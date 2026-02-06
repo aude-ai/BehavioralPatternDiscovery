@@ -549,14 +549,18 @@ def step_b2_text_embedding(state: PipelineState):
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-        allocated = torch.cuda.memory_allocated() / 1e9
-        reserved = torch.cuda.memory_reserved() / 1e9
-        logger.info(f"GPU memory at B.2 start: allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
 
     state.callback.status("Loading embedding model...")
 
     encoder = create_text_encoder(state.config)
     model_cache.commit()
+
+    # Log memory after model load
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        allocated = torch.cuda.memory_allocated() / 1e9
+        reserved = torch.cuda.memory_reserved() / 1e9
+        logger.info(f"GPU memory after model load: allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
 
     texts = state.activities_df["text"].tolist()
     total = len(texts)
@@ -580,11 +584,20 @@ def step_b2_text_embedding(state: PipelineState):
     all_embeddings = []
     num_batches = (total + batch_size - 1) // batch_size
     last_reported_pct = 0
+    logged_peak_memory = False
 
     for batch_idx, i in enumerate(range(0, total, batch_size)):
         batch = texts[i : i + batch_size]
         batch_embeddings = encoder.encode(batch)
         all_embeddings.append(batch_embeddings)
+
+        # Log peak memory after first batch
+        if not logged_peak_memory and torch.cuda.is_available():
+            torch.cuda.synchronize()
+            allocated = torch.cuda.memory_allocated() / 1e9
+            reserved = torch.cuda.memory_reserved() / 1e9
+            logger.info(f"GPU memory at peak (after first batch): allocated={allocated:.2f}GB, reserved={reserved:.2f}GB")
+            logged_peak_memory = True
 
         # Only report progress every 10% or on last batch
         progress = min((i + len(batch)) / total, 1.0)
@@ -876,7 +889,7 @@ def step_b6_batch_scoring(state: PipelineState):
 
     from src.core.config import ModelDimensions
     from src.model.vae import MultiEncoderVAE
-    from src.pattern_identification import BatchScorer
+    from src.pattern_identification.batch_scorer import BatchScorer
 
     from cloud.modal_apps.common.r2_storage import (
         download_checkpoint_from_r2,
@@ -1043,7 +1056,7 @@ def step_b8_shap_analysis(state: PipelineState):
 
     from src.core.config import ModelDimensions
     from src.model.vae import MultiEncoderVAE
-    from src.pattern_identification import SHAPAnalyzer
+    from src.pattern_identification.shap_analysis import SHAPAnalyzer
 
     from cloud.modal_apps.common.r2_storage import (
         download_checkpoint_from_r2,

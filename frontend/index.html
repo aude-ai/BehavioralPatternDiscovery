@@ -2328,7 +2328,7 @@ function updatePipelineSteps() {
     const steps = $$('.pipeline-step');
 
     // Determine completed steps based on R2 status
-    const stepOutputs = {
+    const stepR2Outputs = {
         'B.1': ['aux_features'],
         'B.2': ['embeddings'],
         'B.3': ['normalized_embeddings'],
@@ -2339,14 +2339,24 @@ function updatePipelineSteps() {
         'B.8': [],
     };
 
+    // Determine completed steps based on Hetzner status
+    const stepHetznerOutputs = {
+        'B.7': ['message_examples'],
+        'B.8': ['hierarchical_weights'],
+    };
+
     steps.forEach(step => {
         const stepId = step.dataset.step;
-        const outputs = stepOutputs[stepId] || [];
+        const r2Outputs = stepR2Outputs[stepId] || [];
+        const hetznerOutputs = stepHetznerOutputs[stepId] || [];
 
-        // Step is completed if all its outputs exist
-        const isCompleted = outputs.length === 0
-            ? false
-            : outputs.every(output => state.r2Status[output]?.exists);
+        // Step is completed if all its outputs exist (check R2 or Hetzner)
+        let isCompleted = false;
+        if (r2Outputs.length > 0) {
+            isCompleted = r2Outputs.every(output => state.r2Status[output]?.exists);
+        } else if (hetznerOutputs.length > 0) {
+            isCompleted = hetznerOutputs.every(output => state.hetznerStatus[output]?.exists);
+        }
 
         if (!state.pipelineRunning) {
             step.className = isCompleted ? 'pipeline-step completed' : 'pipeline-step pending';
