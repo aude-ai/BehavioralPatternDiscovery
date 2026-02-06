@@ -1,6 +1,9 @@
 #!/bin/bash
 # Deploy Modal apps for BehavioralPatternDiscovery
 # Run from the behavioral-pattern-discovery directory
+#
+# Usage: ./deploy/deploy-modal.sh [--build]
+#   --build    Force rebuild of Modal image
 
 set -e
 
@@ -8,6 +11,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 VENV_DIR="$PROJECT_DIR/venv"
 MODAL="$VENV_DIR/bin/modal"
+
+# Parse arguments
+FORCE_BUILD=""
+if [ "$1" = "--build" ]; then
+    FORCE_BUILD="--force-build"
+    echo "Force rebuild enabled"
+fi
 
 # Check venv exists
 if [ ! -f "$MODAL" ]; then
@@ -21,7 +31,7 @@ echo "=== Deploying Modal Apps ==="
 
 echo ""
 echo "Deploying processing pipeline (A100 GPU)..."
-"$MODAL" deploy cloud/modal_apps/processing/app.py
+"$MODAL" deploy $FORCE_BUILD cloud/modal_apps/processing/app.py
 
 echo ""
 echo "=== Deployment Complete ==="
