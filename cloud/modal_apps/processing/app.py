@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(mes
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.05.3"
+PIPELINE_VERSION = "2026.02.05.5"
 
 app = modal.App("bpd-processing")
 
@@ -790,10 +790,13 @@ def step_b5_vae_training(state: PipelineState):
 
     if "training" not in state.config:
         raise ValueError("Missing required config section: training")
-    if "max_epochs" not in state.config["training"]:
-        raise ValueError("Missing required config key: training.max_epochs")
 
-    max_epochs = state.config["training"]["max_epochs"]
+    # training.yaml has nested "training" section with epochs
+    training_loop_config = state.config["training"].get("training", {})
+    if "epochs" not in training_loop_config:
+        raise ValueError("Missing required config key: training.training.epochs")
+
+    max_epochs = training_loop_config["epochs"]
 
     def on_epoch_end(epoch: int, metrics: dict, is_best: bool):
         state.callback("progress", {
@@ -806,9 +809,16 @@ def step_b5_vae_training(state: PipelineState):
         if wandb_enabled:
             wandb.log({k: float(v) for k, v in metrics.items()}, step=epoch)
 
+    # Trainer expects full merged config with model, training, loss_weights, etc.
+    # Build trainer config by merging training.yaml contents with model config
+    trainer_config = {
+        **state.config["training"],  # All of training.yaml
+        "model": state.config["model"],  # Add model config for distribution settings
+    }
+
     trainer = Trainer(
         model=model,
-        config=state.config["training"],
+        config=trainer_config,
         dims=dims,
         on_epoch_end=on_epoch_end,
         metadata=metadata,
