@@ -13,10 +13,9 @@ VENV_DIR="$PROJECT_DIR/venv"
 MODAL="$VENV_DIR/bin/modal"
 
 # Parse arguments
-FORCE_BUILD=""
 if [ "$1" = "--build" ]; then
-    FORCE_BUILD="--force-build"
-    echo "Force rebuild enabled"
+    export MODAL_FORCE_BUILD=1
+    echo "Force rebuild enabled (MODAL_FORCE_BUILD=1)"
 fi
 
 # Check venv exists
@@ -31,7 +30,7 @@ echo "=== Deploying Modal Apps ==="
 
 echo ""
 echo "Deploying processing pipeline (A100 GPU)..."
-"$MODAL" deploy $FORCE_BUILD cloud/modal_apps/processing/app.py
+"$MODAL" deploy cloud/modal_apps/processing/app.py
 
 echo ""
 echo "=== Deployment Complete ==="
