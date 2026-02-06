@@ -1281,22 +1281,129 @@ class ScoringService:
         config: dict,
     ) -> dict:
         """Score individual engineer with cached model."""
+        import torch
+
         sys.path.insert(0, "/app")
 
-        # Extract inheritance info from config
+        from src.scoring import IndividualScorer
+        from cloud.modal_apps.common.r2_storage import (
+            download_pickle_from_r2,
+            download_numpy_from_r2,
+            download_checkpoint_from_r2,
+        )
+
         parent_id = config.get("parent_id")
         owned_files = config.get("owned_files") or {}
 
         self._load_model(project_id, parent_id=parent_id, owned_files=owned_files)
         model = self.models[project_id]
 
-        from src.scoring import IndividualScorer
+        # Load message_database and train_input from R2
+        message_database = download_pickle_from_r2(
+            project_id, "message_database",
+            parent_id=parent_id, owned_files=owned_files
+        )
+        train_input = download_numpy_from_r2(
+            project_id, "train_input",
+            parent_id=parent_id, owned_files=owned_files
+        )
+
+        # Build lookup for existing messages by text (to identify duplicates)
+        existing_texts = {}
+        for msg in message_database["messages"]:
+            if msg["engineer_id"] == engineer_id:
+                existing_texts[msg["text"]] = msg["index"]
+
+        # Separate existing vs new messages
+        engineer_messages = []
+        new_messages = []
+
+        for msg in messages:
+            if msg["text"] in existing_texts:
+                # Existing message - use stored embedding
+                msg_copy = msg.copy()
+                msg_copy["embedding"] = train_input[existing_texts[msg["text"]]]
+                engineer_messages.append(msg_copy)
+            else:
+                # New message - needs embedding
+                new_messages.append(msg)
+
+        # Embed new messages if any
+        if new_messages:
+            checkpoint_path = Path(f"/tmp/checkpoint_{project_id}_score.pt")
+            download_checkpoint_from_r2(
+                project_id, checkpoint_path,
+                parent_id=parent_id, owned_files=owned_files
+            )
+            checkpoint = torch.load(checkpoint_path, map_location="cuda")
+            checkpoint_path.unlink()
+
+            embedder_info = checkpoint.get("embedder", checkpoint.get("metadata", {}).get("embedder", {}))
+            norm_params = checkpoint.get("preprocessing", {}).get("normalization")
+
+            encoder_type = embedder_info.get("type", "jina_v3")
+            encoder_config = {
+                "processing": {
+                    "text_encoder": {
+                        "type": encoder_type,
+                        encoder_type: embedder_info.get("config", {}),
+                    },
+                    "normalization": config.get("processing", {}).get("normalization", {}),
+                }
+            }
+
+            from src.data.processing.encoders import create_text_encoder
+            from src.data.processing.normalizer import NormalizationPipeline
+
+            encoder = create_text_encoder(encoder_config)
+            texts = [m["text"] for m in new_messages]
+            embeddings = encoder.encode(texts)
+
+            if norm_params:
+                pipeline = NormalizationPipeline(encoder_config)
+                pipeline.load_params(norm_params)
+                embeddings = pipeline.transform(embeddings)
+
+            # Append new embeddings to train_input and update message_database
+            from cloud.modal_apps.common.r2_storage import (
+                upload_numpy_to_r2,
+                upload_pickle_to_r2,
+            )
+
+            start_idx = len(train_input)
+            for i, m in enumerate(new_messages):
+                m["embedding"] = embeddings[i]
+                m["index"] = start_idx + i
+                engineer_messages.append(m)
+                # Add to message_database
+                message_database["messages"].append({
+                    "index": start_idx + i,
+                    "text": m["text"],
+                    "engineer_id": engineer_id,
+                    "source": m.get("source", "unknown"),
+                    "timestamp": str(m.get("timestamp", "")),
+                })
+
+            # Update R2 with new data
+            updated_train_input = np.concatenate([train_input, embeddings], axis=0)
+            message_database["metadata"]["num_messages"] = len(message_database["messages"])
+
+            upload_numpy_to_r2(updated_train_input, project_id, "train_input")
+            upload_pickle_to_r2(message_database, project_id, "message_database")
+
+            logger.info(f"Embedded {len(new_messages)} new messages for {engineer_id}, updated R2")
+
+        if not engineer_messages:
+            raise ValueError(f"No messages found for engineer: {engineer_id}")
+
+        logger.info(f"Scoring {engineer_id}: {len(engineer_messages)} total messages "
+                    f"({len(engineer_messages) - len(new_messages)} existing, {len(new_messages)} new)")
 
         scorer = IndividualScorer(config)
         result = scorer.score_engineer(
             engineer_id=engineer_id,
             vae=model,
-            messages=messages,
+            messages=engineer_messages,
             population_stats=population_stats,
         )
 
