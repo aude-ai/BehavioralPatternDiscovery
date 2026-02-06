@@ -1259,7 +1259,7 @@ class ScoringService:
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         checkpoint_path.unlink()
 
-        model_config = checkpoint["config"]
+        model_config = checkpoint["config"]["model"]
         metadata = checkpoint["metadata"]
         dims = ModelDimensions.from_config(model_config, metadata)
 
