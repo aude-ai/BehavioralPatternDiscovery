@@ -124,7 +124,7 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             pattern_names = namer.name_all_patterns(
                 message_examples=message_examples,
                 hierarchical_weights=hierarchical_weights,
-                message_database=message_database,
+                message_database=message_database["messages"],
             )
 
             # Save pattern names to Hetzner storage
