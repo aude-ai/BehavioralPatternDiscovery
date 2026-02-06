@@ -2006,6 +2006,7 @@ async function refreshCurrentSection() {
             await refreshPatternList();
             break;
         case 'scoring':
+            await refreshR2Status();
             await refreshScoringEngineers();
             break;
     }
