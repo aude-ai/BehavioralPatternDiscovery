@@ -719,7 +719,7 @@ def step_b4_training_prep(state: PipelineState):
         "metadata": {
             "num_messages": len(messages),
             "embedding_dim": state.normalized_embeddings.shape[1],
-            "aux_features_dim": state.aux_features.shape[1] if state.aux_features is not None else 0,
+            "aux_dim": state.aux_features.shape[1] if state.aux_features is not None else 0,
             "total_dim": train_input.shape[1],
             "embedder": {
                 "type": encoder_type,

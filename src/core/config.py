@@ -10,7 +10,6 @@ that should NOT be stored in config (e.g., input_dim of layer N = output_dim of 
 """
 
 import logging
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -70,27 +69,12 @@ class ModelDimensions:
         Returns:
             ModelDimensions with all base values extracted
         """
-        # Determine dimensions from metadata or model_config
-        if metadata is not None:
-            if "embedding_dim" in metadata and "aux_features_dim" in metadata:
-                # Direct metadata (from Modal/cloud context)
-                embedding_dim = metadata["embedding_dim"]
-                aux_features_dim = metadata["aux_features_dim"]
-            elif "paths" in metadata:
-                # Data config with paths (local file access)
-                dims = infer_dimensions_from_data(metadata)
-                embedding_dim = dims["embedding_dim"]
-                aux_features_dim = dims["aux_features_dim"]
-            else:
-                raise ValueError(
-                    "metadata must contain either 'embedding_dim'/'aux_features_dim' "
-                    "or 'paths' for local file access"
-                )
-        else:
-            # Backward compatibility: use model config
-            input_config = model_config["input"]
-            embedding_dim = input_config["embedding_dim"]
-            aux_features_dim = input_config["aux_features_dim"]
+        # Determine dimensions from metadata
+        if metadata is None or "embedding_dim" not in metadata:
+            raise ValueError("metadata with 'embedding_dim' is required")
+
+        embedding_dim = metadata["embedding_dim"]
+        aux_features_dim = metadata.get("aux_dim", 0)
 
         # Check aux_features toggle
         input_config = model_config["input"]
@@ -373,96 +357,3 @@ def get_nested(config: dict[str, Any], key: str) -> Any:
     return current
 
 
-def infer_dimensions_from_data(data_config: dict) -> dict[str, int]:
-    """
-    Infer embedding and aux_features dimensions from preprocessed data.
-
-    Args:
-        data_config: Data configuration with paths section
-
-    Returns:
-        Dict with 'embedding_dim' and 'aux_features_dim'
-
-    Raises:
-        FileNotFoundError: If preprocessed data doesn't exist
-        KeyError: If metadata is missing required fields
-    """
-    message_db_path = Path(data_config["paths"]["data"]["processing"]["message_database"])
-
-    if not message_db_path.exists():
-        raise FileNotFoundError(
-            f"Preprocessed data not found at {message_db_path}. "
-            f"Run preprocessing before model configuration."
-        )
-
-    with open(message_db_path, "rb") as f:
-        data = pickle.load(f)
-
-    # Handle both old and new format
-    if isinstance(data, dict) and "metadata" in data:
-        metadata = data["metadata"]
-        return {
-            "embedding_dim": metadata["embedding_dim"],
-            "aux_features_dim": metadata["aux_features_dim"],
-        }
-    else:
-        # Old format - infer from first message
-        first_msg = data[0]
-        return {
-            "embedding_dim": first_msg["embedding"].shape[0],
-            "aux_features_dim": first_msg["aux_features"].shape[0],
-        }
-
-
-def validate_training_prerequisites(data_config: dict) -> None:
-    """
-    Validate that preprocessing has been run before training.
-
-    Args:
-        data_config: Data configuration with paths section
-
-    Raises:
-        FileNotFoundError: If preprocessed data doesn't exist
-    """
-    message_db_path = Path(data_config["paths"]["data"]["processing"]["message_database"])
-    if not message_db_path.exists():
-        raise FileNotFoundError(
-            "Cannot start training: preprocessed data not found. "
-            "Run the preprocessing step first."
-        )
-
-
-def load_normalization_params(data_config: dict) -> dict | None:
-    """
-    Load normalization params from preprocessed data.
-
-    This is used by the training script to get the normalization params
-    that were fitted during preprocessing, so they can be saved
-    in the model checkpoint.
-
-    Args:
-        data_config: Data configuration with paths section
-
-    Returns:
-        Normalization params dict or None if no normalization was used
-
-    Raises:
-        FileNotFoundError: If preprocessed data doesn't exist
-    """
-    message_db_path = Path(data_config["paths"]["data"]["processing"]["message_database"])
-
-    if not message_db_path.exists():
-        raise FileNotFoundError(
-            f"Preprocessed data not found at {message_db_path}. "
-            f"Run preprocessing before training."
-        )
-
-    with open(message_db_path, "rb") as f:
-        data = pickle.load(f)
-
-    # Get normalization params from metadata
-    if isinstance(data, dict) and "metadata" in data:
-        return data["metadata"].get("normalization_params")
-
-    # Old format - no normalization params
-    return None
