@@ -94,7 +94,6 @@ def get_individual_scores(
 def generate_report(
     project_id: str,
     engineer_id: str,
-    config: dict = None,
     db: Session = Depends(get_db),
 ):
     """Generate a report for an engineer."""
@@ -110,9 +109,9 @@ def generate_report(
         raise HTTPException(status_code=400, detail="Score individual first")
 
     job = service.create_job(project_id, JobType.GENERATE_REPORT)
-    merged_config = config or {}
+    config = get_pipeline_config()
 
-    cpu_tasks.generate_report.delay(project_id, job.id, engineer_id, merged_config)
+    cpu_tasks.generate_report.delay(project_id, job.id, engineer_id, config)
 
     return job
 
