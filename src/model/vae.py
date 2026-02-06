@@ -51,24 +51,26 @@ class MultiEncoderVAE(BaseVAE):
         - Encoder wrappers for individual encoder analysis
     """
 
-    def __init__(self, config: dict[str, Any], training_config: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        config: dict[str, Any],
+        dims: ModelDimensions,
+        training_config: dict[str, Any] | None = None,
+    ):
         """
         Args:
             config: Model configuration containing:
-                - input: Input dimensions (embedding_dim, aux_features_dim)
                 - encoder: Encoder configuration (with its own layer_config)
                 - unification: Unification layer configuration (with its own layer_config)
                 - decoder: Decoder configuration (with its own layer_config)
                 - distribution: Latent distribution configuration
+            dims: Pre-computed ModelDimensions instance
             training_config: Training configuration (optional, for decoder training settings)
         """
         super().__init__()
 
         self.config = config
         self.training_config = training_config
-
-        # Compute derived dimensions from base config values
-        dims = ModelDimensions.from_config(config)
         self.dims = dims
 
         encoder_config = config["encoder"]
