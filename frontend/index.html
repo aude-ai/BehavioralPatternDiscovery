@@ -962,7 +962,25 @@ body {
 .text-muted { color: var(--text-muted); }
 .text-sm { font-size: 0.85rem; }
 
+/* Markdown rendering in reports */
+.report-display h1, .report-display h2, .report-display h3 {
+    color: var(--text-primary);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+.report-display h1:first-child, .report-display h2:first-child, .report-display h3:first-child {
+    margin-top: 0;
+}
+.report-display h2 { font-size: 1.3rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.report-display h3 { font-size: 1.1rem; }
+.report-display p { margin: 0.8em 0; }
+.report-display ul, .report-display ol { margin: 0.8em 0; padding-left: 1.5em; }
+.report-display li { margin: 0.4em 0; }
+.report-display strong { color: var(--text-primary); }
+.report-display code { background: var(--bg-secondary); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -2828,7 +2846,8 @@ async function generateReport() {
 
                     // Fetch the actual report
                     const report = await apiGet(`/scoring/report/${state.selectedEngineerId}`);
-                    $('#report-display').innerHTML = report.report || report.content || JSON.stringify(report, null, 2);
+                    const content = report.overall_summary || report.report || report.content || JSON.stringify(report, null, 2);
+                    $('#report-display').innerHTML = marked.parse(content);
                     $('#report-card').style.display = 'block';
 
                     showStatus('scoring-status-message', 'Report generated!', 'success');
