@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(mes
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.04.2"
+PIPELINE_VERSION = "2026.02.05.2"
 
 app = modal.App("bpd-processing")
 
@@ -719,7 +719,7 @@ def step_b4_training_prep(state: PipelineState):
         "metadata": {
             "num_messages": len(messages),
             "embedding_dim": state.normalized_embeddings.shape[1],
-            "aux_dim": state.aux_features.shape[1] if state.aux_features is not None else 0,
+            "aux_features_dim": state.aux_features.shape[1] if state.aux_features is not None else 0,
             "total_dim": train_input.shape[1],
             "embedder": {
                 "type": encoder_type,
@@ -995,11 +995,13 @@ def step_b7_message_assignment(state: PipelineState):
     state.callback.status("Assigning messages to patterns...")
 
     assigner = MessageAssigner(state.config)
-    message_examples = assigner.assign(
+    message_examples_raw = assigner.assign_all(
         activations=state.activations,
-        message_db=state.message_database,
-        population_stats=state.population_stats,
+        message_database=state.message_database["messages"],
     )
+
+    # Convert to JSON-serializable dict
+    message_examples = MessageAssigner.to_dict(message_examples_raw)
 
     # Send to Hetzner (small JSON)
     state.callback.status("Sending message examples to Hetzner...")

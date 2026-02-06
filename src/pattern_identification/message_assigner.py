@@ -38,16 +38,21 @@ class MessageAssigner:
     def __init__(self, config: dict[str, Any]):
         """
         Args:
-            config: Full merged config containing paths.pattern_identification
+            config: Config containing message_assignment and normalization sections.
+                    Optional: paths.pattern_identification for local file output.
         """
-        pi_config = config["paths"]["pattern_identification"]
         msg_config = config["message_assignment"]
         norm_config = config["normalization"]
 
         self.examples_per_pattern = msg_config["examples_per_pattern"]
         self.max_words = msg_config["max_words_per_message"]
         self.scoring_mode = msg_config["scoring_mode"]
-        self.output_path = Path(pi_config["messages"]["examples"])
+
+        # Output path is optional (not used in cloud context)
+        pi_config = config.get("paths", {}).get("pattern_identification", {})
+        messages_config = pi_config.get("messages", {})
+        output_path_str = messages_config.get("examples")
+        self.output_path = Path(output_path_str) if output_path_str else None
 
         # Ratio constraints for absolute mode
         self.min_positive_ratio = msg_config.get("min_positive_ratio", 0.0)
@@ -125,8 +130,9 @@ class MessageAssigner:
         if self.normalize_scores:
             all_examples = self._normalize_scores(all_examples)
 
-        # Save to JSON
-        self._save_examples(all_examples)
+        # Save to JSON (only if output_path configured - skipped in cloud context)
+        if self.output_path:
+            self._save_examples(all_examples)
 
         return all_examples
 
@@ -256,9 +262,22 @@ class MessageAssigner:
 
     def _save_examples(self, all_examples: dict[str, list[PatternExamples]]) -> None:
         """Save examples to JSON file."""
+        if self.output_path is None:
+            logger.warning("output_path not configured, skipping save")
+            return
+
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Convert dataclasses to dicts
+        output = self.to_dict(all_examples)
+
+        with open(self.output_path, "w") as f:
+            json.dump(output, f, indent=2)
+
+        logger.info(f"Saved message examples to {self.output_path}")
+
+    @staticmethod
+    def to_dict(all_examples: dict[str, list["PatternExamples"]]) -> dict[str, Any]:
+        """Convert PatternExamples to JSON-serializable dict."""
         output = {}
         for level_key, examples_list in all_examples.items():
             output[level_key] = {}
@@ -270,11 +289,7 @@ class MessageAssigner:
                     "pattern_idx": pe.pattern_idx,
                     "examples": pe.examples,
                 }
-
-        with open(self.output_path, "w") as f:
-            json.dump(output, f, indent=2)
-
-        logger.info(f"Saved message examples to {self.output_path}")
+        return output
 
     @staticmethod
     def load_examples(path: str | Path) -> dict[str, Any]:

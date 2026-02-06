@@ -55,27 +55,37 @@ class ModelDimensions:
     def from_config(
         cls,
         model_config: dict[str, Any],
-        data_config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ModelDimensions":
         """
         Create ModelDimensions from config.
 
-        If data_config is provided, dimensions are inferred from preprocessed data.
-        Otherwise, uses values from model_config (backward compatibility).
-
         Args:
             model_config: Model configuration dict
-            data_config: Optional data configuration dict with paths
+            metadata: Optional metadata dict with embedding_dim and aux_features_dim.
+                      Can be either:
+                      - Raw metadata dict with keys: embedding_dim, aux_features_dim
+                      - Data config dict with paths section (for local file access)
 
         Returns:
             ModelDimensions with all base values extracted
         """
-        # Determine dimensions
-        if data_config is not None:
-            # Infer from preprocessed data
-            dims = infer_dimensions_from_data(data_config)
-            embedding_dim = dims["embedding_dim"]
-            aux_features_dim = dims["aux_features_dim"]
+        # Determine dimensions from metadata or model_config
+        if metadata is not None:
+            if "embedding_dim" in metadata and "aux_features_dim" in metadata:
+                # Direct metadata (from Modal/cloud context)
+                embedding_dim = metadata["embedding_dim"]
+                aux_features_dim = metadata["aux_features_dim"]
+            elif "paths" in metadata:
+                # Data config with paths (local file access)
+                dims = infer_dimensions_from_data(metadata)
+                embedding_dim = dims["embedding_dim"]
+                aux_features_dim = dims["aux_features_dim"]
+            else:
+                raise ValueError(
+                    "metadata must contain either 'embedding_dim'/'aux_features_dim' "
+                    "or 'paths' for local file access"
+                )
         else:
             # Backward compatibility: use model config
             input_config = model_config["input"]
