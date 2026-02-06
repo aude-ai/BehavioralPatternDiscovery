@@ -15,7 +15,6 @@ router = APIRouter()
 class ScoreRequest(BaseModel):
     """Request body for individual scoring."""
     engineer_id: str
-    messages: list[dict]
 
 
 @router.post("/individual", response_model=Job)
@@ -25,6 +24,8 @@ def score_individual(
     db: Session = Depends(get_db),
 ):
     """Score an individual engineer."""
+    import pandas as pd
+
     service = ProjectService(db)
     storage = StorageService(project_id)
 
@@ -42,6 +43,18 @@ def score_individual(
     if not population_stats:
         raise HTTPException(status_code=400, detail="Run batch scoring first")
 
+    # Load messages for this engineer from activities.csv
+    if not storage.file_exists(storage.activities_path):
+        raise HTTPException(status_code=400, detail="No activities data found")
+
+    df = pd.read_csv(storage.activities_path)
+    engineer_df = df[df["engineer_id"] == request.engineer_id]
+
+    if len(engineer_df) == 0:
+        raise HTTPException(status_code=404, detail=f"Engineer '{request.engineer_id}' not found")
+
+    messages = engineer_df.to_dict(orient="records")
+
     job = service.create_job(project_id, JobType.SCORE_INDIVIDUAL)
 
     # Get pipeline config for the scorer
@@ -51,7 +64,7 @@ def score_individual(
         project_id=project_id,
         job_id=job.id,
         engineer_id=request.engineer_id,
-        messages=request.messages,
+        messages=messages,
         population_stats=population_stats,
         config=config,
     )
