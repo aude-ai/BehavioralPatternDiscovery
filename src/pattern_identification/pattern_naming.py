@@ -59,6 +59,7 @@ class PatternNamer:
         hierarchical_weights: dict[str, Any],
         message_database: list[dict],
         resume: bool = True,
+        progress_callback: callable | None = None,
     ) -> dict[str, Any]:
         """
         Name all patterns at all levels.
@@ -74,6 +75,7 @@ class PatternNamer:
             hierarchical_weights: Output from SHAPAnalyzer (includes metadata)
             message_database: Original message data (for detecting sources)
             resume: If True, load existing partial results and skip completed items
+            progress_callback: Optional callback(current, total, message) for progress updates
 
         Returns:
             Pattern names dictionary
@@ -90,6 +92,10 @@ class PatternNamer:
         logger.info(f"Detected data sources: {detected_sources}")
 
         logger.info(f"Naming patterns for {len(encoder_names)} encoders, {num_levels} levels")
+
+        # Calculate total steps for progress tracking
+        total_steps = len(encoder_names) * num_levels + 1  # +1 for unified
+        current_step = 0
 
         # Load existing partial results if resuming
         all_names = self._load_checkpoint() if resume else {}
@@ -159,7 +165,16 @@ class PatternNamer:
 
                 # Checkpoint after each successful naming
                 self._save_names(all_names)
+                current_step += 1
                 logger.info(f"Checkpoint saved ({len(all_names)} items completed)")
+
+                # Report progress
+                if progress_callback:
+                    progress_callback(
+                        current_step,
+                        total_steps,
+                        f"Named {enc_name} {level_name} patterns ({current_step}/{total_steps})"
+                    )
 
         # Unified level
         if "unified" not in all_names:
@@ -206,6 +221,10 @@ class PatternNamer:
 
                 # Final checkpoint
                 self._save_names(all_names)
+
+                # Report final progress
+                if progress_callback:
+                    progress_callback(total_steps, total_steps, "Named unified patterns")
             else:
                 logger.warning("No unified examples found, skipping unified naming")
         else:

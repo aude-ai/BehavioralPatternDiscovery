@@ -2612,11 +2612,43 @@ async function namePatterns() {
     appendLog('naming', 'Starting LLM pattern naming...');
 
     $('#naming-progress').classList.remove('hidden');
+    $('#naming-progress-bar').style.width = '0%';
+    $('#naming-progress-percent').textContent = '0%';
 
     try {
-        await apiPost('/name-patterns');
+        const response = await apiPost('/name-patterns');
+        const jobId = response.job_id;
 
-        showStatus('naming-status-message', 'Naming started. Monitor progress below.', 'info');
+        showStatus('naming-status-message', 'Naming in progress...', 'info');
+
+        // Poll for job status
+        const pollInterval = setInterval(async () => {
+            try {
+                const job = await apiGet(`/jobs/${jobId}`);
+                const pct = Math.round((job.progress || 0) * 100);
+
+                $('#naming-progress-bar').style.width = `${pct}%`;
+                $('#naming-progress-percent').textContent = `${pct}%`;
+                $('#naming-progress-text').textContent = job.progress_message || 'Naming patterns...';
+
+                if (job.status === 'completed') {
+                    clearInterval(pollInterval);
+                    showStatus('naming-status-message', 'Pattern naming complete!', 'success');
+                    appendLog('naming', 'Pattern naming complete!');
+                    $('#naming-progress').classList.add('hidden');
+                    btn.disabled = false;
+                    refreshPatternList();
+                } else if (job.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showStatus('naming-status-message', `Error: ${job.error}`, 'error');
+                    appendLog('naming', `Error: ${job.error}`, 'error');
+                    $('#naming-progress').classList.add('hidden');
+                    btn.disabled = false;
+                }
+            } catch (pollError) {
+                console.error('Failed to poll job status:', pollError);
+            }
+        }, 2000);
 
     } catch (error) {
         showStatus('naming-status-message', `Error: ${error.message}`, 'error');

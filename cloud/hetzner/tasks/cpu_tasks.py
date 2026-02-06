@@ -120,11 +120,22 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
 
             message_database = download_pickle_from_r2(project_id, "message_database")
 
+            def update_progress(current: int, total: int, message: str):
+                """Update job progress in database."""
+                progress = current / total if total > 0 else 0
+                db.query(JobModel).filter(JobModel.id == job_id).update({
+                    "progress": progress,
+                    "progress_message": message,
+                })
+                db.commit()
+                logger.info(f"Progress: {message} ({progress:.0%})")
+
             namer = PatternNamer(config)
             pattern_names = namer.name_all_patterns(
                 message_examples=message_examples,
                 hierarchical_weights=hierarchical_weights,
                 message_database=message_database["messages"],
+                progress_callback=update_progress,
             )
 
             # Save pattern names to Hetzner storage

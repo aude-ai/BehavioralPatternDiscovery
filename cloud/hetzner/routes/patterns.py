@@ -30,26 +30,35 @@ def list_patterns(
         return {"patterns": [], "count": 0}
 
     patterns = []
-    for pattern_id, info in pattern_names.items():
-        # Parse pattern ID
-        parts = pattern_id.rsplit("_", 1)
-        if len(parts) == 2:
-            pattern_level = parts[0]
-            pattern_idx = int(parts[1])
-        else:
+    # Pattern names structure: {"enc1_bottom": {"dim_0": {...}, "dim_1": {...}}, "unified": {...}}
+    for level_key, level_patterns in pattern_names.items():
+        if not isinstance(level_patterns, dict):
             continue
 
         # Filter by level if specified
-        if level and level not in pattern_level:
+        if level and level not in level_key:
             continue
 
-        patterns.append({
-            "id": pattern_id,
-            "name": info.get("name"),
-            "description": info.get("description"),
-            "level": pattern_level,
-            "index": pattern_idx,
-        })
+        for dim_key, info in level_patterns.items():
+            if not isinstance(info, dict):
+                continue
+
+            # Extract dimension index from dim_key (e.g., "dim_0" -> 0)
+            dim_idx = 0
+            if dim_key.startswith("dim_"):
+                try:
+                    dim_idx = int(dim_key.split("_")[1])
+                except (IndexError, ValueError):
+                    pass
+
+            pattern_id = f"{level_key}_{dim_key}"
+            patterns.append({
+                "id": pattern_id,
+                "name": info.get("name"),
+                "description": info.get("description"),
+                "level": level_key,
+                "index": dim_idx,
+            })
 
     return {"patterns": patterns, "count": len(patterns)}
 
