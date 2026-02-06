@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(mes
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.05.5"
+PIPELINE_VERSION = "2026.02.05.7"
 
 app = modal.App("bpd-processing")
 
@@ -119,13 +119,14 @@ def get_step_order() -> list[str]:
 
 
 def get_steps_to_run(starting_step: str) -> list[str]:
-    """Get list of steps to run from starting point to end."""
-    step_order = get_step_order()
-    if starting_step not in step_order:
-        raise ValueError(f"Invalid starting step: {starting_step}")
+    """Get list of steps to run from starting_points config."""
+    config = _load_pipeline_config()
+    starting_points = config.get("starting_points", {})
 
-    start_idx = step_order.index(starting_step)
-    return step_order[start_idx:]
+    if starting_step not in starting_points:
+        raise ValueError(f"Invalid starting step: {starting_step}. Valid: {list(starting_points.keys())}")
+
+    return starting_points[starting_step]["steps_to_run"]
 
 
 def _get_step_outputs(step: str) -> dict:
@@ -677,8 +678,8 @@ def step_b4_training_prep(state: PipelineState):
 
     state.callback.status("Preparing training data...")
 
-    # Combine embeddings + aux features (default True if not specified)
-    include_aux = state.config.get("include_aux_features", True)
+    # Check model config for aux_features setting
+    include_aux = state.config["model"]["input"]["aux_features"]["enabled"]
     if include_aux:
         train_input = np.concatenate([state.normalized_embeddings, state.aux_features], axis=1)
     else:
