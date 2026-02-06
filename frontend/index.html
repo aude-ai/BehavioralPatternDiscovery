@@ -1505,7 +1505,6 @@ function switchSection(sectionId) {
                 refreshPatternList();
                 break;
             case 'scoring':
-                refreshR2Status();
                 refreshScoringEngineers();
                 break;
         }
@@ -2007,7 +2006,6 @@ async function refreshCurrentSection() {
             await refreshPatternList();
             break;
         case 'scoring':
-            await refreshR2Status();
             await refreshScoringEngineers();
             break;
     }
@@ -2707,12 +2705,17 @@ async function refreshScoringEngineers() {
     }
 }
 
-function onScoringEngineerSelected(event) {
+async function onScoringEngineerSelected(event) {
     state.selectedEngineerId = event.target.value;
 
     // Hide previous results
     $('#scores-card').style.display = 'none';
     $('#report-card').style.display = 'none';
+
+    // Ensure R2 status is available for checkpoint check
+    if (!state.r2Status || Object.keys(state.r2Status).length === 0) {
+        await refreshR2Status();
+    }
 
     updateScoringButtons();
 }
