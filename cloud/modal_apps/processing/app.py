@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(mes
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.05.7"
+PIPELINE_VERSION = "2026.02.05.8"
 
 app = modal.App("bpd-processing")
 
@@ -278,7 +278,7 @@ def run_processing_pipeline(
     Args:
         project_id: Project identifier
         job_id: Job ID for progress tracking
-        starting_step: Step to start from (B.1, B.5, B.6, or B.8)
+        starting_step: Starting point key (full, from_training, from_scoring, or shap_only)
         config: Full merged pipeline configuration
 
     Returns:
@@ -319,7 +319,7 @@ def run_processing_pipeline(
 
         # Download activities.csv from Hetzner (needed for most steps)
         activities_df = None
-        if starting_step in ["B.1", "B.5"]:
+        if starting_step in ["full", "from_training"]:
             callback.status("Downloading activities from Hetzner...")
             activities_df = _download_activities(project_id, hetzner_url, headers)
 
@@ -495,7 +495,7 @@ def step_b1_statistical_features(state: PipelineState):
 
     # Validate activities_df exists
     if state.activities_df is None:
-        raise ValueError("activities_df is None - was it downloaded? Check starting_step is B.1 or B.5")
+        raise ValueError("activities_df is None - was it downloaded? Check starting_step is 'full' or 'from_training'")
 
     # Log DataFrame info for debugging
     logger.info(f"step_b1: activities_df shape={state.activities_df.shape}")
@@ -808,7 +808,16 @@ def step_b5_vae_training(state: PipelineState):
             "message": f"Epoch {epoch}, loss: {metrics.get('total_loss', 0):.4f}",
         })
         if wandb_enabled:
-            wandb.log({k: float(v) for k, v in metrics.items()}, step=epoch)
+            # Flatten nested dicts and filter to numeric values only
+            flat_metrics = {}
+            for k, v in metrics.items():
+                if isinstance(v, dict):
+                    for sub_k, sub_v in v.items():
+                        if isinstance(sub_v, (int, float)):
+                            flat_metrics[f"{k}/{sub_k}"] = float(sub_v)
+                elif isinstance(v, (int, float)):
+                    flat_metrics[k] = float(v)
+            wandb.log(flat_metrics, step=epoch)
 
     # Trainer expects full merged config with model, training, loss_weights, etc.
     # Build trainer config by merging training.yaml contents with model config

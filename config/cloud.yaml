@@ -123,7 +123,7 @@ pipeline:
         - "hierarchical_weights"
 
   starting_points:
-    "B.1":
+    "full":
       label: "Full Pipeline"
       description: "Run complete processing pipeline from scratch"
       r2_prerequisites: []
@@ -139,9 +139,9 @@ pipeline:
         - "B.7"
         - "B.8"
 
-    "B.5":
+    "from_training":
       label: "From Training"
-      description: "Skip preprocessing, start from VAE training"
+      description: "Skip embedding, start from normalization and training"
       r2_prerequisites:
         - "embeddings"
         - "aux_features"
@@ -155,7 +155,7 @@ pipeline:
         - "B.7"
         - "B.8"
 
-    "B.6":
+    "from_scoring":
       label: "From Batch Scoring"
       description: "Use existing model, re-run scoring and analysis"
       r2_prerequisites:
@@ -168,7 +168,7 @@ pipeline:
         - "B.7"
         - "B.8"
 
-    "B.8":
+    "shap_only":
       label: "SHAP Only"
       description: "Re-run only SHAP analysis"
       r2_prerequisites:

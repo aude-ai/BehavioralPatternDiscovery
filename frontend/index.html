@@ -1179,22 +1179,22 @@ body {
                     <div class="starting-point-selector">
                         <label class="text-sm text-muted">Select starting point:</label>
                         <div class="starting-point-options" id="starting-point-options">
-                            <div class="starting-point-option selected" data-step="B.1">
+                            <div class="starting-point-option selected" data-step="full">
                                 <div class="option-title">Full Pipeline</div>
                                 <div class="option-desc">Run all steps from the beginning</div>
                                 <div class="option-prereq">Requires: activities.csv</div>
                             </div>
-                            <div class="starting-point-option disabled" data-step="B.5">
+                            <div class="starting-point-option disabled" data-step="from_training">
                                 <div class="option-title">From Training</div>
-                                <div class="option-desc">Skip embedding, start at VAE training</div>
+                                <div class="option-desc">Skip embedding, start at normalization</div>
                                 <div class="option-prereq">Requires: embeddings, aux_features</div>
                             </div>
-                            <div class="starting-point-option disabled" data-step="B.6">
+                            <div class="starting-point-option disabled" data-step="from_scoring">
                                 <div class="option-title">From Batch Scoring</div>
                                 <div class="option-desc">Re-score with existing model</div>
                                 <div class="option-prereq">Requires: checkpoint, train_input</div>
                             </div>
-                            <div class="starting-point-option disabled" data-step="B.8">
+                            <div class="starting-point-option disabled" data-step="shap_only">
                                 <div class="option-title">SHAP Only</div>
                                 <div class="option-desc">Re-run SHAP analysis</div>
                                 <div class="option-prereq">Requires: checkpoint, activations</div>
@@ -1360,7 +1360,7 @@ const state = {
     projectId: localStorage.getItem('bpd_project_id') || null,
     projectName: localStorage.getItem('bpd_project_name') || null,
     currentSection: 'data',
-    selectedStartingPoint: 'B.1',
+    selectedStartingPoint: 'full',
     selectedEngineerId: null,
     r2Status: {},
     hetznerStatus: {},
@@ -1396,10 +1396,10 @@ const PIPELINE_STEPS = [
 
 // Starting point prerequisites
 const STARTING_POINTS = {
-    'B.1': { r2: [], hetzner: ['activities.csv'] },
-    'B.5': { r2: ['embeddings', 'aux_features'], hetzner: ['activities.csv'] },
-    'B.6': { r2: ['checkpoint', 'train_input', 'message_database'], hetzner: [] },
-    'B.8': { r2: ['checkpoint', 'activations'], hetzner: [] },
+    'full': { r2: [], hetzner: ['activities.csv'] },
+    'from_training': { r2: ['embeddings', 'aux_features'], hetzner: ['activities.csv'] },
+    'from_scoring': { r2: ['checkpoint', 'train_input', 'message_database'], hetzner: [] },
+    'shap_only': { r2: ['checkpoint', 'activations'], hetzner: [] },
 };
 
 // ============================================================================
@@ -2312,9 +2312,9 @@ function updateStartingPointOptions() {
 
         if (option.classList.contains('selected') && !isAvailable) {
             option.classList.remove('selected');
-            // Select B.1 as fallback
-            $$('.starting-point-option[data-step="B.1"]')[0]?.classList.add('selected');
-            state.selectedStartingPoint = 'B.1';
+            // Select full pipeline as fallback
+            $$('.starting-point-option[data-step="full"]')[0]?.classList.add('selected');
+            state.selectedStartingPoint = 'full';
         }
     });
 
@@ -2518,12 +2518,12 @@ async function retryFromFailedStep() {
 async function retryFullPipeline() {
     hidePipelineError();
 
-    // Reset to B.1
-    state.selectedStartingPoint = 'B.1';
+    // Reset to full pipeline
+    state.selectedStartingPoint = 'full';
 
     // Update UI
     $$('.starting-point-option').forEach(opt => opt.classList.remove('selected'));
-    $(`.starting-point-option[data-step="B.1"]`)?.classList.add('selected');
+    $(`.starting-point-option[data-step="full"]`)?.classList.add('selected');
 
     await startPipeline();
 }
