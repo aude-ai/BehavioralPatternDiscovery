@@ -228,7 +228,12 @@ class FlowMatchingDecoder(BaseDecoder):
             self.normalize_loss = True
             self.direction_loss_ratio = 0.0
             self.track_baselines = False
-            self.timestep_sampler = TimestepSampler(distribution="uniform")
+            self.timestep_sampler = TimestepSampler(
+                distribution="uniform",
+                logit_normal_mean=0.0,
+                logit_normal_std=1.0,
+                u_shaped_concentration=0.5,
+            )
             self.diff_ode_enabled = False
             self.focal_enabled = False
             self.focal_gamma = 2.0

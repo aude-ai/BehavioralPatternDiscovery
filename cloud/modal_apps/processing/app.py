@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(mes
 logger = logging.getLogger(__name__)
 
 # Version marker for deployment verification
-PIPELINE_VERSION = "2026.02.05.2"
+PIPELINE_VERSION = "2026.02.05.3"
 
 app = modal.App("bpd-processing")
 
@@ -773,7 +773,7 @@ def step_b5_vae_training(state: PipelineState):
     metadata = state.message_database.get("metadata", {})
     dims = ModelDimensions.from_config(state.config["model"], metadata)
 
-    model = MultiEncoderVAE(state.config["model"], dims)
+    model = MultiEncoderVAE(state.config["model"], dims, state.config.get("training"))
     model = model.to("cuda")
 
     # Initialize wandb if API key available
