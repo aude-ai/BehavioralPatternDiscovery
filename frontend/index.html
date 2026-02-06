@@ -2572,7 +2572,18 @@ function renderPatternList(patterns) {
         return;
     }
 
-    container.innerHTML = patterns.map(pattern => {
+    // Sort patterns: unified first, then top, mid, bottom
+    const levelOrder = { 'unified': 0, 'top': 1, 'mid': 2, 'bottom': 3 };
+    const sortedPatterns = [...patterns].sort((a, b) => {
+        const levelA = extractLevel(a.level || a.id);
+        const levelB = extractLevel(b.level || b.id);
+        const orderDiff = (levelOrder[levelA] ?? 4) - (levelOrder[levelB] ?? 4);
+        if (orderDiff !== 0) return orderDiff;
+        // Within same level, sort by index
+        return (a.index ?? 0) - (b.index ?? 0);
+    });
+
+    container.innerHTML = sortedPatterns.map(pattern => {
         const level = extractLevel(pattern.level || pattern.id);
         return `
             <div class="pattern-item" data-pattern-id="${escapeHtml(pattern.id)}">
