@@ -107,7 +107,7 @@ def get_population_data(
     engineer_ids: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Get population viewer data formatted for the frontend."""
+    """Get population viewer data (raw population stats)."""
     service = ProjectService(db)
     project = service.get_project(project_id)
     if not project:
@@ -120,96 +120,7 @@ def get_population_data(
     if not population_stats:
         raise HTTPException(status_code=404, detail="Population stats not found - run batch scoring first")
 
-    # Load pattern names
-    pattern_names = storage.load_json(storage.pattern_names_path) or {}
-
-    # Filter engineers if specified
-    filter_ids = set(engineer_ids.split(",")) if engineer_ids else None
-
-    # Transform to frontend-expected format
-    patterns = {
-        "unified": {"top": []},
-        "model_1": {"bottom": [], "mid": [], "top": []},
-        "model_2": {"bottom": [], "mid": [], "top": []},
-        "model_3": {"bottom": [], "mid": [], "top": []},
-    }
-    engineers = {}
-    available_engineers = set()
-
-    # Helper to parse level key
-    def parse_level_key(level_key):
-        parts = level_key.split("_")
-        if len(parts) >= 2:
-            encoder = parts[0]
-            level = parts[1]
-            if encoder == "unified":
-                return "unified", "top"
-            else:
-                model_num = encoder.replace("enc", "")
-                return f"model_{model_num}", level
-        return None, None
-
-    # First pass: build patterns structure
-    for level_key, level_data in population_stats.items():
-        pop_mean = level_data.get("population_mean", [])
-        model_key, level = parse_level_key(level_key)
-        if not model_key:
-            continue
-
-        level_names = pattern_names.get(level_key, {})
-
-        for dim_idx in range(len(pop_mean)):
-            dim_key = f"dim_{dim_idx}"
-            name_info = level_names.get(dim_key, {})
-
-            pattern = {
-                "name": name_info.get("name", f"{level_key}_dim{dim_idx}"),
-                "description": name_info.get("description", ""),
-                "dim_idx": dim_idx,
-                "level_key": level_key,
-            }
-
-            if model_key in patterns and level in patterns[model_key]:
-                patterns[model_key][level].append(pattern)
-
-    # Second pass: build engineer scores
-    for level_key, level_data in population_stats.items():
-        model_key, level = parse_level_key(level_key)
-        if not model_key:
-            continue
-
-        eng_data = level_data.get("engineers", {})
-
-        for eng_id, scores in eng_data.items():
-            if filter_ids and eng_id not in filter_ids:
-                continue
-
-            available_engineers.add(eng_id)
-
-            if eng_id not in engineers:
-                engineers[eng_id] = {
-                    "unified": {"top": []},
-                    "model_1": {"bottom": [], "mid": [], "top": []},
-                    "model_2": {"bottom": [], "mid": [], "top": []},
-                    "model_3": {"bottom": [], "mid": [], "top": []},
-                }
-
-            posterior_means = scores.get("posterior_mean", [])
-            percentiles = scores.get("percentiles", [])
-
-            for dim_idx in range(len(posterior_means)):
-                score_entry = {
-                    "score": posterior_means[dim_idx] if dim_idx < len(posterior_means) else 0,
-                    "percentile": percentiles[dim_idx] if dim_idx < len(percentiles) else 50,
-                }
-                if model_key in engineers[eng_id] and level in engineers[eng_id][model_key]:
-                    engineers[eng_id][model_key][level].append(score_entry)
-
-    return {
-        "patterns": patterns,
-        "engineers": engineers,
-        "available_engineers": sorted(list(available_engineers)),
-    }
+    return population_stats
 
 
 @router.get("/message-distribution")

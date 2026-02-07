@@ -974,31 +974,54 @@
             }
         }
 
+        // Parse level key like "enc1_bottom" -> { encoder: "enc1", level: "bottom" }
+        function parseLevelKey(levelKey) {
+            const parts = levelKey.split('_');
+            if (parts.length >= 2) {
+                return { encoder: parts[0], level: parts[1] };
+            }
+            return { encoder: levelKey, level: 'top' };
+        }
+
+        // Get pattern name from patternsData
+        function getPatternName(levelKey, dimIdx) {
+            const levelNames = patternsData?.[levelKey] || {};
+            const dimKey = `dim_${dimIdx}`;
+            return levelNames[dimKey]?.name || `${levelKey}_dim${dimIdx}`;
+        }
+
         // Extract all patterns from scores data
+        // scoresData structure: { engineer_id, n_messages, scores: { enc1_bottom: { percentiles: [...], posterior_mean: [...] }, ... } }
         function extractAllPatterns() {
             console.log('[DEBUG] extractAllPatterns called');
-            console.log('[DEBUG] scoresData.patterns length:', scoresData.patterns.length);
             allPatterns = [];
 
-            // scoresData.patterns is a flat array of all patterns
-            scoresData.patterns.forEach((pattern, idx) => {
-                const extractedPattern = {
-                    id: `${pattern.model}:${pattern.id}`,
-                    model: pattern.model,
-                    name: pattern.name,
-                    level: pattern.level,
-                    percentile: pattern.percentile,
-                    score: pattern.score,
-                    polarity: pattern.polarity,
-                    data: pattern
-                };
+            const scores = scoresData?.scores || {};
+            console.log('[DEBUG] Score level keys:', Object.keys(scores));
 
-                if (idx < 5) {
-                    console.log(`[DEBUG] Sample pattern ${idx}:`, extractedPattern);
+            for (const levelKey in scores) {
+                const levelData = scores[levelKey];
+                const percentiles = levelData.percentiles || [];
+                const posteriorMeans = levelData.posterior_mean || [];
+                const parsed = parseLevelKey(levelKey);
+
+                for (let dimIdx = 0; dimIdx < percentiles.length; dimIdx++) {
+                    const patternName = getPatternName(levelKey, dimIdx);
+
+                    allPatterns.push({
+                        id: `${levelKey}:dim_${dimIdx}`,
+                        levelKey: levelKey,
+                        dimIdx: dimIdx,
+                        model: parsed.encoder,
+                        name: patternName,
+                        level: parsed.level,
+                        percentile: percentiles[dimIdx] || 0,
+                        score: posteriorMeans[dimIdx] || 0,
+                        polarity: posteriorMeans[dimIdx] >= 0 ? 'positive' : 'negative',
+                        data: { levelKey, dimIdx, percentile: percentiles[dimIdx], score: posteriorMeans[dimIdx] }
+                    });
                 }
-
-                allPatterns.push(extractedPattern);
-            });
+            }
 
             console.log('[DEBUG] Total patterns extracted:', allPatterns.length);
             console.log('[DEBUG] Pattern levels:', {

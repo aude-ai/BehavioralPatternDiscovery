@@ -573,6 +573,13 @@
         }
 
         let allData = null;
+        let patternNames = null;
+
+        // API data structure:
+        // allData = {
+        //   "enc1_bottom": { "population_mean": [...], "engineers": { "eng_id": { "posterior_mean": [...], "percentiles": [...] } } },
+        //   "enc1_mid": {...}, "enc1_top": {...}, "enc2_bottom": {...}, ...
+        // }
 
         async function loadEngineers() {
             try {
@@ -580,7 +587,6 @@
                 const data = await response.json();
 
                 const select = document.getElementById('engineerSelect');
-                // Engineers are objects with engineer_id, activity_count, split, sources
                 select.innerHTML = data.engineers.map(eng =>
                     `<option value="${eng.engineer_id}">${eng.engineer_id} (${eng.activity_count} activities)</option>`
                 ).join('');
@@ -611,18 +617,23 @@
             hideError();
 
             try {
-                const url = engineerIds
-                    ? `${getApiBase()}/patterns/population-data?engineer_ids=${engineerIds.join(',')}`
-                    : `${getApiBase()}/patterns/population-data`;
+                // Load population data and pattern names in parallel
+                const [popResponse, namesResponse] = await Promise.all([
+                    fetch(`${getApiBase()}/patterns/population-data`),
+                    fetch(`${getApiBase()}/patterns/names`)
+                ]);
 
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!popResponse.ok) throw new Error(`HTTP error! status: ${popResponse.status}`);
 
-                allData = await response.json();
-                renderView();
-                updateEngineerInfo(engineerIds || allData.available_engineers);
+                allData = await popResponse.json();
+                patternNames = namesResponse.ok ? await namesResponse.json() : {};
+
+                // Get all available engineers from first level key
+                const firstLevelKey = Object.keys(allData)[0];
+                const allEngineers = firstLevelKey ? Object.keys(allData[firstLevelKey].engineers || {}) : [];
+
+                renderView(engineerIds);
+                updateEngineerInfo(engineerIds || allEngineers);
             } catch (error) {
                 console.error('Failed to load data:', error);
                 showError(`Failed to load population data: ${error.message}`);
@@ -633,19 +644,35 @@
 
         function updateEngineerInfo(engineerIds) {
             const info = document.getElementById('engineerInfo');
-            if (engineerIds.length <= 5) {
+            if (!engineerIds || engineerIds.length === 0) {
+                info.textContent = 'All engineers';
+            } else if (engineerIds.length <= 5) {
                 info.textContent = `Engineer(s): ${engineerIds.join(', ')}`;
             } else {
                 info.textContent = `Engineer(s): ${engineerIds.slice(0, 5).join(', ')}, and ${engineerIds.length - 5} more`;
             }
         }
 
-        function renderView() {
+        // Parse level key like "enc1_bottom" -> { encoder: 1, level: "bottom" }
+        function parseLevelKey(levelKey) {
+            const parts = levelKey.split('_');
+            if (parts.length >= 2) {
+                const encoder = parts[0];
+                const level = parts[1];
+                if (encoder === 'unified') {
+                    return { encoder: 'unified', level: 'top' };
+                }
+                const encNum = parseInt(encoder.replace('enc', ''));
+                return { encoder: encNum, level };
+            }
+            return null;
+        }
+
+        function renderView(engineerIds) {
             const viewType = document.getElementById('viewType').value;
             const patternSelectGroup = document.getElementById('patternSelectGroup');
             const binCountGroup = document.getElementById('binCountGroup');
 
-            // Hide all views first
             document.getElementById('scoresView').style.display = 'none';
             document.getElementById('distributionView').classList.remove('active');
             document.getElementById('messageDistributionView').classList.remove('active');
@@ -654,164 +681,154 @@
                 document.getElementById('scoresView').style.display = 'flex';
                 patternSelectGroup.style.display = 'none';
                 binCountGroup.style.display = 'none';
-                renderScoresView();
+                renderScoresView(engineerIds);
             } else if (viewType === 'distribution') {
                 document.getElementById('distributionView').classList.add('active');
                 patternSelectGroup.style.display = 'block';
                 binCountGroup.style.display = 'block';
                 populatePatternDropdown();
-                renderDistributionView();
+                renderDistributionView(engineerIds);
             } else if (viewType === 'messages') {
                 document.getElementById('messageDistributionView').classList.add('active');
                 patternSelectGroup.style.display = 'block';
                 binCountGroup.style.display = 'block';
                 populatePatternDropdown();
-                renderMessageDistributionView();
+                renderMessageDistributionView(engineerIds);
             }
         }
 
         function aggregateScores(scores, method) {
             if (scores.length === 0) return 0;
-
             switch(method) {
-                case 'average':
-                    return scores.reduce((a, b) => a + b, 0) / scores.length;
-                case 'max':
-                    return Math.max(...scores);
-                case 'min':
-                    return Math.min(...scores);
+                case 'average': return scores.reduce((a, b) => a + b, 0) / scores.length;
+                case 'max': return Math.max(...scores);
+                case 'min': return Math.min(...scores);
                 case 'median':
                     const sorted = [...scores].sort((a, b) => a - b);
                     const mid = Math.floor(sorted.length / 2);
-                    return sorted.length % 2 === 0
-                        ? (sorted[mid - 1] + sorted[mid]) / 2
-                        : sorted[mid];
-                default:
-                    return 0;
+                    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+                default: return 0;
             }
         }
 
-        function getAggregatedScores() {
+        function getPatternName(levelKey, dimIdx) {
+            const levelNames = patternNames?.[levelKey] || {};
+            const dimKey = `dim_${dimIdx}`;
+            return levelNames[dimKey]?.name || `${levelKey}_dim${dimIdx}`;
+        }
+
+        function getAggregatedScores(engineerIds) {
             const method = document.getElementById('aggregationMethod').value;
-            const aggregated = {};
+            const aggregated = { unified: {}, enc1: {}, enc2: {}, enc3: {} };
 
-            // For each model and level
-            for (const modelKey in allData.patterns) {
-                aggregated[modelKey] = {};
+            for (const levelKey in allData) {
+                const parsed = parseLevelKey(levelKey);
+                if (!parsed) continue;
 
-                for (const level in allData.patterns[modelKey]) {
-                    aggregated[modelKey][level] = [];
+                const levelData = allData[levelKey];
+                const numDims = levelData.population_mean?.length || 0;
+                const engineers = levelData.engineers || {};
 
-                    // For each pattern in this level
-                    const patterns = allData.patterns[modelKey][level];
+                // Filter engineers if specified
+                const targetEngineers = engineerIds
+                    ? Object.keys(engineers).filter(e => engineerIds.includes(e))
+                    : Object.keys(engineers);
 
-                    patterns.forEach((pattern, idx) => {
-                        // Collect scores from all engineers for this pattern
-                        const scores = [];
-                        const percentiles = [];
+                const patterns = [];
+                for (let dimIdx = 0; dimIdx < numDims; dimIdx++) {
+                    const scores = [];
+                    const percentiles = [];
 
-                        for (const engineerId in allData.engineers) {
-                            const engineerData = allData.engineers[engineerId][modelKey];
-                            if (engineerData && engineerData[level]) {
-                                const engineerScores = engineerData[level];
-                                if (engineerScores[idx]) {
-                                    scores.push(engineerScores[idx].score);
-                                    percentiles.push(engineerScores[idx].percentile);
-                                }
-                            }
+                    for (const engId of targetEngineers) {
+                        const engData = engineers[engId];
+                        if (engData?.posterior_mean?.[dimIdx] !== undefined) {
+                            scores.push(engData.posterior_mean[dimIdx]);
                         }
+                        if (engData?.percentiles?.[dimIdx] !== undefined) {
+                            percentiles.push(engData.percentiles[dimIdx]);
+                        }
+                    }
 
-                        aggregated[modelKey][level].push({
-                            pattern: pattern,
-                            score: aggregateScores(scores, method),
-                            percentile: aggregateScores(percentiles, method)
-                        });
+                    patterns.push({
+                        name: getPatternName(levelKey, dimIdx),
+                        levelKey,
+                        dimIdx,
+                        score: aggregateScores(scores, method),
+                        percentile: aggregateScores(percentiles, method)
                     });
                 }
+
+                const encKey = parsed.encoder === 'unified' ? 'unified' : `enc${parsed.encoder}`;
+                aggregated[encKey][parsed.level] = patterns;
             }
 
             return aggregated;
         }
 
-        function renderScoresView() {
+        function renderScoresView(engineerIds) {
             const container = document.getElementById('scoresView');
-            const aggregated = getAggregatedScores();
+            const aggregated = getAggregatedScores(engineerIds);
 
             let html = '';
 
-            // Render unified layer at the top if present
-            if (aggregated['unified'] && aggregated['unified']['top']) {
-                const patterns = aggregated['unified']['top'];
-
+            // Render unified layer if present
+            if (aggregated.unified?.top?.length > 0) {
+                const patterns = aggregated.unified.top;
                 html += `
                     <div class="model-section" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(30, 41, 59, 0.6)); border-color: rgba(124, 58, 237, 0.3);">
-                        <div class="model-title" style="color: #a78bfa;">Unified Layer (Combined from all models)</div>
+                        <div class="model-title" style="color: #a78bfa;">Unified Layer</div>
                         <div class="level-group">
-                            <div class="level-title">UNIFIED TOP (${patterns.length} patterns)</div>
+                            <div class="level-title">TOP (${patterns.length} patterns)</div>
                             <div class="pillars-container">
                 `;
-
-                patterns.forEach(({pattern, score, percentile}) => {
-                    const height = Math.max(5, percentile * 2);
-
+                patterns.forEach(p => {
+                    const height = Math.max(5, p.percentile * 2);
                     html += `
                         <div class="pillar" style="height: ${height}px; background: linear-gradient(180deg, #7c3aed 0%, #a78bfa 100%);">
                             <div class="pillar-tooltip">
-                                <div class="tooltip-name">${pattern.name}</div>
-                                <div class="tooltip-score">Score: ${score.toFixed(3)}</div>
-                                <div class="tooltip-score">Percentile: ${percentile.toFixed(1)}</div>
+                                <div class="tooltip-name">${p.name}</div>
+                                <div class="tooltip-score">Score: ${p.score.toFixed(3)}</div>
+                                <div class="tooltip-score">Percentile: ${p.percentile.toFixed(1)}</div>
                             </div>
                         </div>
                     `;
                 });
-
-                html += `
-                            </div>
-                        </div>
-                    </div>
-                `;
+                html += `</div></div></div>`;
             }
 
-            // Render model sections
-            for (const modelKey of ['model_1', 'model_2', 'model_3']) {
-                html += `
-                    <div class="model-section">
-                        <div class="model-title">Model ${modelKey.split('_')[1]}</div>
-                `;
+            // Render encoder sections
+            for (const encNum of [1, 2, 3]) {
+                const encKey = `enc${encNum}`;
+                const encData = aggregated[encKey];
+                if (!encData || Object.keys(encData).length === 0) continue;
+
+                html += `<div class="model-section"><div class="model-title">Encoder ${encNum}</div>`;
 
                 for (const level of ['top', 'mid', 'bottom']) {
-                    const patterns = aggregated[modelKey][level];
-
+                    const patterns = encData[level] || [];
                     html += `
                         <div class="level-group">
                             <div class="level-title">${level.toUpperCase()} (${patterns.length} patterns)</div>
                             <div class="pillars-container">
                     `;
-
-                    patterns.forEach(({pattern, score, percentile}) => {
-                        const height = Math.max(5, percentile * 2);
-
+                    patterns.forEach(p => {
+                        const height = Math.max(5, p.percentile * 2);
                         html += `
                             <div class="pillar" style="height: ${height}px;">
                                 <div class="pillar-tooltip">
-                                    <div class="tooltip-name">${pattern.name}</div>
-                                    <div class="tooltip-score">Score: ${score.toFixed(3)}</div>
-                                    <div class="tooltip-score">Percentile: ${percentile.toFixed(1)}</div>
+                                    <div class="tooltip-name">${p.name}</div>
+                                    <div class="tooltip-score">Score: ${p.score.toFixed(3)}</div>
+                                    <div class="tooltip-score">Percentile: ${p.percentile.toFixed(1)}</div>
                                 </div>
                             </div>
                         `;
                     });
-
-                    html += `
-                            </div>
-                        </div>
-                    `;
+                    html += `</div></div>`;
                 }
-
                 html += `</div>`;
             }
 
-            container.innerHTML = html;
+            container.innerHTML = html || '<div style="padding: 2rem; text-align: center;">No pattern data available</div>';
         }
 
         function populatePatternDropdown() {
@@ -820,25 +837,20 @@
 
             const patterns = [];
 
-            // Add unified patterns first if present
-            if (allData.patterns['unified'] && allData.patterns['unified']['top']) {
-                allData.patterns['unified']['top'].forEach(pattern => {
-                    patterns.push({
-                        value: `unified|top|${pattern.name}`,
-                        label: `UNIFIED: ${pattern.name}`
-                    });
-                });
-            }
+            for (const levelKey in allData) {
+                const parsed = parseLevelKey(levelKey);
+                if (!parsed) continue;
 
-            // Add model patterns
-            for (const modelKey of ['model_1', 'model_2', 'model_3']) {
-                for (const level of ['top', 'mid', 'bottom']) {
-                    allData.patterns[modelKey][level].forEach(pattern => {
-                        const modelNum = modelKey.split('_')[1];
-                        patterns.push({
-                            value: `${modelKey}|${level}|${pattern.name}`,
-                            label: `M${modelNum} ${level.toUpperCase()}: ${pattern.name}`
-                        });
+                const numDims = allData[levelKey].population_mean?.length || 0;
+                for (let dimIdx = 0; dimIdx < numDims; dimIdx++) {
+                    const name = getPatternName(levelKey, dimIdx);
+                    const label = parsed.encoder === 'unified'
+                        ? `UNIFIED: ${name}`
+                        : `Enc${parsed.encoder} ${parsed.level.toUpperCase()}: ${name}`;
+
+                    patterns.push({
+                        value: `${levelKey}|${dimIdx}`,
+                        label
                     });
                 }
             }
@@ -847,7 +859,7 @@
                 patterns.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
         }
 
-        function renderDistributionView() {
+        function renderDistributionView(engineerIds) {
             const container = document.getElementById('distributionView');
             const patternSelect = document.getElementById('patternSelect');
             const selectedPattern = patternSelect.value;
@@ -857,34 +869,29 @@
                 return;
             }
 
-            const [modelKey, level, patternName] = selectedPattern.split('|');
+            // Pattern value format: "levelKey|dimIdx" (e.g., "enc1_bottom|0")
+            const [levelKey, dimIdxStr] = selectedPattern.split('|');
+            const dimIdx = parseInt(dimIdxStr);
 
-            // Safety check for missing data
-            if (!allData.patterns[modelKey] || !allData.patterns[modelKey][level]) {
+            if (!allData[levelKey]) {
                 container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern data not available</div>';
                 return;
             }
 
-            const patternIdx = allData.patterns[modelKey][level].findIndex(p => p.name === patternName);
+            const levelData = allData[levelKey];
+            const engineers = levelData.engineers || {};
+            const selectedEngineerIds = engineerIds || Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
 
-            if (patternIdx === -1) {
-                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern not found</div>';
-                return;
-            }
-
-            const selectedEngineerIds = Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
             const allScores = [];
             const selectedScores = [];
 
-            for (const engineerId in allData.engineers) {
-                const engineerData = allData.engineers[engineerId][modelKey];
-                if (engineerData && engineerData[level]) {
-                    const engineerScores = engineerData[level];
-                    if (engineerScores[patternIdx]) {
-                        const score = engineerScores[patternIdx].score;
-                        allScores.push(score);
+            for (const engineerId in engineers) {
+                const engData = engineers[engineerId];
+                if (engData?.posterior_mean?.[dimIdx] !== undefined) {
+                    const score = engData.posterior_mean[dimIdx];
+                    allScores.push(score);
 
-                        if (selectedEngineerIds.includes(engineerId)) {
+                    if (selectedEngineerIds.length === 0 || selectedEngineerIds.includes(engineerId)) {
                             selectedScores.push({
                                 engineerId,
                                 score
@@ -914,27 +921,22 @@
                 engineers: []
             }));
 
-            for (const engineerId in allData.engineers) {
-                const engineerData = allData.engineers[engineerId][modelKey];
-                if (engineerData && engineerData[level]) {
-                    const engineerScores = engineerData[level];
-                    if (engineerScores[patternIdx]) {
-                        const score = engineerScores[patternIdx].score;
-                        // When all scores are same (range=0), put everything in first bin
-                        let binIdx = range > 0
-                            ? Math.min(Math.floor((score - min) / binWidth), numBins - 1)
-                            : 0;
-                        // Extra safety: ensure binIdx is valid
-                        if (isNaN(binIdx) || binIdx < 0) binIdx = 0;
-                        if (binIdx >= numBins) binIdx = numBins - 1;
+            for (const engineerId in engineers) {
+                const engData = engineers[engineerId];
+                if (engData?.posterior_mean?.[dimIdx] !== undefined) {
+                    const score = engData.posterior_mean[dimIdx];
+                    let binIdx = range > 0
+                        ? Math.min(Math.floor((score - min) / binWidth), numBins - 1)
+                        : 0;
+                    if (isNaN(binIdx) || binIdx < 0) binIdx = 0;
+                    if (binIdx >= numBins) binIdx = numBins - 1;
 
-                        bins[binIdx].count++;
-                        bins[binIdx].engineers.push({
-                            id: engineerId,
-                            score: score,
-                            isSelected: selectedEngineerIds.includes(engineerId)
-                        });
-                    }
+                    bins[binIdx].count++;
+                    bins[binIdx].engineers.push({
+                        id: engineerId,
+                        score: score,
+                        isSelected: selectedEngineerIds.length === 0 || selectedEngineerIds.includes(engineerId)
+                    });
                 }
             }
 
@@ -949,14 +951,16 @@
                 ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
                 : sortedScores[Math.floor(sortedScores.length / 2)];
 
-            // Generate display label for model
-            const modelLabel = modelKey === 'unified'
+            // Generate display label
+            const parsed = parseLevelKey(levelKey);
+            const patternName = getPatternName(levelKey, dimIdx);
+            const modelLabel = parsed.encoder === 'unified'
                 ? 'Unified Layer'
-                : `Model ${modelKey.split('_')[1]}`;
+                : `Encoder ${parsed.encoder}`;
 
             let html = `
                 <h2 style="margin-bottom: 1rem;">Distribution: ${patternName}</h2>
-                <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${level.toUpperCase()}</p>
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${parsed.level.toUpperCase()}</p>
 
                 <div class="distribution-chart">
             `;
@@ -1045,7 +1049,7 @@
             container.innerHTML = html;
         }
 
-        async function renderMessageDistributionView() {
+        async function renderMessageDistributionView(engineerIds) {
             const container = document.getElementById('messageDistributionView');
             const patternSelect = document.getElementById('patternSelect');
             const selectedPattern = patternSelect.value;
@@ -1055,44 +1059,24 @@
                 return;
             }
 
-            const [modelKey, level, patternName] = selectedPattern.split('|');
+            // Pattern value format: "levelKey|dimIdx" (e.g., "enc1_bottom|0")
+            const [levelKey, dimIdxStr] = selectedPattern.split('|');
+            const dimIdx = parseInt(dimIdxStr);
 
-            // Safety check for missing data
-            if (!allData.patterns[modelKey] || !allData.patterns[modelKey][level]) {
+            if (!allData[levelKey]) {
                 container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern data not available</div>';
                 return;
             }
 
-            const patternIdx = allData.patterns[modelKey][level].findIndex(p => p.name === patternName);
-
-            if (patternIdx === -1) {
-                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Pattern not found</div>';
-                return;
-            }
-
-            // Map frontend keys to backend keys
-            const backendKeyMap = {
-                'model_1': { 'bottom': 'enc1_bottom', 'mid': 'enc1_mid', 'top': 'enc1_top' },
-                'model_2': { 'bottom': 'enc2_bottom', 'mid': 'enc2_mid', 'top': 'enc2_top' },
-                'model_3': { 'bottom': 'enc3_bottom', 'mid': 'enc3_mid', 'top': 'enc3_top' },
-                'unified': { 'top': 'unified' },
-            };
-
-            const backendKey = backendKeyMap[modelKey]?.[level];
-            if (!backendKey) {
-                container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Invalid pattern key</div>';
-                return;
-            }
-
             // Get selected engineers
-            const selectedEngineerIds = Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
+            const selectedEngineerIds = engineerIds || Array.from(document.getElementById('engineerSelect').selectedOptions).map(opt => opt.value);
 
             // Show loading
             container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading message data...</div>';
 
             try {
                 // Fetch message distribution data from API
-                let url = `${getApiBase()}/patterns/message-distribution?pattern_key=${backendKey}&pattern_idx=${patternIdx}`;
+                let url = `${getApiBase()}/patterns/message-distribution?pattern_key=${levelKey}&pattern_idx=${dimIdx}`;
                 if (selectedEngineerIds.length > 0) {
                     url += `&engineer_ids=${selectedEngineerIds.join(',')}`;
                 }
