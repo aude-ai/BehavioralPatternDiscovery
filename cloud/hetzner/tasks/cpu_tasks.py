@@ -1,12 +1,13 @@
 """CPU-bound Celery tasks that run on Hetzner."""
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from ..celery_app import celery_app
 from ..config import get_settings
-from ..database import get_db_context, JobModel
-from ..models import JobStatus
+from ..database import get_db_context, JobModel, ProjectModel
+from ..models import JobStatus, ProjectStatus
 from ..services import StorageService
 
 # Add src to path for imports
@@ -66,6 +67,10 @@ def fetch_ndjson_data(self, project_id: str, job_id: str, config: dict):
                 "status": JobStatus.COMPLETED,
                 "progress": 1.0,
                 "result": {"num_activities": len(activities_df)},
+            })
+            db.query(ProjectModel).filter(ProjectModel.id == project_id).update({
+                "status": ProjectStatus.DATA_LOADED,
+                "updated_at": datetime.utcnow(),
             })
             db.commit()
 
@@ -145,6 +150,10 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
                 "status": JobStatus.COMPLETED,
                 "progress": 1.0,
                 "result": {"num_patterns": len(pattern_names)},
+            })
+            db.query(ProjectModel).filter(ProjectModel.id == project_id).update({
+                "status": ProjectStatus.PATTERNS_IDENTIFIED,
+                "updated_at": datetime.utcnow(),
             })
             db.commit()
 
@@ -240,6 +249,10 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
             db.query(JobModel).filter(JobModel.id == job_id).update({
                 "status": JobStatus.COMPLETED,
                 "progress": 1.0,
+            })
+            db.query(ProjectModel).filter(ProjectModel.id == project_id).update({
+                "status": ProjectStatus.READY,
+                "updated_at": datetime.utcnow(),
             })
             db.commit()
 

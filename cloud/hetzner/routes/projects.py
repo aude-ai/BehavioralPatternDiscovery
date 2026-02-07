@@ -61,6 +61,31 @@ def update_project(
     return project
 
 
+@router.get("/{project_id}/config")
+def get_project_config(
+    project_id: str,
+    service: ProjectService = Depends(get_project_service),
+):
+    """Get project configuration including thresholds for viewers."""
+    from .pipeline import get_pipeline_config
+
+    project = service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Load base pipeline config
+    config = get_pipeline_config()
+
+    # Extract viewer-relevant settings
+    report_config = config.get("report", {})
+
+    return {
+        "strength_threshold": report_config.get("strength_threshold", 70),
+        "weakness_threshold": report_config.get("weakness_threshold", 40),
+        "report_viewer": config.get("report_viewer", {}),
+    }
+
+
 @router.delete("/{project_id}")
 def delete_project(
     project_id: str,

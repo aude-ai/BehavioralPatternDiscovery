@@ -8,8 +8,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..database import get_db, JobModel
-from ..models import JobStatus
+from ..database import get_db, JobModel, ProjectModel
+from ..models import JobStatus, ProjectStatus
 from ..services import StorageService
 from ..websocket import broadcast_to_project
 
@@ -86,6 +86,35 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
         update_data["completed_at"] = datetime.utcnow()
         update_data["progress"] = 1.0
         update_data["progress_message"] = data.get("message", "Completed")
+
+        # Update project status based on job type and completion
+        new_project_status = None
+        if job.job_type == "process_pipeline":
+            # Check which step the pipeline ended at
+            last_step = data.get("last_step") or (job.metadata_ or {}).get("current_step")
+            if last_step:
+                step_to_status = {
+                    "B.2": ProjectStatus.EMBEDDED,
+                    "B.3": ProjectStatus.PREPROCESSED,
+                    "B.4": ProjectStatus.PREPROCESSED,
+                    "B.5": ProjectStatus.TRAINED,
+                    "B.6": ProjectStatus.SCORED,
+                    "B.7": ProjectStatus.SCORED,
+                    "B.8": ProjectStatus.SCORED,
+                }
+                new_project_status = step_to_status.get(last_step, ProjectStatus.SCORED)
+            else:
+                new_project_status = ProjectStatus.SCORED
+        elif job.job_type == "name_patterns":
+            new_project_status = ProjectStatus.PATTERNS_IDENTIFIED
+        elif job.job_type == "generate_report":
+            new_project_status = ProjectStatus.READY
+
+        if new_project_status:
+            db.query(ProjectModel).filter(ProjectModel.id == project_id).update({
+                "status": new_project_status,
+                "updated_at": datetime.utcnow(),
+            })
 
     elif event_type == "failed":
         update_data["status"] = JobStatus.FAILED
