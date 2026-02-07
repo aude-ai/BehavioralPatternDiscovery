@@ -892,11 +892,10 @@
                     allScores.push(score);
 
                     if (selectedEngineerIds.length === 0 || selectedEngineerIds.includes(engineerId)) {
-                            selectedScores.push({
-                                engineerId,
-                                score
-                            });
-                        }
+                        selectedScores.push({
+                            engineerId,
+                            score
+                        });
                     }
                 }
             }
@@ -1130,13 +1129,15 @@
                     : sortedScores[Math.floor(sortedScores.length / 2)];
 
                 // Generate display label for model
-                const modelLabel = modelKey === 'unified'
+                const parsed = parseLevelKey(levelKey);
+                const patternName = getPatternName(levelKey, dimIdx);
+                const modelLabel = parsed.encoder === 'unified'
                     ? 'Unified Layer'
-                    : `Model ${modelKey.split('_')[1]}`;
+                    : `Encoder ${parsed.encoder.replace('enc', '')}`;
 
                 let html = `
                     <h2 style="margin-bottom: 1rem;">Message Distribution: ${patternName}</h2>
-                    <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${level.toUpperCase()} | ${messages.length} messages from ${new Set(messages.map(m => m.engineer_id)).size} engineer(s)</p>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">${modelLabel} - ${parsed.level.toUpperCase()} | ${messages.length} messages from ${new Set(messages.map(m => m.engineer_id)).size} engineer(s)</p>
 
                     <div class="distribution-chart">
                 `;

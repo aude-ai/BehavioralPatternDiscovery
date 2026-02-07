@@ -1166,10 +1166,11 @@
             console.log('[DEBUG] Rendering', filtered.length, 'patterns');
 
             // Group by model first, then by level
+            // Model names come from parseLevelKey which returns encoder like "enc1", "enc2", etc.
             const unified = filtered.filter(p => p.model === 'unified');
-            const model1 = filtered.filter(p => p.model === 'model_1');
-            const model2 = filtered.filter(p => p.model === 'model_2');
-            const model3 = filtered.filter(p => p.model === 'model_3');
+            const enc1 = filtered.filter(p => p.model === 'enc1');
+            const enc2 = filtered.filter(p => p.model === 'enc2');
+            const enc3 = filtered.filter(p => p.model === 'enc3');
 
             // Helper to render model section with levels
             const renderModelSection = (modelName, patterns, displayName) => {
@@ -1196,9 +1197,9 @@
 
             container.innerHTML = `
                 ${unified.length > 0 ? renderSection('Unified Patterns', unified) : ''}
-                ${renderModelSection('model_1', model1, 'Encoder 1')}
-                ${renderModelSection('model_2', model2, 'Encoder 2')}
-                ${renderModelSection('model_3', model3, 'Encoder 3')}
+                ${renderModelSection('enc1', enc1, 'Encoder 1')}
+                ${renderModelSection('enc2', enc2, 'Encoder 2')}
+                ${renderModelSection('enc3', enc3, 'Encoder 3')}
             `;
 
             attachSectionToggleListeners();
