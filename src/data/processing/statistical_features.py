@@ -4,6 +4,7 @@ Statistical Feature Extractor
 Extracts 35 statistical features per engineer from their activity data.
 Features are computed at the engineer level but stored per-message.
 """
+from __future__ import annotations
 
 import logging
 import re

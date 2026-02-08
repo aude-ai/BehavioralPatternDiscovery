@@ -13,6 +13,7 @@ are read from config rather than being hardcoded.
 Uses ModelDimensions to compute derived values (input_dim, output_dim)
 that are not stored in config because they must match other values.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

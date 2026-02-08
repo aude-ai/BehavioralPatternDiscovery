@@ -9,6 +9,7 @@ Handles the complete training loop for the Multi-Encoder VAE:
 - Gradient accumulation and mixed precision
 - Checkpointing and logging
 """
+from __future__ import annotations
 
 import logging
 import time

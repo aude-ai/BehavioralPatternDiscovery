@@ -19,6 +19,7 @@ NORMALIZATION HANDLING:
   Raw embeddings are used. Normalization can be applied manually via the
   /api/normalization endpoint.
 """
+from __future__ import annotations
 
 import logging
 import pickle

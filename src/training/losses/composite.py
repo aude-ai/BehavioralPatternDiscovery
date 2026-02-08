@@ -9,6 +9,7 @@ encoder_params keys rather than being hardcoded.
 
 Supports Mixture Prior KL computation when enabled.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

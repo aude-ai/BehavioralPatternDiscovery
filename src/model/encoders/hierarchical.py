@@ -20,6 +20,7 @@ SHAP Compatibility:
 - Uses distribution.get_mean() instead of sampling
 - No in-place operations
 """
+from __future__ import annotations
 
 import logging
 from typing import Any, TYPE_CHECKING

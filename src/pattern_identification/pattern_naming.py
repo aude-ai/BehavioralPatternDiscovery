@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.llm import UnifiedLLMClient
 
@@ -60,7 +60,7 @@ class PatternNamer:
         hierarchical_weights: dict[str, Any],
         message_database: list[dict],
         resume: bool = True,
-        progress_callback: callable | None = None,
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict[str, Any]:
         """
         Name all patterns at all levels.

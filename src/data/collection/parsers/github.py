@@ -4,6 +4,7 @@ GitHub Activity Parser
 Parses GitHub activities (commits, PRs, reviews, issues, comments) from MongoDB.
 Handles Airbyte data format where data is wrapped in '_airbyte_data' field.
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime

@@ -4,6 +4,7 @@ Base Parser Interface
 Defines the interface all activity parsers must implement.
 Uses the registry pattern for swappable parser implementations.
 """
+from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod

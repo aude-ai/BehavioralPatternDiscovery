@@ -4,6 +4,7 @@ Base Decoder Interface
 Defines the contract that all decoders must implement.
 Each decoder type defines its own training loss and validation metrics.
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

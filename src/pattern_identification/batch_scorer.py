@@ -11,6 +11,7 @@ activation scores, not SHAP-based ideal embeddings.
 Designed for remote execution (Modal) - accepts data directly and
 returns results without file I/O.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any, Callable

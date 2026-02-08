@@ -7,6 +7,7 @@ Supports:
 - Gemini (gemini-*)
 - OpenAI (gpt-*, o1-*, o3-*)
 """
+from __future__ import annotations
 
 import json
 import logging

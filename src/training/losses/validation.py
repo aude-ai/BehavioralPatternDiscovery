@@ -4,6 +4,7 @@ Validation Loss Computer
 Computes validation loss with configurable components and weights.
 Allows validation to focus on different metrics than training.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

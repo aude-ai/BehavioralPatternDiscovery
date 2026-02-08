@@ -8,6 +8,7 @@ Parameters:
 
 All operations use centralized numerical stability utilities from src/core/numerical.py.
 """
+from __future__ import annotations
 
 import logging
 import math

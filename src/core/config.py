@@ -8,6 +8,7 @@ missing keys cause immediate errors rather than silent fallbacks.
 Also provides ModelDimensions class for computing derived dimensions
 that should NOT be stored in config (e.g., input_dim of layer N = output_dim of layer N-1).
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

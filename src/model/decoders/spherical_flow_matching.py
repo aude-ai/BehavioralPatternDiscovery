@@ -4,6 +4,7 @@ Spherical Flow Matching Decoder
 Flow matching for unit-normalized embeddings using geodesic paths on the sphere.
 Uses SLERP interpolation and optional optimal transport for noise-target pairing.
 """
+from __future__ import annotations
 
 import logging
 import math

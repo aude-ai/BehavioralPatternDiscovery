@@ -914,7 +914,7 @@ def step_b6_batch_scoring(state: PipelineState):
         metadata = checkpoint["metadata"]
         dims = ModelDimensions.from_config(model_config, metadata)
 
-        model = MultiEncoderVAE(model_config, dims, full_config.get("training"))
+        model = MultiEncoderVAE(model_config, dims)
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to("cuda")
         model.eval()
@@ -957,7 +957,7 @@ def step_b6_batch_scoring(state: PipelineState):
 
     # Compute per-engineer scores with Empirical Bayes shrinkage
     state.callback.status("Computing per-engineer population statistics...")
-    pop_stats_computer = PopulationStats(state.config)
+    pop_stats_computer = PopulationStats()  # No config needed - we send to Hetzner via API
     population_stats = pop_stats_computer.compute_engineer_scores(
         activations=activations,
         message_database=state.message_database["messages"],
@@ -1088,7 +1088,7 @@ def step_b8_shap_analysis(state: PipelineState):
         metadata = checkpoint["metadata"]
         dims = ModelDimensions.from_config(model_config, metadata)
 
-        model = MultiEncoderVAE(model_config, dims, full_config.get("training"))
+        model = MultiEncoderVAE(model_config, dims)
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to("cuda")
         model.eval()

@@ -5,6 +5,7 @@ Builds modular, composable prompts for LLM pattern naming.
 Imports templates from prompt_templates.py and assembles them
 based on level type and configuration.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

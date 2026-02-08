@@ -4,6 +4,7 @@ Slack Message Parser
 Parses Slack messages from MongoDB with bot filtering.
 Handles Airbyte data format where data is wrapped in '_airbyte_data' field.
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime

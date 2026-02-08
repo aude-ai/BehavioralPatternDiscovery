@@ -4,6 +4,7 @@ Unified Normalizer
 Chainable normalization pipeline for embeddings.
 Replaces per-encoder normalization and variance transforms.
 """
+from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod

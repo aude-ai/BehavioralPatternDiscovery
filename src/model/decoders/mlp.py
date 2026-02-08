@@ -3,6 +3,7 @@ MLP Decoder
 
 Simple MLP decoder as a baseline. Directly maps latent z to reconstruction.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

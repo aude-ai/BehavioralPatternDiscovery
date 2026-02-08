@@ -3,6 +3,7 @@ Report Generator
 
 Generates LLM-based performance reports for individual engineers.
 """
+from __future__ import annotations
 
 import json
 import logging

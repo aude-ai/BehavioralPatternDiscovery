@@ -8,6 +8,7 @@ affects activation scores across ALL latent dimensions.
 Outputs aggregated word attributions per dimension, added directly
 to the existing message_examples.json file.
 """
+from __future__ import annotations
 
 import json
 import logging

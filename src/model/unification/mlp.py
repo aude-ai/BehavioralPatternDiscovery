@@ -16,6 +16,7 @@ SHAP Compatibility:
 Supports optional Mixture Prior for pattern diversity.
 Supports optional Scale-VAE for latent utilization.
 """
+from __future__ import annotations
 
 import logging
 import math

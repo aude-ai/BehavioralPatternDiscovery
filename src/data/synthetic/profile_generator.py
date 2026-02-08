@@ -3,6 +3,7 @@ Synthetic Profile Generator
 
 Generates synthetic engineer profiles using LLM based on template profiles.
 """
+from __future__ import annotations
 
 import json
 import logging

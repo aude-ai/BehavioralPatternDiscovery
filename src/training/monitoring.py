@@ -4,6 +4,7 @@ Latent Monitoring
 Provides metrics and warnings for detecting latent collapse during training.
 Monitors active units, latent statistics, and tensor flow through the model.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

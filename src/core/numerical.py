@@ -7,6 +7,7 @@ based on research into safe bounds for common operations.
 
 CRITICAL: Always use these constants instead of ad-hoc epsilon values.
 """
+from __future__ import annotations
 
 import torch
 from torch import Tensor

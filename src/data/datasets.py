@@ -11,6 +11,7 @@ Data Loading:
 - Message metadata (engineer_id, text, etc.) from message_database.pkl
 - TrainingDataPreparer creates the combined arrays based on aux_features config
 """
+from __future__ import annotations
 
 import logging
 import pickle

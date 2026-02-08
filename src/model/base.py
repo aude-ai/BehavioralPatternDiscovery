@@ -4,6 +4,7 @@ Base VAE Interface
 Defines the contract that all VAE implementations must follow.
 This enables the Trainer to work with any VAE architecture.
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any

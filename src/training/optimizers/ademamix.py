@@ -7,6 +7,7 @@ Reference:
     "The AdEMAMix Optimizer: Better, Faster, Older"
     Pagliardini et al., 2024 (arXiv:2409.03137)
 """
+from __future__ import annotations
 
 import math
 import torch

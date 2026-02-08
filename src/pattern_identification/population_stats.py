@@ -6,6 +6,7 @@ Computes population-level statistics needed for Empirical Bayes scoring:
 - Per-engineer aggregated scores
 - Between/within engineer variance decomposition
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -20,13 +21,17 @@ logger = logging.getLogger(__name__)
 class PopulationStats:
     """Compute and store population-level statistics."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Args:
-            config: Full merged config containing paths.pattern_identification
+            config: Full merged config containing paths.pattern_identification.
+                    Optional for cloud usage where save() is not called.
         """
-        pi_config = config["paths"]["pattern_identification"]
-        self.output_path = Path(pi_config["scoring"]["population_stats"])
+        if config and "paths" in config and "pattern_identification" in config["paths"]:
+            pi_config = config["paths"]["pattern_identification"]
+            self.output_path = Path(pi_config["scoring"]["population_stats"])
+        else:
+            self.output_path = None
 
     def compute_engineer_scores(
         self,

@@ -12,6 +12,7 @@ This encourages diverse patterns by having multiple "islands" in latent space.
 
 Supports both Gaussian and Gamma distributions.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any

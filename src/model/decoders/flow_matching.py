@@ -20,6 +20,7 @@ This decoder is self-contained: it owns its ODE solver, timestep sampler,
 and optimal transport coupling. The VAE simply calls compute_loss() during
 training and generate() during inference.
 """
+from __future__ import annotations
 
 import logging
 import math

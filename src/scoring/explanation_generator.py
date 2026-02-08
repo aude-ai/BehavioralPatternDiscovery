@@ -3,6 +3,7 @@ Pattern Explanation Generator
 
 Generates detailed explanations for individual pattern scores on-demand.
 """
+from __future__ import annotations
 
 import json
 import logging
