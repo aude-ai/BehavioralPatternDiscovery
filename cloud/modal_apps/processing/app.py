@@ -909,11 +909,12 @@ def step_b6_batch_scoring(state: PipelineState):
         )
 
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
-        model_config = checkpoint["config"]
+        full_config = checkpoint["config"]
+        model_config = full_config["model"]
         metadata = checkpoint["metadata"]
         dims = ModelDimensions.from_config(model_config, metadata)
 
-        model = MultiEncoderVAE(model_config, dims)
+        model = MultiEncoderVAE(model_config, dims, full_config.get("training"))
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to("cuda")
         model.eval()
@@ -1082,11 +1083,12 @@ def step_b8_shap_analysis(state: PipelineState):
         )
 
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
-        model_config = checkpoint["config"]
+        full_config = checkpoint["config"]
+        model_config = full_config["model"]
         metadata = checkpoint["metadata"]
         dims = ModelDimensions.from_config(model_config, metadata)
 
-        model = MultiEncoderVAE(model_config, dims)
+        model = MultiEncoderVAE(model_config, dims, full_config.get("training"))
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to("cuda")
         model.eval()
