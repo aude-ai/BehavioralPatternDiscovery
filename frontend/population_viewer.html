@@ -654,14 +654,16 @@
         }
 
         // Parse level key like "enc1_bottom" -> { encoder: 1, level: "bottom" }
+        // Special case: "unified" -> { encoder: 'unified', level: 'unified' }
         function parseLevelKey(levelKey) {
+            // Handle "unified" as a special case (no underscore)
+            if (levelKey === 'unified') {
+                return { encoder: 'unified', level: 'unified' };
+            }
             const parts = levelKey.split('_');
             if (parts.length >= 2) {
                 const encoder = parts[0];
                 const level = parts[1];
-                if (encoder === 'unified') {
-                    return { encoder: 'unified', level: 'top' };
-                }
                 const encNum = parseInt(encoder.replace('enc', ''));
                 return { encoder: encNum, level };
             }
@@ -712,8 +714,13 @@
         }
 
         function getPatternName(levelKey, dimIdx) {
+            // Pattern names structure: { "enc1_bottom": { "bottom_0": { "name": "...", "description": "..." } } }
+            // levelKey is like "enc1_bottom", we need to extract the level part for the dim key
             const levelNames = patternNames?.[levelKey] || {};
-            const dimKey = `dim_${dimIdx}`;
+            const parsed = parseLevelKey(levelKey);
+            const level = parsed?.level || 'dim';
+            // For unified, the key is "unified_0", for others it's "bottom_0", "mid_0", "top_0"
+            const dimKey = levelKey === 'unified' ? `unified_${dimIdx}` : `${level}_${dimIdx}`;
             return levelNames[dimKey]?.name || `${levelKey}_dim${dimIdx}`;
         }
 

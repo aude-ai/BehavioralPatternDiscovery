@@ -890,6 +890,7 @@ def step_b6_batch_scoring(state: PipelineState):
     from src.core.config import ModelDimensions
     from src.model.vae import MultiEncoderVAE
     from src.pattern_identification.batch_scorer import BatchScorer
+    from src.pattern_identification.population_stats import PopulationStats
 
     from cloud.modal_apps.common.r2_storage import (
         download_checkpoint_from_r2,
@@ -947,10 +948,18 @@ def step_b6_batch_scoring(state: PipelineState):
             "message": f"Scored {processed}/{total} messages",
         })
 
-    activations, population_stats = scorer.score_all(
+    activations, basic_stats = scorer.score_all(
         vae=state.model,
         train_input=state.train_input,
         progress_callback=progress_fn,
+    )
+
+    # Compute per-engineer scores with Empirical Bayes shrinkage
+    state.callback.status("Computing per-engineer population statistics...")
+    pop_stats_computer = PopulationStats(state.config)
+    population_stats = pop_stats_computer.compute_engineer_scores(
+        activations=activations,
+        message_database=state.message_database["messages"],
     )
 
     # Store in state

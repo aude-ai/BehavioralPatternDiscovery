@@ -984,9 +984,13 @@
         }
 
         // Get pattern name from patternsData
+        // Pattern names structure: { "enc1_bottom": { "bottom_0": { "name": "...", "description": "..." } } }
         function getPatternName(levelKey, dimIdx) {
             const levelNames = patternsData?.[levelKey] || {};
-            const dimKey = `dim_${dimIdx}`;
+            const parsed = parseLevelKey(levelKey);
+            const level = parsed?.level || 'dim';
+            // For unified, the key is "unified_0", for others it's "bottom_0", "mid_0", "top_0"
+            const dimKey = levelKey === 'unified' ? `unified_${dimIdx}` : `${level}_${dimIdx}`;
             return levelNames[dimKey]?.name || `${levelKey}_dim${dimIdx}`;
         }
 

@@ -219,8 +219,12 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
             for level_key, level_data in raw_scores.items():
                 percentiles = level_data.get("percentiles", [])
                 level_names = pattern_names.get(level_key, {})
+                # Extract level from level_key (e.g., "enc1_bottom" -> "bottom", "unified" -> "unified")
+                parts = level_key.split("_")
+                level = parts[1] if len(parts) >= 2 else level_key
                 for dim_idx, pct in enumerate(percentiles):
-                    dim_key = f"dim_{dim_idx}"
+                    # Pattern names use format like "bottom_0", "mid_0", "unified_0"
+                    dim_key = f"{level}_{dim_idx}"
                     name_info = level_names.get(dim_key, {})
                     name = name_info.get("name", f"{level_key}_dim{dim_idx}")
                     patterns.append({
