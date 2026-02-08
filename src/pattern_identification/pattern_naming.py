@@ -16,6 +16,7 @@ Process order (critical):
 3. Final level patterns (per encoder): Named from previous level composition + examples
 4. Unified patterns: Named from cross-encoder composition + examples
 """
+from __future__ import annotations
 
 import json
 import logging
