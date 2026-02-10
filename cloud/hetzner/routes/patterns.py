@@ -145,12 +145,20 @@ def get_message_distribution(
     if not message_examples:
         raise HTTPException(status_code=404, detail="Message examples not found")
 
-    # Construct pattern ID from key and index
-    pattern_id = f"{pattern_key}_{pattern_idx}"
-    if pattern_id not in message_examples:
-        raise HTTPException(status_code=404, detail=f"Pattern {pattern_id} not found")
+    # Message examples structure: {"enc1_bottom": {"bottom_0": {...}}, "unified": {"unified_0": {...}}}
+    # Extract level from pattern_key (e.g., "enc1_bottom" -> "bottom", "unified" -> "unified")
+    if pattern_key not in message_examples:
+        raise HTTPException(status_code=404, detail=f"Pattern key {pattern_key} not found")
 
-    examples = message_examples[pattern_id].get("examples", [])
+    parts = pattern_key.split("_")
+    level = parts[1] if len(parts) >= 2 else pattern_key
+    dim_key = f"{level}_{pattern_idx}"
+
+    level_examples = message_examples[pattern_key]
+    if dim_key not in level_examples:
+        raise HTTPException(status_code=404, detail=f"Pattern {pattern_key}/{dim_key} not found")
+
+    examples = level_examples[dim_key].get("examples", [])
 
     # Filter by engineer IDs if provided
     if engineer_ids:

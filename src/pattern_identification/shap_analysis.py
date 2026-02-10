@@ -201,6 +201,17 @@ class SHAPAnalyzer:
         logger.info("Computing final_level -> unified weights...")
         final_level = level_names[-1]
 
+        # Build source key mapping: concat_idx -> "enc1_top:dim_0" format
+        # This allows consumers to know which encoder and level each source dim came from
+        # Format matches pattern IDs used in frontend: {encoder}_{level}:dim_{idx}
+        source_key_map = {}
+        concat_offset = 0
+        for enc_name in encoder_names:
+            enc_dim = vae.latent_dims[final_level]
+            for dim_idx in range(enc_dim):
+                source_key_map[concat_offset + dim_idx] = f"{enc_name}_{final_level}:dim_{dim_idx}"
+            concat_offset += enc_dim
+
         final_concat = np.concatenate(
             [activations[f"{enc_name}_{final_level}"] for enc_name in encoder_names],
             axis=1,
@@ -211,6 +222,7 @@ class SHAPAnalyzer:
             wrapper=final_to_unified_wrapper,
             source_activations=final_concat,
             device=device,
+            source_key_map=source_key_map,
         )
         hierarchical_weights["final_to_unified"] = final_to_unified
         logger.info("Computed final_level -> unified weights")
@@ -234,6 +246,7 @@ class SHAPAnalyzer:
         wrapper: nn.Module,
         source_activations: np.ndarray,
         device: torch.device,
+        source_key_map: dict[int, str] | None = None,
     ) -> dict[str, list[dict[str, float]]]:
         """
         Compute SHAP weights for a single level transition.
@@ -311,8 +324,10 @@ class SHAPAnalyzer:
             for source_idx in range(source_dim):
                 weight = float(mean_shap[source_idx, target_idx])
                 if weight > 0.001:  # Filter near-zero weights
+                    # Use mapped key if provided (e.g., "enc1:dim_0"), else default
+                    source_key = source_key_map[source_idx] if source_key_map else f"dim_{source_idx}"
                     contributions.append({
-                        f"dim_{source_idx}": weight
+                        source_key: weight
                     })
 
             # Sort by weight descending
