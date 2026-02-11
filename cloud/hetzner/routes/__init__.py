@@ -1,7 +1,7 @@
 """API routes."""
 from fastapi import APIRouter
 
-from . import projects, data, pipeline, scoring, patterns, internal, external
+from . import projects, data, pipeline, scoring, patterns, messages, internal, external
 
 api_router = APIRouter()
 
@@ -11,6 +11,7 @@ api_router.include_router(data.router, prefix="/projects/{project_id}/data", tag
 api_router.include_router(pipeline.router, prefix="/projects/{project_id}", tags=["pipeline"])
 api_router.include_router(scoring.router, prefix="/projects/{project_id}/scoring", tags=["scoring"])
 api_router.include_router(patterns.router, prefix="/projects/{project_id}/patterns", tags=["patterns"])
+api_router.include_router(messages.router, prefix="/projects/{project_id}/messages", tags=["messages"])
 
 # Internal routes (for Modal callbacks) - mounted at /internal, not under /api
 # This matches nginx routing: /bpd/internal/* -> /internal/*

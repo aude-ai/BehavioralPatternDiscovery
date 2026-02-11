@@ -397,3 +397,79 @@ def download_pickle_from_r2(project_id: str, file_type: str) -> list:
                 time.sleep(delay)
 
     raise RuntimeError(f"Failed to download {key} from R2 after {max_attempts} attempts")
+
+
+def download_h5_from_r2(project_id: str, file_type: str, local_path: Path) -> Path:
+    """
+    Download HDF5 file (zstd compressed) from R2 to local path with retry logic.
+
+    Args:
+        project_id: Project identifier
+        file_type: Type of file (determines R2 path)
+        local_path: Where to save the decompressed file
+
+    Returns:
+        Path to the downloaded file
+
+    Raises:
+        Exception: If download fails after retries
+    """
+    import tempfile
+    import zstandard as zstd
+
+    client = get_r2_client()
+    if client is None:
+        raise RuntimeError("R2 not configured")
+
+    key = get_r2_key(project_id, file_type)
+    retry_config = get_r2_retry_config()
+    max_attempts = retry_config["max_attempts"]
+    initial_delay = retry_config["initial_delay_seconds"]
+    max_delay = retry_config["max_delay_seconds"]
+    exponential_base = retry_config["exponential_base"]
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            logger.info(f"R2 GET (h5): attempt {attempt}/{max_attempts} for {key}")
+
+            with tempfile.NamedTemporaryFile(suffix=".zst", delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+
+            try:
+                client.download_file(get_bucket_name(), key, str(tmp_path))
+                compressed_size = tmp_path.stat().st_size
+
+                decompressor = zstd.ZstdDecompressor()
+                with open(tmp_path, "rb") as f_in:
+                    with open(local_path, "wb") as f_out:
+                        decompressor.copy_stream(f_in, f_out)
+
+                final_size = local_path.stat().st_size
+                logger.info(
+                    f"Downloaded {file_type} from R2: {key} "
+                    f"({compressed_size:,} bytes compressed -> {final_size:,} bytes)"
+                )
+                return local_path
+            finally:
+                tmp_path.unlink(missing_ok=True)
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                raise FileNotFoundError(f"File not found in R2: {key}")
+            logger.warning(f"R2 GET: attempt {attempt}/{max_attempts} failed for {key}: {e}")
+
+            if attempt < max_attempts:
+                delay = min(initial_delay * (exponential_base ** (attempt - 1)), max_delay)
+                logger.info(f"R2 GET: retrying in {delay:.1f}s...")
+                time.sleep(delay)
+        except Exception as e:
+            logger.warning(f"R2 GET: attempt {attempt}/{max_attempts} failed for {key}: {e}")
+
+            if attempt < max_attempts:
+                delay = min(initial_delay * (exponential_base ** (attempt - 1)), max_delay)
+                logger.info(f"R2 GET: retrying in {delay:.1f}s...")
+                time.sleep(delay)
+
+    raise RuntimeError(f"Failed to download {key} from R2 after {max_attempts} attempts")

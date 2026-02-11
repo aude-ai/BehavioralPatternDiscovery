@@ -3,7 +3,7 @@ Pattern Naming
 
 Generates human-readable names for patterns at all hierarchical levels
 using LLM analysis of:
-- Message examples (from MessageAssigner - available at ALL levels)
+- Message examples (queried on-demand from message_scores.h5)
 - Hierarchical composition (from SHAPAnalyzer)
 - Rich context about the data, model, and disentanglement
 
@@ -56,9 +56,9 @@ class PatternNamer:
 
     def name_all_patterns(
         self,
-        message_examples: dict[str, Any],
         hierarchical_weights: dict[str, Any],
         message_database: list[dict],
+        query_examples_fn: Callable[[str, int, int], list[dict]],
         resume: bool = True,
         progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict[str, Any]:
@@ -72,9 +72,9 @@ class PatternNamer:
         On resume, skips already-completed encoder/level combinations.
 
         Args:
-            message_examples: Output from MessageAssigner
             hierarchical_weights: Output from SHAPAnalyzer (includes metadata)
             message_database: Original message data (for detecting sources)
+            query_examples_fn: Function(pattern_key, pattern_idx, limit) -> list of example dicts
             resume: If True, load existing partial results and skip completed items
             progress_callback: Optional callback(current, total, message) for progress updates
 
@@ -121,11 +121,17 @@ class PatternNamer:
                     logger.info(f"Skipping {examples_key} (already completed)")
                     continue
 
-                if examples_key not in message_examples:
+                logger.info(f"Naming {level_name} patterns for {enc_name} (type: {level_type})...")
+
+                # Query examples on-the-fly for each dimension
+                n_dims = level_dims[level_name]
+                examples_dict = self._query_examples_for_level(
+                    query_examples_fn, examples_key, level_name, n_dims
+                )
+
+                if not examples_dict:
                     logger.warning(f"No examples found for {examples_key}, skipping")
                     continue
-
-                logger.info(f"Naming {level_name} patterns for {enc_name} (type: {level_type})...")
 
                 # Get composition context for levels 2+
                 composition_context = None
@@ -145,7 +151,7 @@ class PatternNamer:
                     level_type=level_type,
                     level_name=level_name,
                     encoder_name=enc_name,
-                    examples=message_examples[examples_key],
+                    examples=examples_dict,
                     model_metadata=metadata,
                     detected_sources=detected_sources,
                     composition_context=composition_context,
@@ -154,10 +160,10 @@ class PatternNamer:
                 )
 
                 # Call LLM - pass expected keys for better missing detection
-                expected_keys = list(message_examples[examples_key].keys())
+                expected_keys = list(examples_dict.keys())
                 names = self._call_llm_for_names(
                     prompt,
-                    len(message_examples[examples_key]),
+                    len(examples_dict),
                     debug_key=examples_key,
                     expected_keys=expected_keys,
                 )
@@ -195,8 +201,12 @@ class PatternNamer:
                 level_dims[final_level],
             )
 
-            # Build unified prompt
-            unified_examples = message_examples.get("unified", {})
+            # Query unified examples on-the-fly
+            unified_dims = level_dims.get("unified", level_dims[final_level])
+            unified_examples = self._query_examples_for_level(
+                query_examples_fn, "unified", "unified", unified_dims
+            )
+
             if unified_examples:
                 prompt = self.prompt_builder.build_prompt(
                     level_type="unified",
@@ -244,6 +254,39 @@ class PatternNamer:
                 logger.warning(f"Failed to load checkpoint: {e}. Starting fresh.")
                 return {}
         return {}
+
+    def _query_examples_for_level(
+        self,
+        query_fn: Callable[[str, int, int], list[dict]],
+        pattern_key: str,
+        level_name: str,
+        n_dims: int,
+    ) -> dict[str, dict]:
+        """
+        Query examples for all dimensions in a level.
+
+        Args:
+            query_fn: Function(pattern_key, pattern_idx, limit) -> list of examples
+            pattern_key: The key to query (e.g., "enc1_bottom", "unified")
+            level_name: The level name for building dim keys (e.g., "bottom", "unified")
+            n_dims: Number of dimensions at this level
+
+        Returns:
+            Dict mapping dim_key to {"examples": [...]}
+        """
+        max_examples = self.prompt_builder.max_examples
+        examples_dict = {}
+
+        for dim_idx in range(n_dims):
+            dim_key = f"{level_name}_{dim_idx}"
+            try:
+                examples = query_fn(pattern_key, dim_idx, max_examples)
+                if examples:
+                    examples_dict[dim_key] = {"examples": examples}
+            except Exception as e:
+                logger.warning(f"Failed to query examples for {pattern_key}[{dim_idx}]: {e}")
+
+        return examples_dict
 
     def _detect_data_sources(self, message_database: list[dict]) -> list[str]:
         """Detect which data sources are present in the message database."""

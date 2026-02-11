@@ -69,7 +69,7 @@ class PromptBuilder:
             level_type: "first", "middle", "final_encoder", or "unified"
             level_name: Name of current level (e.g., "bottom", "mid")
             encoder_name: Name of encoder (e.g., "enc1") or None for unified
-            examples: Pattern examples from MessageAssigner
+            examples: Pattern examples queried from message_scores.h5
             model_metadata: Metadata from SHAP analysis
             detected_sources: List of data sources found in data
             composition_context: SHAP weights for composition (levels 2+)

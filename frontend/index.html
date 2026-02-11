@@ -1167,10 +1167,6 @@ body {
                             </div>
                             <div class="pipeline-step pending" data-step="B.7">
                                 <div class="step-indicator">B7</div>
-                                <div class="step-label">Assign</div>
-                            </div>
-                            <div class="pipeline-step pending" data-step="B.8">
-                                <div class="step-indicator">B8</div>
                                 <div class="step-label">SHAP</div>
                             </div>
                         </div>
@@ -1407,9 +1403,8 @@ const PIPELINE_STEPS = [
     { id: 'B.3', label: 'Normalize', outputs: ['normalized_embeddings'] },
     { id: 'B.4', label: 'Prep', outputs: ['train_input', 'message_database'] },
     { id: 'B.5', label: 'Train', outputs: ['checkpoint'] },
-    { id: 'B.6', label: 'Score', outputs: ['activations'] },
-    { id: 'B.7', label: 'Assign', outputs: [] },
-    { id: 'B.8', label: 'SHAP', outputs: [] },
+    { id: 'B.6', label: 'Score', outputs: ['activations', 'message_scores'] },
+    { id: 'B.7', label: 'SHAP', outputs: [] },
 ];
 
 // Starting point prerequisites
@@ -1920,14 +1915,14 @@ function showCreateVariantDialog() {
         `Enter starting point:\n` +
         `  B.5 - From Training (inherits embeddings)\n` +
         `  B.6 - From Batch Scoring (inherits checkpoint)\n` +
-        `  B.8 - From SHAP (inherits activations)\n\n` +
+        `  B.7 - From SHAP (inherits activations)\n\n` +
         `Enter step (e.g., B.5):`,
         'B.6'
     );
 
     if (!startingPoint) return;
 
-    const validSteps = ['B.5', 'B.6', 'B.8'];
+    const validSteps = ['B.5', 'B.6', 'B.7'];
     if (!validSteps.includes(startingPoint.toUpperCase())) {
         alert(`Invalid starting point. Please use one of: ${validSteps.join(', ')}`);
         return;
@@ -2352,15 +2347,14 @@ function updatePipelineSteps() {
         'B.3': ['normalized_embeddings'],
         'B.4': ['train_input', 'message_database'],
         'B.5': ['checkpoint'],
-        'B.6': ['activations'],
+        'B.6': ['activations', 'message_scores'],
         'B.7': [],
-        'B.8': [],
     };
 
     // Determine completed steps based on Hetzner status
     const stepHetznerOutputs = {
-        'B.7': ['message_examples'],
-        'B.8': ['hierarchical_weights'],
+        'B.6': ['message_scores_index'],
+        'B.7': ['hierarchical_weights'],
     };
 
     steps.forEach(step => {

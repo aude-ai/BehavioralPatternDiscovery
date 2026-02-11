@@ -10,27 +10,18 @@ batch_scoring:
   device: "cuda"
 
 # -----------------------------------------------------------------------------
-# Message Assignment - Assign representative messages to patterns
+# Message Scores - Per-message scores stored in HDF5 for flexible querying
 # -----------------------------------------------------------------------------
-message_assignment:
-  examples_per_pattern: 30
+message_scores:
+  # Maximum words per message text to return in query results
   max_words_per_message: 250
-  # Scoring mode for selecting top messages:
-  # - "positive": Select messages with highest positive activation scores
-  # - "absolute": Select messages with highest absolute activation scores
-  scoring_mode: "absolute"
-  # Minimum ratio constraints for "absolute" mode (ignored when scoring_mode is "positive")
-  # Ensures minimum representation of both positive and negative examples
-  # Set to 0 to disable a constraint. Sum of both must be <= 1.0
-  min_positive_ratio: 0.4
-  min_negative_ratio: 0.2
 
 # -----------------------------------------------------------------------------
 # Word Attribution - Compute word-level score attributions (optional)
 # -----------------------------------------------------------------------------
 word_attribution:
   enabled: true
-  # Maximum messages to analyze per dimension (uses top N from message_examples)
+  # Maximum messages to analyze per dimension (queries top N from message_scores.h5)
   max_messages_per_dimension: 10
   # Top words to include in output per dimension
   top_words_per_dimension: 10
@@ -62,7 +53,7 @@ word_attribution:
 # Values can exceed ±1.0 if they are above the percentile threshold.
 #
 # Mode options:
-# - "global": Normalize across ALL values in message_examples.json (cross-pattern comparison)
+# - "global": Normalize across ALL values (cross-pattern comparison)
 # - "layer": Normalize within each layer separately (enc1_bottom, enc1_mid, unified, etc.)
 # - "dimension": Normalize within each dimension/pattern separately (preserves relative ordering)
 normalization:

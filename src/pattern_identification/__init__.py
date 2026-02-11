@@ -3,7 +3,7 @@
 # GPU-dependent modules (BatchScorer, SHAPAnalyzer, WordAttributor) must be
 # imported directly from their submodules to avoid torch dependency on CPU-only servers.
 
-from .message_assigner import MessageAssigner, PatternExamples
+from .message_scorer import MessageScorer
 from .pattern_naming import PatternNamer
 from .population_stats import PopulationStats
 from .prompt_builder import PromptBuilder
@@ -18,9 +18,8 @@ from .prompt_templates import (
 )
 
 __all__ = [
-    # Message Assignment
-    "MessageAssigner",
-    "PatternExamples",
+    # Message Scoring
+    "MessageScorer",
     # Pattern Naming
     "PatternNamer",
     # Prompt System

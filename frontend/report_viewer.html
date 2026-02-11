@@ -1564,8 +1564,10 @@
             // final_to_unified maps top-level patterns (all encoders) to unified patterns
             if (hierarchicalWeights && hierarchicalWeights.final_to_unified) {
                 const finalToUnified = hierarchicalWeights.final_to_unified;
-                const drivingList = finalToUnified[pattern.data.id] || [];
-                console.log('[DEBUG] drivingList for unified:', drivingList);
+                // pattern.id is "unified:dim_0", SHAP keys are "dim_0"
+                const dimKey = pattern.id.split(':')[1];
+                const drivingList = finalToUnified[dimKey] || [];
+                console.log('[DEBUG] Looking up dimKey:', dimKey, 'drivingList:', drivingList);
 
                 if (drivingList.length > 0) {
                     // Collect ALL patterns (not just positive weights)

@@ -42,7 +42,7 @@ class ReportGenerator:
         engineer_id: str,
         scores: dict[str, Any],
         pattern_names: dict[str, Any],
-        message_examples: dict[str, Any],
+        query_examples_fn: Any = None,
     ) -> dict[str, Any]:
         """
         Generate performance report for an engineer.
@@ -51,7 +51,7 @@ class ReportGenerator:
             engineer_id: Engineer being reported on
             scores: Individual scores from IndividualScorer
             pattern_names: LLM-generated pattern names
-            message_examples: Message examples from pattern identification
+            query_examples_fn: Optional function(pattern_key, pattern_idx, limit) -> examples
 
         Returns:
             Report dict with summary

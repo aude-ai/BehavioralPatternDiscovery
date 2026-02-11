@@ -97,14 +97,16 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
     Generate pattern names using LLM (Segment C).
 
     Requires:
-    - message_examples.json (from B.7, on Hetzner)
-    - hierarchical_weights.json (from B.8, on Hetzner)
+    - message_scores.h5 (from B.6, in R2)
+    - message_scores_index.json (from B.6, on Hetzner)
+    - hierarchical_weights.json (from B.7, on Hetzner)
     - message_database.pkl.zst (from B.4, in R2)
 
     Output: pattern_names.json saved to Hetzner storage
     """
     from src.pattern_identification.pattern_naming import PatternNamer
-    from ..services.r2_service import download_pickle_from_r2
+    from src.pattern_identification.message_scorer import MessageScorer
+    from ..services.r2_service import download_pickle_from_r2, download_h5_from_r2
 
     with get_db_context() as db:
         try:
@@ -115,15 +117,30 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
 
             storage = StorageService(project_id)
 
-            message_examples = storage.load_json(storage.message_examples_path)
-            if message_examples is None:
-                raise FileNotFoundError(f"message_examples.json not found at {storage.message_examples_path}")
-
             hierarchical_weights = storage.load_json(storage.hierarchical_weights_path)
             if hierarchical_weights is None:
                 raise FileNotFoundError(f"hierarchical_weights.json not found at {storage.hierarchical_weights_path}")
 
             message_database = download_pickle_from_r2(project_id, "message_database")
+
+            h5_path = storage.get_cached_h5("message_scores")
+            if not h5_path.exists():
+                logger.info(f"Downloading message_scores.h5 from R2...")
+                download_h5_from_r2(project_id, "message_scores", h5_path)
+
+            messages_list = message_database.get("messages", message_database)
+            if isinstance(messages_list, dict):
+                messages_list = messages_list.get("messages", [])
+
+            def query_examples(pattern_key: str, pattern_idx: int, limit: int) -> list[dict]:
+                """Query top examples for a pattern from message_scores.h5."""
+                return MessageScorer.get_top_messages_for_pattern(
+                    h5_path=h5_path,
+                    level_key=pattern_key,
+                    pattern_idx=pattern_idx,
+                    message_database=messages_list,
+                    limit=limit,
+                )
 
             def update_progress(current: int, total: int, message: str):
                 """Update job progress in database."""
@@ -137,9 +154,9 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
 
             namer = PatternNamer(config)
             pattern_names = namer.name_all_patterns(
-                message_examples=message_examples,
                 hierarchical_weights=hierarchical_weights,
-                message_database=message_database["messages"],
+                message_database=messages_list,
+                query_examples_fn=query_examples,
                 progress_callback=update_progress,
             )
 
@@ -182,11 +199,14 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
     Requires:
     - Individual scores (from D.1, saved to Hetzner)
     - Pattern names (from Segment C)
+    - message_scores.h5 (from B.6, cached on Hetzner or in R2)
+    - message_database.pkl.zst (from B.4, in R2)
 
     Output: Report JSON saved to Hetzner storage
     """
-    # Direct import - this module only uses LLM APIs, no torch
     from src.scoring.report_generator import ReportGenerator
+    from src.pattern_identification.message_scorer import MessageScorer
+    from ..services.r2_service import download_pickle_from_r2, download_h5_from_r2
 
     with get_db_context() as db:
         try:
@@ -206,12 +226,36 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
             if pattern_names is None:
                 raise FileNotFoundError(f"pattern_names.json not found at {storage.pattern_names_path}")
 
-            generator = ReportGenerator(config)
+            index = storage.load_json(storage.message_scores_index_path)
+            if index is None:
+                raise FileNotFoundError(f"message_scores_index.json not found at {storage.message_scores_index_path}")
 
-            # Load message_examples for report context
-            message_examples = storage.load_json(storage.message_examples_path)
-            if message_examples is None:
-                message_examples = {}
+            h5_path = storage.get_cached_h5("message_scores")
+            if not h5_path.exists():
+                logger.info(f"Downloading message_scores.h5 from R2...")
+                download_h5_from_r2(project_id, "message_scores", h5_path)
+
+            message_database = download_pickle_from_r2(project_id, "message_database")
+            messages_list = message_database.get("messages", message_database)
+            if isinstance(messages_list, dict):
+                messages_list = messages_list.get("messages", [])
+
+            engineer_indices = None
+            if engineer_id in index["engineers"]:
+                engineer_indices = index["engineers"][engineer_id]["message_indices"]
+
+            def query_examples(pattern_key: str, pattern_idx: int, limit: int) -> list[dict]:
+                """Query top examples for engineer from message_scores.h5."""
+                return MessageScorer.get_top_messages_for_pattern(
+                    h5_path=h5_path,
+                    level_key=pattern_key,
+                    pattern_idx=pattern_idx,
+                    message_database=messages_list,
+                    limit=limit,
+                    message_indices=engineer_indices,
+                )
+
+            generator = ReportGenerator(config)
 
             # Transform scores into patterns list for report generator
             patterns = []
@@ -219,11 +263,9 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
             for level_key, level_data in raw_scores.items():
                 percentiles = level_data.get("percentiles", [])
                 level_names = pattern_names.get(level_key, {})
-                # Extract level from level_key (e.g., "enc1_bottom" -> "bottom", "unified" -> "unified")
                 parts = level_key.split("_")
                 level = parts[1] if len(parts) >= 2 else level_key
                 for dim_idx, pct in enumerate(percentiles):
-                    # Pattern names use format like "bottom_0", "mid_0", "unified_0"
                     dim_key = f"{level}_{dim_idx}"
                     name_info = level_names.get(dim_key, {})
                     name = name_info.get("name", f"{level_key}_dim{dim_idx}")
@@ -244,7 +286,7 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
                 engineer_id=engineer_id,
                 scores=transformed_scores,
                 pattern_names=pattern_names,
-                message_examples=message_examples,
+                query_examples_fn=query_examples,
             )
 
             report_path = storage.base_path / f"scoring/reports/{engineer_id}.json"

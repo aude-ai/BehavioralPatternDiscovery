@@ -7,9 +7,8 @@ Unified pipeline for Segment B (Processing):
 - B.3: Normalization
 - B.4: Training Preparation
 - B.5: VAE Training
-- B.6: Batch Scoring
-- B.7: Message Assignment
-- B.8: SHAP Analysis
+- B.6: Batch Scoring (includes message scores)
+- B.7: SHAP Analysis
 
 All large data is stored in R2. Only small JSONs are sent to Hetzner.
 """
@@ -883,19 +882,21 @@ def step_b5_vae_training(state: PipelineState):
 
 
 def step_b6_batch_scoring(state: PipelineState):
-    """B.6: Score all messages through VAE."""
+    """B.6: Score all messages through VAE and save per-message scores."""
     import h5py
     import torch
 
     from src.core.config import ModelDimensions
     from src.model.vae import MultiEncoderVAE
     from src.pattern_identification.batch_scorer import BatchScorer
+    from src.pattern_identification.message_scorer import MessageScorer
     from src.pattern_identification.population_stats import PopulationStats
 
     from cloud.modal_apps.common.r2_storage import (
         download_checkpoint_from_r2,
         download_numpy_from_r2,
         download_pickle_from_r2,
+        upload_file_to_r2,
         upload_h5_to_r2,
     )
 
@@ -977,6 +978,20 @@ def step_b6_batch_scoring(state: PipelineState):
     upload_h5_to_r2(h5_path, state.project_id)
     h5_path.unlink()
 
+    # Save per-message scores for flexible querying
+    state.callback.status("Saving per-message scores...")
+    message_scorer = MessageScorer(state.config)
+    message_scores_path = Path("/tmp/message_scores.h5")
+    message_scores_index = message_scorer.save_message_scores(
+        activations=activations,
+        message_database=state.message_database["messages"],
+        output_path=message_scores_path,
+    )
+
+    # Upload message_scores.h5 to R2
+    upload_file_to_r2(message_scores_path, state.project_id, "message_scores", compress=True)
+    message_scores_path.unlink()
+
     # Send population stats to Hetzner (small JSON)
     state.callback.status("Sending population stats to Hetzner...")
     hetzner_url = get_hetzner_url()
@@ -987,80 +1002,19 @@ def step_b6_batch_scoring(state: PipelineState):
         population_stats,
     )
 
-    state.callback.status(f"Batch scoring complete: {len(activations)} activation sets")
-
-
-def step_b7_message_assignment(state: PipelineState):
-    """B.7: Assign top messages to patterns."""
-    import h5py
-    import requests
-
-    from src.pattern_identification import MessageAssigner
-
-    from cloud.modal_apps.common.r2_storage import (
-        download_h5_from_r2,
-        download_pickle_from_r2,
-    )
-
-    # Load activations if not in state
-    if state.activations is None:
-        state.callback.status("Loading activations from R2...")
-        h5_path = Path("/tmp/activations.h5")
-        download_h5_from_r2(
-            state.project_id, h5_path,
-            parent_id=state.parent_id, owned_files=state.owned_files
-        )
-
-        state.activations = {}
-        with h5py.File(h5_path, "r") as f:
-            for key in f.keys():
-                state.activations[key] = f[key][:]
-        h5_path.unlink()
-
-    if state.message_database is None:
-        state.callback.status("Loading message database from R2...")
-        state.message_database = download_pickle_from_r2(
-            state.project_id, "message_database",
-            parent_id=state.parent_id, owned_files=state.owned_files
-        )
-
-    if state.population_stats is None:
-        # Load from Hetzner
-        hetzner_url = get_hetzner_url()
-        headers = get_headers()
-        response = requests.get(
-            f"{hetzner_url}/internal/projects/{state.project_id}/population-stats",
-            headers=headers,
-        )
-        response.raise_for_status()
-        state.population_stats = response.json()
-
-    state.callback.status("Assigning messages to patterns...")
-
-    assigner = MessageAssigner(state.config)
-    message_examples_raw = assigner.assign_all(
-        activations=state.activations,
-        message_database=state.message_database["messages"],
-    )
-
-    # Convert to JSON-serializable dict
-    message_examples = MessageAssigner.to_dict(message_examples_raw)
-
-    # Send to Hetzner (small JSON)
-    state.callback.status("Sending message examples to Hetzner...")
-    hetzner_url = get_hetzner_url()
-    headers = get_headers()
+    # Send message scores index to Hetzner (small JSON)
+    state.callback.status("Sending message scores index to Hetzner...")
     upload_json(
-        f"{hetzner_url}/internal/projects/{state.project_id}/message-examples",
+        f"{hetzner_url}/internal/projects/{state.project_id}/message-scores-index",
         headers,
-        message_examples,
+        message_scores_index,
     )
 
-    state.callback.status(f"Assigned messages to {len(message_examples)} patterns")
+    state.callback.status(f"Batch scoring complete: {len(activations)} activation sets, {message_scores_index['n_messages']} messages indexed")
 
 
-def step_b8_shap_analysis(state: PipelineState):
-    """B.8: Run SHAP analysis to extract hierarchical weights."""
+def step_b7_shap_analysis(state: PipelineState):
+    """B.7: Run SHAP analysis to extract hierarchical weights."""
     import h5py
     import torch
 
@@ -1118,7 +1072,7 @@ def step_b8_shap_analysis(state: PipelineState):
     def progress_fn(progress):
         state.callback("progress", {
             "segment": "B",
-            "step": "B.8",
+            "step": "B.7",
             "step_name": "SHAP Analysis",
             "step_progress": progress,
         })
@@ -1150,8 +1104,7 @@ STEP_FUNCTIONS = {
     "B.4": step_b4_training_prep,
     "B.5": step_b5_vae_training,
     "B.6": step_b6_batch_scoring,
-    "B.7": step_b7_message_assignment,
-    "B.8": step_b8_shap_analysis,
+    "B.7": step_b7_shap_analysis,
 }
 
 

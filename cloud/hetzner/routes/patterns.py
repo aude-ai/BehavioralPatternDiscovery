@@ -124,65 +124,6 @@ def get_population_data(
     return population_stats
 
 
-@router.get("/message-distribution")
-def get_message_distribution(
-    project_id: str,
-    pattern_key: str,
-    pattern_idx: int,
-    engineer_ids: Optional[str] = None,
-    db: Session = Depends(get_db),
-):
-    """Get message distribution for a pattern."""
-    service = ProjectService(db)
-    project = service.get_project(project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    storage = StorageService(project_id)
-
-    # Load message examples
-    message_examples = storage.load_json(storage.message_examples_path)
-    if not message_examples:
-        raise HTTPException(status_code=404, detail="Message examples not found")
-
-    # Message examples structure: {"enc1_bottom": {"bottom_0": {...}}, "unified": {"unified_0": {...}}}
-    # Extract level from pattern_key (e.g., "enc1_bottom" -> "bottom", "unified" -> "unified")
-    if pattern_key not in message_examples:
-        raise HTTPException(status_code=404, detail=f"Pattern key {pattern_key} not found")
-
-    parts = pattern_key.split("_")
-    level = parts[1] if len(parts) >= 2 else pattern_key
-    dim_key = f"{level}_{pattern_idx}"
-
-    level_examples = message_examples[pattern_key]
-    if dim_key not in level_examples:
-        raise HTTPException(status_code=404, detail=f"Pattern {pattern_key}/{dim_key} not found")
-
-    examples = level_examples[dim_key].get("examples", [])
-
-    # Filter by engineer IDs if provided
-    if engineer_ids:
-        ids = set(engineer_ids.split(","))
-        examples = [e for e in examples if e.get("engineer_id") in ids]
-
-    # Calculate statistics
-    if examples:
-        scores = [e.get("score", 0) for e in examples]
-        stats = {
-            "min": min(scores),
-            "max": max(scores),
-            "mean": sum(scores) / len(scores),
-            "count": len(scores),
-        }
-    else:
-        stats = {"min": 0, "max": 0, "mean": 0, "count": 0}
-
-    return {
-        "messages": examples,
-        "stats": stats,
-    }
-
-
 @router.get("/shap-interpretations/{model_name}")
 def get_shap_interpretations(
     project_id: str,
@@ -271,11 +212,9 @@ def get_pattern(
         raise HTTPException(status_code=404, detail="Pattern not found")
 
     info = pattern_names[pattern_id]
-    message_examples = storage.load_json(storage.message_examples_path) or {}
     hierarchical_weights = storage.load_json(storage.hierarchical_weights_path) or {}
     population_stats = storage.load_json(storage.population_stats_path) or {}
 
-    examples = message_examples.get(pattern_id, {}).get("examples", [])
     weights = hierarchical_weights.get(pattern_id, {})
     stats = population_stats.get(pattern_id, {})
 
@@ -283,7 +222,6 @@ def get_pattern(
         "id": pattern_id,
         "name": info.get("name"),
         "description": info.get("description"),
-        "examples": examples,
         "hierarchical_weights": weights,
         "statistics": stats,
     }
@@ -296,17 +234,83 @@ def get_pattern_messages(
     top_k: int = 50,
     db: Session = Depends(get_db),
 ):
-    """Get example messages for a pattern."""
+    """
+    Get example messages for a pattern.
+
+    Use the new /messages endpoint for flexible queries:
+    GET /projects/{project_id}/messages?pattern_key=enc1_bottom&pattern_idx=0&limit=50
+    """
     storage = StorageService(project_id)
 
-    message_examples = storage.load_json(storage.message_examples_path)
-    if not message_examples or pattern_id not in message_examples:
-        raise HTTPException(status_code=404, detail="Pattern not found")
+    pattern_key, pattern_idx = _parse_pattern_id(pattern_id)
+    if pattern_key is None:
+        raise HTTPException(status_code=400, detail=f"Invalid pattern_id format: {pattern_id}")
 
-    examples = message_examples[pattern_id].get("examples", [])
+    index = storage.load_json(storage.message_scores_index_path)
+    if not index:
+        raise HTTPException(status_code=404, detail="Message scores not found - run batch scoring first")
+
+    if pattern_key not in index["levels"]:
+        raise HTTPException(status_code=404, detail=f"Pattern key {pattern_key} not found")
+
+    n_dims = index["levels"][pattern_key]["n_dims"]
+    if pattern_idx >= n_dims:
+        raise HTTPException(status_code=400, detail=f"Pattern index {pattern_idx} out of range")
+
+    from ..services.r2_service import download_h5_from_r2, download_pickle_from_r2
+
+    h5_path = storage.get_cached_h5("message_scores")
+    if not h5_path.exists():
+        download_h5_from_r2(project_id, "message_scores", h5_path)
+
+    try:
+        message_database = download_pickle_from_r2(project_id, "message_database")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Message database not found")
+
+    messages_list = message_database.get("messages", message_database)
+    if isinstance(messages_list, dict):
+        messages_list = messages_list.get("messages", [])
+
+    from src.pattern_identification.message_scorer import MessageScorer
+    examples = MessageScorer.get_top_messages_for_pattern(
+        h5_path,
+        pattern_key,
+        pattern_idx,
+        messages_list,
+        limit=top_k,
+    )
 
     return {
         "pattern_id": pattern_id,
-        "messages": examples[:top_k],
+        "messages": examples,
         "total": len(examples),
     }
+
+
+def _parse_pattern_id(pattern_id: str) -> tuple[str | None, int | None]:
+    """
+    Parse pattern_id into pattern_key and pattern_idx.
+
+    Examples:
+    - "enc1_bottom_bottom_0" -> ("enc1_bottom", 0)
+    - "unified_unified_3" -> ("unified", 3)
+    """
+    parts = pattern_id.rsplit("_", 1)
+    if len(parts) != 2:
+        return None, None
+
+    try:
+        pattern_idx = int(parts[1])
+    except ValueError:
+        return None, None
+
+    remaining = parts[0]
+    remaining_parts = remaining.rsplit("_", 1)
+    if len(remaining_parts) != 2:
+        if remaining in ("unified",):
+            return remaining, pattern_idx
+        return None, None
+
+    pattern_key = remaining_parts[0]
+    return pattern_key, pattern_idx

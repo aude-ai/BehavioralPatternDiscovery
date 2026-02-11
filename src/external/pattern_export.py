@@ -48,11 +48,7 @@ class PatternExporter:
         return f"vae_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     def _load_message_examples(self) -> Dict[str, Dict[str, List[Dict]]]:
-        """Load message examples from MessageAssigner output."""
-        examples_path = self.pattern_id_dir / "assignment" / "message_examples.json"
-        if examples_path.exists():
-            with open(examples_path, 'r') as f:
-                return json.load(f)
+        """Load message examples (legacy - returns empty, use message_scores.h5 queries)."""
         return {}
 
     def _load_pattern_names(self) -> Dict[str, Dict[str, Dict]]:

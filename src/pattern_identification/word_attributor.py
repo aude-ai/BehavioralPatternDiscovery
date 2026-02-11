@@ -150,7 +150,7 @@ class WordAttributor:
         Args:
             vae: Trained VAE model
             message_database: List of message dicts with 'text' field
-            message_examples: Output from MessageAssigner
+            message_examples: Dict of pattern examples
             activations: Output from BatchScorer (all activation arrays)
 
         Returns:

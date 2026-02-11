@@ -1081,10 +1081,10 @@
             container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading message data...</div>';
 
             try {
-                // Fetch message distribution data from API
-                let url = `${getApiBase()}/patterns/message-distribution?pattern_key=${levelKey}&pattern_idx=${dimIdx}`;
-                if (selectedEngineerIds.length > 0) {
-                    url += `&engineer_ids=${selectedEngineerIds.join(',')}`;
+                // Fetch message data from API using new /messages endpoint
+                let url = `${getApiBase()}/messages?pattern_key=${levelKey}&pattern_idx=${dimIdx}&limit=500`;
+                if (selectedEngineerIds.length === 1) {
+                    url += `&engineer_id=${selectedEngineerIds[0]}`;
                 }
 
                 const response = await fetch(url);
@@ -1095,12 +1095,19 @@
 
                 const data = await response.json();
                 const messages = data.messages;
-                const stats = data.stats;
 
                 if (messages.length === 0) {
                     container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">No messages found</div>';
                     return;
                 }
+
+                const scores = messages.map(m => m.score);
+                const stats = {
+                    min: Math.min(...scores),
+                    max: Math.max(...scores),
+                    mean: scores.reduce((a, b) => a + b, 0) / scores.length,
+                    count: messages.length
+                };
 
                 // Bin the messages
                 const numBins = parseInt(document.getElementById('binCountSlider').value);

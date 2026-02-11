@@ -27,6 +27,7 @@ r2:
 
     # Scoring outputs
     activations: "projects/{project_id}/scoring/activations.h5.zst"
+    message_scores: "projects/{project_id}/scoring/message_scores.h5.zst"
 
 pipeline:
   segments:
@@ -99,20 +100,12 @@ pipeline:
         - "message_database"
       r2_outputs:
         - "activations"
+        - "message_scores"
       hetzner_outputs:
         - "population_stats"
+        - "message_scores_index"
 
     B.7:
-      name: "Message Assignment"
-      segment: "B"
-      gpu: false
-      r2_inputs:
-        - "activations"
-        - "message_database"
-      hetzner_outputs:
-        - "message_examples"
-
-    B.8:
       name: "SHAP Analysis"
       segment: "B"
       gpu: true
@@ -137,7 +130,6 @@ pipeline:
         - "B.5"
         - "B.6"
         - "B.7"
-        - "B.8"
 
     "from_training":
       label: "From Training"
@@ -153,7 +145,6 @@ pipeline:
         - "B.5"
         - "B.6"
         - "B.7"
-        - "B.8"
 
     "from_scoring":
       label: "From Batch Scoring"
@@ -166,7 +157,6 @@ pipeline:
       steps_to_run:
         - "B.6"
         - "B.7"
-        - "B.8"
 
     "shap_only":
       label: "SHAP Only"
@@ -176,4 +166,4 @@ pipeline:
         - "activations"
       hetzner_prerequisites: []
       steps_to_run:
-        - "B.8"
+        - "B.7"

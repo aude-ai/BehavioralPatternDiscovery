@@ -19,7 +19,7 @@ HETZNER_FILE_PATHS = {
     "engineer_metadata": "data/collection/engineer_metadata.csv",
     "train_aux_vars": "data/processing/train_aux_vars.npy",
     "population_stats": "pattern_identification/scoring/population_stats.json",
-    "message_examples": "pattern_identification/messages/message_examples.json",
+    "message_scores_index": "pattern_identification/scoring/message_scores_index.json",
     "hierarchical_weights": "pattern_identification/shap/hierarchical_weights.json",
     "pattern_names": "pattern_identification/naming/pattern_names.json",
 }
@@ -128,8 +128,8 @@ class StorageService:
         return self.base_path / "pattern_identification/scoring/population_stats.json"
 
     @property
-    def message_examples_path(self) -> Path:
-        return self.base_path / "pattern_identification/messages/message_examples.json"
+    def message_scores_index_path(self) -> Path:
+        return self.base_path / "pattern_identification/scoring/message_scores_index.json"
 
     @property
     def hierarchical_weights_path(self) -> Path:
@@ -223,3 +223,21 @@ class StorageService:
         if not path.exists():
             return 0
         return path.stat().st_size
+
+    # =========================================================================
+    # CACHE METHODS (for large files downloaded from R2)
+    # =========================================================================
+
+    def get_cached_h5(self, name: str) -> Path:
+        """Get path for cached HDF5 file from R2."""
+        cache_dir = self.base_path / "cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir / f"{name}.h5"
+
+    def invalidate_cache(self, name: str) -> bool:
+        """Delete a cached file. Returns True if file was deleted."""
+        cache_path = self.get_cached_h5(name)
+        if cache_path.exists():
+            cache_path.unlink()
+            return True
+        return False

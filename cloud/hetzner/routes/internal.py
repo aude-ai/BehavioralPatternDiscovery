@@ -100,7 +100,6 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
                     "B.5": ProjectStatus.TRAINED,
                     "B.6": ProjectStatus.SCORED,
                     "B.7": ProjectStatus.SCORED,
-                    "B.8": ProjectStatus.SCORED,
                 }
                 new_project_status = step_to_status.get(last_step, ProjectStatus.SCORED)
             else:
@@ -165,17 +164,19 @@ async def get_population_stats(project_id: str):
     return stats
 
 
-@router.post("/projects/{project_id}/message-examples", dependencies=[Depends(verify_internal_key)])
-async def upload_message_examples(project_id: str, examples: dict):
-    """Receive message examples from Modal (small JSON, from B.7)."""
+@router.post("/projects/{project_id}/message-scores-index", dependencies=[Depends(verify_internal_key)])
+async def upload_message_scores_index(project_id: str, index: dict):
+    """Receive message scores index from Modal (small JSON, from B.6)."""
     storage = StorageService(project_id)
-    storage.save_json(storage.message_examples_path, examples)
+    # Invalidate cached HDF5 since new scores are available in R2
+    storage.invalidate_cache("message_scores")
+    storage.save_json(storage.message_scores_index_path, index)
     return {"status": "ok"}
 
 
 @router.post("/projects/{project_id}/shap-weights", dependencies=[Depends(verify_internal_key)])
 async def upload_shap_weights(project_id: str, weights: dict):
-    """Receive SHAP weights from Modal (small JSON, from B.8)."""
+    """Receive SHAP weights from Modal (small JSON, from B.7)."""
     storage = StorageService(project_id)
     storage.save_json(storage.hierarchical_weights_path, weights)
     return {"status": "ok"}
