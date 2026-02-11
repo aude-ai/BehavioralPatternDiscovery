@@ -58,7 +58,7 @@ class PatternNamer:
         self,
         hierarchical_weights: dict[str, Any],
         message_database: list[dict],
-        query_examples_fn: Callable[[str, int, int], list[dict]],
+        query_examples_fn: Callable[[str, int, int], list[dict] | dict],
         resume: bool = True,
         progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict[str, Any]:
@@ -74,7 +74,9 @@ class PatternNamer:
         Args:
             hierarchical_weights: Output from SHAPAnalyzer (includes metadata)
             message_database: Original message data (for detecting sources)
-            query_examples_fn: Function(pattern_key, pattern_idx, limit) -> list of example dicts
+            query_examples_fn: Function(pattern_key, pattern_idx, limit) that returns
+                               either list of example dicts or dict with "examples" and
+                               optionally "aggregated_word_attributions"
             resume: If True, load existing partial results and skip completed items
             progress_callback: Optional callback(current, total, message) for progress updates
 
@@ -257,7 +259,7 @@ class PatternNamer:
 
     def _query_examples_for_level(
         self,
-        query_fn: Callable[[str, int, int], list[dict]],
+        query_fn: Callable[[str, int, int], list[dict] | dict],
         pattern_key: str,
         level_name: str,
         n_dims: int,
@@ -266,13 +268,15 @@ class PatternNamer:
         Query examples for all dimensions in a level.
 
         Args:
-            query_fn: Function(pattern_key, pattern_idx, limit) -> list of examples
+            query_fn: Function(pattern_key, pattern_idx, limit) -> examples
+                      Returns either list of examples or dict with "examples" key
+                      and optionally "aggregated_word_attributions"
             pattern_key: The key to query (e.g., "enc1_bottom", "unified")
             level_name: The level name for building dim keys (e.g., "bottom", "unified")
             n_dims: Number of dimensions at this level
 
         Returns:
-            Dict mapping dim_key to {"examples": [...]}
+            Dict mapping dim_key to {"examples": [...], "pattern_idx": int, ...}
         """
         max_examples = self.prompt_builder.max_examples
         examples_dict = {}
@@ -280,9 +284,20 @@ class PatternNamer:
         for dim_idx in range(n_dims):
             dim_key = f"{level_name}_{dim_idx}"
             try:
-                examples = query_fn(pattern_key, dim_idx, max_examples)
-                if examples:
-                    examples_dict[dim_key] = {"examples": examples}
+                result = query_fn(pattern_key, dim_idx, max_examples)
+                if result:
+                    # Handle both list and dict return formats
+                    if isinstance(result, list):
+                        examples_dict[dim_key] = {
+                            "examples": result,
+                            "pattern_idx": dim_idx,
+                        }
+                    elif isinstance(result, dict):
+                        examples_dict[dim_key] = {
+                            "examples": result.get("examples", []),
+                            "pattern_idx": dim_idx,
+                            "aggregated_word_attributions": result.get("aggregated_word_attributions", []),
+                        }
             except Exception as e:
                 logger.warning(f"Failed to query examples for {pattern_key}[{dim_idx}]: {e}")
 

@@ -1083,8 +1083,8 @@
             try {
                 // Fetch message data from API using new /messages endpoint
                 let url = `${getApiBase()}/messages?pattern_key=${levelKey}&pattern_idx=${dimIdx}&limit=500`;
-                if (selectedEngineerIds.length === 1) {
-                    url += `&engineer_id=${selectedEngineerIds[0]}`;
+                if (selectedEngineerIds.length > 0) {
+                    url += `&engineer_id=${selectedEngineerIds.join(',')}`;
                 }
 
                 const response = await fetch(url);

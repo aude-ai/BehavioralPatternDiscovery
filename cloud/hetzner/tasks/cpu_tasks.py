@@ -132,15 +132,29 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
             if isinstance(messages_list, dict):
                 messages_list = messages_list.get("messages", [])
 
+            # Load word attributions if available
+            word_attributions = storage.load_json(storage.word_attributions_path) or {}
+            if word_attributions:
+                logger.info(f"Loaded word attributions for {len(word_attributions)} levels")
+
             def query_examples(pattern_key: str, pattern_idx: int, limit: int) -> list[dict]:
                 """Query top examples for a pattern from message_scores.h5."""
-                return MessageScorer.get_top_messages_for_pattern(
+                examples = MessageScorer.get_top_messages_for_pattern(
                     h5_path=h5_path,
                     level_key=pattern_key,
                     pattern_idx=pattern_idx,
                     message_database=messages_list,
                     limit=limit,
                 )
+
+                # Merge word attributions if available
+                level_attrs = word_attributions.get(pattern_key, {})
+                pattern_attrs = level_attrs.get(str(pattern_idx), [])
+
+                return {
+                    "examples": examples,
+                    "aggregated_word_attributions": pattern_attrs,
+                }
 
             def update_progress(current: int, total: int, message: str):
                 """Update job progress in database."""

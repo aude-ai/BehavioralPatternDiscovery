@@ -182,6 +182,14 @@ async def upload_shap_weights(project_id: str, weights: dict):
     return {"status": "ok"}
 
 
+@router.post("/projects/{project_id}/word-attributions", dependencies=[Depends(verify_internal_key)])
+async def upload_word_attributions(project_id: str, attributions: dict):
+    """Receive word attributions from Modal (small JSON, from B.6)."""
+    storage = StorageService(project_id)
+    storage.save_json(storage.word_attributions_path, attributions)
+    return {"status": "ok"}
+
+
 # =============================================================================
 # ACTIVITIES CSV (Hetzner -> Modal)
 # This is the only file Modal needs from Hetzner to start processing.

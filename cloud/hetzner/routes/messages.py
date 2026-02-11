@@ -62,9 +62,15 @@ def query_messages(
         messages_list = messages_list.get("messages", [])
 
     if engineer_id:
-        if engineer_id not in index["engineers"]:
-            raise HTTPException(status_code=404, detail=f"Engineer {engineer_id} not found")
-        candidate_indices = index["engineers"][engineer_id]["message_indices"]
+        # Support comma-separated engineer IDs
+        engineer_ids = [eid.strip() for eid in engineer_id.split(",")]
+        candidate_indices = []
+        for eid in engineer_ids:
+            if eid not in index["engineers"]:
+                raise HTTPException(status_code=404, detail=f"Engineer {eid} not found")
+            candidate_indices.extend(index["engineers"][eid]["message_indices"])
+        # Remove duplicates and sort
+        candidate_indices = sorted(set(candidate_indices))
     else:
         candidate_indices = list(range(index["n_messages"]))
 

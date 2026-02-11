@@ -290,6 +290,7 @@ paths:
       population_stats: "data/pattern_identification/scoring/population_stats.json"
       message_scores: "data/pattern_identification/scoring/message_scores.h5"
       message_scores_index: "data/pattern_identification/scoring/message_scores_index.json"
+      word_attributions: "data/pattern_identification/scoring/word_attributions.json"
     shap:
       hierarchical_weights: "data/pattern_identification/shap/hierarchical_weights.json"
     naming:

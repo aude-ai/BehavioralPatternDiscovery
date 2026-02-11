@@ -5,12 +5,11 @@ Computes word-level score attributions using leave-one-out analysis.
 For each top message per dimension, measures how removing each word
 affects activation scores across ALL latent dimensions.
 
-Outputs aggregated word attributions per dimension, added directly
-to the existing message_examples.json file.
+Returns aggregated word attributions per dimension, added to the
+message_examples structure passed in by the caller.
 """
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections import defaultdict
@@ -67,7 +66,6 @@ class WordAttributor:
             config: Full merged config
         """
         wa_config = config["word_attribution"]
-        pi_paths = config["paths"]["pattern_identification"]
         data_paths = config["paths"]["data"]["processing"]
         norm_config = config["normalization"]
 
@@ -103,9 +101,6 @@ class WordAttributor:
 
         # Text encoder config for re-encoding
         self.text_encoder_config = config
-
-        # Path to message_examples.json (read and write)
-        self.message_examples_path = Path(pi_paths["messages"]["examples"])
 
         # Determine training input path for aux features
         aux_enabled = config["input"]["aux_features"]["enabled"]
@@ -150,7 +145,7 @@ class WordAttributor:
         Args:
             vae: Trained VAE model
             message_database: List of message dicts with 'text' field
-            message_examples: Dict of pattern examples
+            message_examples: Dict of pattern examples (queried dynamically)
             activations: Output from BatchScorer (all activation arrays)
 
         Returns:
@@ -188,9 +183,6 @@ class WordAttributor:
         # Apply normalization to word deltas if enabled
         if self.normalize_deltas:
             updated_examples = self._normalize_deltas(updated_examples)
-
-        # Save updated message_examples.json
-        self._save_message_examples(updated_examples)
 
         return updated_examples
 
@@ -601,12 +593,3 @@ class WordAttributor:
 
         logger.info(f"Normalized word deltas per-dimension (p{self.delta_percentile})")
         return message_examples
-
-    def _save_message_examples(self, message_examples: dict[str, Any]) -> None:
-        """Save updated message_examples.json."""
-        self.message_examples_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(self.message_examples_path, "w") as f:
-            json.dump(message_examples, f, indent=2)
-
-        logger.info(f"Updated message examples with word attributions: {self.message_examples_path}")

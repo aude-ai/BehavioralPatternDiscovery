@@ -20,6 +20,7 @@ HETZNER_FILE_PATHS = {
     "train_aux_vars": "data/processing/train_aux_vars.npy",
     "population_stats": "pattern_identification/scoring/population_stats.json",
     "message_scores_index": "pattern_identification/scoring/message_scores_index.json",
+    "word_attributions": "pattern_identification/scoring/word_attributions.json",
     "hierarchical_weights": "pattern_identification/shap/hierarchical_weights.json",
     "pattern_names": "pattern_identification/naming/pattern_names.json",
 }
@@ -130,6 +131,10 @@ class StorageService:
     @property
     def message_scores_index_path(self) -> Path:
         return self.base_path / "pattern_identification/scoring/message_scores_index.json"
+
+    @property
+    def word_attributions_path(self) -> Path:
+        return self.base_path / "pattern_identification/scoring/word_attributions.json"
 
     @property
     def hierarchical_weights_path(self) -> Path:

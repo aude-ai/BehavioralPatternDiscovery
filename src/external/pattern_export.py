@@ -67,13 +67,15 @@ class PatternExporter:
                 return json.load(f)
         return {}
 
-    def _load_message_database(self) -> Dict[str, Dict]:
+    def _load_message_database(self) -> List[Dict]:
         """Load message database for text lookup."""
-        db_path = self.pattern_id_dir / "assignment" / "message_database.json"
+        import pickle
+        db_path = self.pattern_id_dir / "scoring" / "message_database.pkl"
         if db_path.exists():
-            with open(db_path, 'r') as f:
-                return json.load(f)
-        return {}
+            with open(db_path, 'rb') as f:
+                data = pickle.load(f)
+                return data.get("messages", data) if isinstance(data, dict) else data
+        return []
 
     def _load_population_stats(self) -> Dict[str, Any]:
         """Load population statistics for activation stats."""
@@ -211,11 +213,12 @@ class PatternExporter:
                     msg_idx = ex.get("message_idx")
                     if msg_idx is not None:
                         example_ids.append(str(msg_idx))
-                        # Get text from message database
-                        msg_data = message_db.get(str(msg_idx), {})
-                        text = msg_data.get("text", "")
-                        if text:
-                            example_texts.append(text)
+                        # Get text from message database (list indexed by msg_idx)
+                        if isinstance(msg_idx, int) and 0 <= msg_idx < len(message_db):
+                            msg_data = message_db[msg_idx]
+                            text = msg_data.get("text", "") if isinstance(msg_data, dict) else ""
+                            if text:
+                                example_texts.append(text)
 
                 # Get composition info from SHAP
                 composed_from, composition_weights = self._extract_composition(

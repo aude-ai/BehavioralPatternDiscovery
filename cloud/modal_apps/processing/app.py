@@ -881,6 +881,74 @@ def step_b5_vae_training(state: PipelineState):
     state.callback.status("Training completed, checkpoint and metadata uploaded to R2")
 
 
+def _compute_word_attributions(
+    state: PipelineState,
+    activations: dict,
+    message_scores_index: dict,
+) -> dict:
+    """
+    Compute word attributions for top messages per pattern.
+
+    Returns dict mapping level_key -> pattern_idx -> list of word attributions
+    """
+    import numpy as np
+    from src.pattern_identification.word_attributor import WordAttributor
+
+    wa_config = state.config.get("word_attribution", {})
+    max_messages = wa_config.get("max_messages_per_dimension", 10)
+
+    # Build message_examples structure for WordAttributor
+    message_examples = {}
+    messages_list = state.message_database["messages"]
+
+    for level_key, level_info in message_scores_index["levels"].items():
+        n_dims = level_info["n_dims"]
+        message_examples[level_key] = {}
+
+        level_scores = activations[level_key]
+
+        for pattern_idx in range(n_dims):
+            dim_scores = level_scores[:, pattern_idx]
+            top_indices = np.argsort(-np.abs(dim_scores))[:max_messages]
+
+            examples = []
+            for idx in top_indices:
+                msg = messages_list[idx]
+                examples.append({
+                    "message_idx": int(idx),
+                    "text": msg.get("text", ""),
+                    "score": float(dim_scores[idx]),
+                    "engineer_id": msg.get("engineer_id", "unknown"),
+                })
+
+            pattern_key = f"{level_key.split('_')[-1]}_{pattern_idx}" if "_" in level_key else f"{level_key}_{pattern_idx}"
+            message_examples[level_key][pattern_key] = {
+                "pattern_idx": pattern_idx,
+                "examples": examples,
+            }
+
+    # Run word attribution
+    attributor = WordAttributor(state.config)
+    updated_examples = attributor.compute_attributions(
+        vae=state.model,
+        message_database=messages_list,
+        message_examples=message_examples,
+        activations=activations,
+    )
+
+    # Extract just the word attributions into a clean structure
+    word_attributions = {}
+    for level_key, patterns in updated_examples.items():
+        word_attributions[level_key] = {}
+        for pattern_key, pattern_data in patterns.items():
+            pattern_idx = pattern_data["pattern_idx"]
+            attrs = pattern_data.get("aggregated_word_attributions", [])
+            if attrs:
+                word_attributions[level_key][str(pattern_idx)] = attrs
+
+    return word_attributions
+
+
 def step_b6_batch_scoring(state: PipelineState):
     """B.6: Score all messages through VAE and save per-message scores."""
     import h5py
@@ -1009,6 +1077,25 @@ def step_b6_batch_scoring(state: PipelineState):
         headers,
         message_scores_index,
     )
+
+    # Word attribution (optional)
+    wa_config = state.config.get("word_attribution", {})
+    if wa_config.get("enabled", False):
+        state.callback.status("Computing word attributions...")
+        word_attributions = _compute_word_attributions(
+            state=state,
+            activations=activations,
+            message_scores_index=message_scores_index,
+        )
+
+        if word_attributions:
+            state.callback.status("Sending word attributions to Hetzner...")
+            upload_json(
+                f"{hetzner_url}/internal/projects/{state.project_id}/word-attributions",
+                headers,
+                word_attributions,
+            )
+            state.callback.status(f"Word attributions computed for {len(word_attributions)} levels")
 
     state.callback.status(f"Batch scoring complete: {len(activations)} activation sets, {message_scores_index['n_messages']} messages indexed")
 
