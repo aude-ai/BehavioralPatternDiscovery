@@ -45,7 +45,7 @@ class PatternNamer:
         self.max_retries = naming_config["max_retries"]
         self.output_path = Path(output_path) if output_path else None
 
-        # Debug directory for saving prompts and responses
+        # Debug directory for saving prompts, responses, and partial results
         if self.output_path:
             self.debug_dir = self.output_path.parent / "debug"
             self.debug_dir.mkdir(parents=True, exist_ok=True)
@@ -55,8 +55,10 @@ class PatternNamer:
         # Initialize prompt builder
         self.prompt_builder = PromptBuilder(naming_config)
 
-        # Initialize LLM client via unified interface
-        self.llm_client = UnifiedLLMClient(config, config_key="pattern_naming")
+        # Initialize LLM client with auto-save to debug directory
+        self.llm_client = UnifiedLLMClient(
+            config, config_key="pattern_naming", debug_dir=self.debug_dir,
+        )
 
     def name_all_patterns(
         self,
@@ -396,12 +398,6 @@ class PatternNamer:
         Raises:
             RuntimeError: If naming fails after max_retries attempts
         """
-        # Save original prompt for debugging
-        if self.debug_dir:
-            prompt_path = self.debug_dir / f"{debug_key}_prompt.txt"
-            with open(prompt_path, "w") as f:
-                f.write(prompt)
-
         # Check for partial results from previous run
         partial_path = self.debug_dir / f"{debug_key}_partial.json" if self.debug_dir else None
         accumulated_names = self._load_partial_results(partial_path) if partial_path else {}
@@ -421,15 +417,11 @@ class PatternNamer:
         for attempt in range(self.max_retries):
             try:
                 # Call LLM with JSON mode enabled
-                result = self.llm_client.generate_content_json_mode(current_prompt)
+                suffix = "" if attempt == 0 else f"_retry{attempt}"
+                result = self.llm_client.generate_content_json_mode(
+                    current_prompt, log_name=f"{debug_key}{suffix}",
+                )
                 text = result["text"]
-
-                # Save raw response for debugging (with attempt number if retry)
-                if self.debug_dir:
-                    suffix = "" if attempt == 0 else f"_retry{attempt}"
-                    response_path = self.debug_dir / f"{debug_key}_response{suffix}.txt"
-                    with open(response_path, "w") as f:
-                        f.write(text)
 
                 # Parse JSON using unified client's robust parser
                 names = self.llm_client._parse_json(text)
@@ -472,12 +464,6 @@ class PatternNamer:
 
                 # Build retry prompt for missing patterns only
                 current_prompt = self._build_retry_prompt(validated, missing_keys)
-
-                # Save retry prompt for debugging
-                if self.debug_dir:
-                    retry_prompt_path = self.debug_dir / f"{debug_key}_retry{attempt + 1}_prompt.txt"
-                    with open(retry_prompt_path, "w") as f:
-                        f.write(current_prompt)
 
             except Exception as e:
                 logger.warning(f"LLM call failed: {e}. Attempt {attempt + 1}/{self.max_retries}")

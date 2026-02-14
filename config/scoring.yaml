@@ -26,6 +26,7 @@ report:
     weakness_threshold: 40
     summary_sentences_min: 10
     summary_sentences_max: 15
+    max_examples_per_pattern: 5
 
 # =============================================================================
 # Pattern Explanation Configuration

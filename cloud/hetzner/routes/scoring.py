@@ -244,7 +244,8 @@ def explain_pattern(
     from src.llm import UnifiedLLMClient
 
     config = get_pipeline_config()
-    llm_client = UnifiedLLMClient(config, config_key="explanation")
+    debug_dir = storage.base_path / "scoring" / "debug"
+    llm_client = UnifiedLLMClient(config, config_key="explanation", debug_dir=debug_dir)
 
     percentile = pattern_score.get("percentile", 0)
     prompt = f"""Explain why this engineer scored at the {percentile}th percentile for the "{request.pattern_name}" behavioral pattern.
@@ -272,7 +273,10 @@ Provide a clear, actionable explanation:
 Keep the explanation concise (3-5 paragraphs) and professional.
 """
 
-    result = llm_client.generate_content(prompt=prompt)
+    result = llm_client.generate_content(
+        prompt=prompt,
+        log_name=f"explanation_{request.engineer_id}_{request.pattern_id}",
+    )
     explanation = result["text"]
 
     # Save explanation

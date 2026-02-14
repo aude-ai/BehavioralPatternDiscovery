@@ -269,7 +269,8 @@ def generate_report(self, project_id: str, job_id: str, engineer_id: str, config
                     message_indices=engineer_indices,
                 )
 
-            generator = ReportGenerator(config)
+            debug_dir = storage.base_path / "scoring" / "debug"
+            generator = ReportGenerator(config, debug_dir=debug_dir)
 
             # Transform scores into patterns list for report generator
             patterns = []

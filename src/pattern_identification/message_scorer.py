@@ -162,8 +162,9 @@ class MessageScorer:
         )
 
         dim_scores = scores[:, pattern_idx]
+        abs_scores = np.abs(dim_scores)
         top_k = min(limit, len(dim_scores))
-        top_indices = np.argsort(-np.abs(dim_scores))[:top_k]
+        top_indices = np.argsort(-abs_scores)[:top_k]
 
         if message_indices is not None:
             actual_indices = [message_indices[i] for i in top_indices]
@@ -174,9 +175,11 @@ class MessageScorer:
         for i, idx in enumerate(top_indices):
             actual_idx = actual_indices[i]
             msg = message_database[actual_idx]
+            percentile = float(np.mean(abs_scores <= abs_scores[idx]) * 100)
             messages.append({
                 "text": msg.get("text", "")[:500],
                 "score": float(dim_scores[idx]),
+                "percentile": percentile,
                 "engineer_id": eng_ids[idx],
                 "message_idx": actual_idx,
                 "source": msg.get("source"),

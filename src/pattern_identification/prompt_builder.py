@@ -290,7 +290,10 @@ class PromptBuilder:
                 score = ex.get("score", 0)
                 percentile = ex.get("percentile", 0)
                 text = ex.get("text", "")
-                lines.append(f"{i+1}. [score: {score:.2f}, top {100-percentile:.1f}%] {text}")
+                source = ex.get("source", "")
+                activity_type = ex.get("activity_type", "")
+                source_tag = f"({source}/{activity_type}) " if source else ""
+                lines.append(f"{i+1}. [score: {score:.2f}, top {100-percentile:.1f}%] {source_tag}{text}")
             lines.append("")
 
             # Add word attributions if present

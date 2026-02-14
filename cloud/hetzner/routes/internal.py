@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..database import get_db, JobModel, ProjectModel
-from ..models import JobStatus, ProjectStatus
+from ..models import JobStatus, JobType, ProjectStatus
 from ..services import StorageService
 from ..websocket import broadcast_to_project
 
@@ -89,7 +89,7 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
 
         # Update project status based on job type and completion
         new_project_status = None
-        if job.job_type == "process_pipeline":
+        if job.job_type == JobType.TRAIN:
             # Check which step the pipeline ended at
             last_step = data.get("last_step") or (job.metadata_ or {}).get("current_step")
             if last_step:
@@ -104,9 +104,9 @@ async def job_event(job_id: str, data: dict, db: Session = Depends(get_db)):
                 new_project_status = step_to_status.get(last_step, ProjectStatus.SCORED)
             else:
                 new_project_status = ProjectStatus.SCORED
-        elif job.job_type == "name_patterns":
+        elif job.job_type == JobType.NAME_PATTERNS:
             new_project_status = ProjectStatus.PATTERNS_IDENTIFIED
-        elif job.job_type == "generate_report":
+        elif job.job_type == JobType.GENERATE_REPORT:
             new_project_status = ProjectStatus.READY
 
         if new_project_status:

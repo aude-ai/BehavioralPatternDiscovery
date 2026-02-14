@@ -23,19 +23,34 @@ logger = logging.getLogger(__name__)
 class UnifiedLLMClient:
     """Unified client that auto-detects and uses the correct LLM provider."""
 
-    def __init__(self, config: dict[str, Any], config_key: str):
+    def __init__(
+        self,
+        config: dict[str, Any],
+        config_key: str,
+        debug_dir: Path | str | None = None,
+    ):
         """
         Initialize unified LLM client.
 
         Args:
             config: Full merged configuration
             config_key: Config section key (e.g., "report", "explanation")
+            debug_dir: Directory for saving prompts and responses. If set,
+                       every LLM call is automatically logged.
         """
         self.config = config
         self.config_key = config_key
         self.llm_config = config[config_key]
         self.model_name = self.llm_config["llm_model"]
         self.provider = self._detect_provider(self.model_name)
+        self._call_counter = 0
+
+        # Auto-save directory
+        if debug_dir:
+            self.debug_dir = Path(debug_dir) / "llm_logs"
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.debug_dir = None
 
         logger.info(f"[{config_key}] Provider: {self.provider}, Model: {self.model_name}")
 
@@ -84,6 +99,7 @@ class UnifiedLLMClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         thinking_budget: int | None = None,
+        log_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Generate content using the configured provider.
@@ -93,16 +109,21 @@ class UnifiedLLMClient:
             max_tokens: Override max tokens
             temperature: Override temperature
             thinking_budget: Thinking budget for Gemini
+            log_name: Name for debug log files (e.g., "enc1_bottom").
+                      If None and debug_dir is set, uses auto-incrementing counter.
 
         Returns:
             Dict with 'text', 'usage', 'finish_reason'
         """
         if self.provider == "gemini":
-            return self._generate_gemini(prompt, max_tokens, temperature, thinking_budget)
+            result = self._generate_gemini(prompt, max_tokens, temperature, thinking_budget)
         elif self.provider == "openai":
-            return self._generate_openai(prompt, max_tokens, temperature)
+            result = self._generate_openai(prompt, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
+
+        self._auto_save(prompt, result, log_name)
+        return result
 
     def _generate_gemini(
         self,
@@ -191,6 +212,7 @@ class UnifiedLLMClient:
         prompt: str,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        log_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Generate content with JSON response mode enabled.
@@ -202,16 +224,21 @@ class UnifiedLLMClient:
             prompt: The prompt to send
             max_tokens: Override max tokens
             temperature: Override temperature
+            log_name: Name for debug log files. If None and debug_dir is set,
+                      uses auto-incrementing counter.
 
         Returns:
             Dict with 'text', 'usage', 'finish_reason'
         """
         if self.provider == "gemini":
-            return self._generate_gemini_json_mode(prompt, max_tokens, temperature)
+            result = self._generate_gemini_json_mode(prompt, max_tokens, temperature)
         elif self.provider == "openai":
-            return self._generate_openai_json_mode(prompt, max_tokens, temperature)
+            result = self._generate_openai_json_mode(prompt, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
+
+        self._auto_save(prompt, result, log_name)
+        return result
 
     def _generate_gemini_json_mode(
         self,
@@ -305,6 +332,7 @@ class UnifiedLLMClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         max_retries: int = 3,
+        log_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Generate JSON content with parsing and retry logic.
@@ -314,6 +342,7 @@ class UnifiedLLMClient:
             max_tokens: Override max tokens
             temperature: Override temperature
             max_retries: Number of retries on parse failure
+            log_name: Name for debug log files
 
         Returns:
             Dict with 'success', 'data', 'raw_text', 'usage', 'finish_reason'
@@ -322,7 +351,8 @@ class UnifiedLLMClient:
         raw_text = ""
 
         for attempt in range(max_retries):
-            result = self.generate_content(prompt, max_tokens, temperature)
+            attempt_name = f"{log_name}_attempt{attempt + 1}" if log_name else None
+            result = self.generate_content(prompt, max_tokens, temperature, log_name=attempt_name)
             raw_text = result["text"]
 
             parsed = self._parse_json(raw_text)
@@ -428,18 +458,32 @@ class UnifiedLLMClient:
         repaired += '}' * (repaired.count('{') - repaired.count('}'))
         return repaired
 
-    def save_interaction(
+    def _auto_save(
         self,
-        output_dir: Path,
+        prompt: str,
+        result: dict[str, Any],
+        log_name: str | None,
+    ) -> None:
+        """Automatically save prompt and response if debug_dir is set."""
+        if not self.debug_dir:
+            return
+
+        self._call_counter += 1
+        name = log_name or f"{self.config_key}_{self._call_counter:03d}"
+
+        self._save_to_dir(self.debug_dir, name, prompt, result)
+
+    def _save_to_dir(
+        self,
+        directory: Path,
         name: str,
         prompt: str,
         response: dict[str, Any],
     ) -> None:
-        """Save LLM interaction for debugging."""
-        llm_logs_dir = output_dir / "llm_logs"
-        llm_logs_dir.mkdir(parents=True, exist_ok=True)
+        """Save prompt and response to a directory."""
+        directory.mkdir(parents=True, exist_ok=True)
 
-        prompt_path = llm_logs_dir / f"{name}_prompt.txt"
+        prompt_path = directory / f"{name}_prompt.txt"
         with open(prompt_path, "w") as f:
             f.write(f"Timestamp: {datetime.now().isoformat()}\n")
             f.write(f"Model: {self.model_name}\n")
@@ -447,7 +491,7 @@ class UnifiedLLMClient:
             f.write("=== PROMPT ===\n\n")
             f.write(prompt)
 
-        response_path = llm_logs_dir / f"{name}_response.json"
+        response_path = directory / f"{name}_response.json"
         response_data = {
             "timestamp": datetime.now().isoformat(),
             "model": self.model_name,
