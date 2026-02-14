@@ -2640,7 +2640,7 @@ async function namePatterns() {
 
     try {
         const response = await apiPost('/name-patterns');
-        const jobId = response.job_id;
+        const jobId = response.id;
 
         showStatus('naming-status-message', 'Naming in progress...', 'info');
 
