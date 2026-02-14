@@ -107,10 +107,24 @@ class PopulationStats:
                     "shrinkage": float(shrinkage.mean()),
                 }
 
+            # Compute reference distribution from engineer posterior means
+            # (used by IndividualScorer for percentile computation)
+            all_posterior = np.stack(
+                [np.array(s["posterior_mean"]) for s in shrunk_scores.values()]
+            )
+
             engineer_scores[level_key] = {
                 "population_mean": pop_mean.tolist(),
                 "population_var": pop_var.tolist(),
                 "within_var": within_var.tolist(),
+                "std": all_posterior.std(axis=0).tolist(),
+                "min": all_posterior.min(axis=0).tolist(),
+                "max": all_posterior.max(axis=0).tolist(),
+                "percentiles": {
+                    "25": np.percentile(all_posterior, 25, axis=0).tolist(),
+                    "50": np.percentile(all_posterior, 50, axis=0).tolist(),
+                    "75": np.percentile(all_posterior, 75, axis=0).tolist(),
+                },
                 "engineers": shrunk_scores,
             }
 

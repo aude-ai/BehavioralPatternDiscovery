@@ -152,9 +152,8 @@ class IndividualScorer:
             eng_var = act_array.var(axis=0) if n_messages > 1 else np.zeros_like(eng_mean)
 
             # Get population parameters
-            pop_mean = np.array(pop_level["mean"])
-            pop_std = np.array(pop_level["std"])
-            pop_var = pop_std ** 2
+            pop_mean = np.array(pop_level["population_mean"])
+            pop_var = np.array(pop_level["population_var"])
 
             # Apply EB shrinkage
             within_var = eng_var
