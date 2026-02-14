@@ -71,7 +71,7 @@ def create_embedding_image():
     return (
         create_ml_image()
         .pip_install(
-            "transformers>=4.52.0",
+            "transformers>=4.52.0,<5.0.0",
             "sentence-transformers>=2.7.0",
             "einops>=0.7.0",
             "bitsandbytes>=0.42.0",

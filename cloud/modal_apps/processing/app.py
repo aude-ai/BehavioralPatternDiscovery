@@ -55,7 +55,7 @@ app_image = (
         "fastapi",
         "uvicorn[standard]",
         # ML
-        "transformers>=4.51.0",
+        "transformers>=4.51.0,<5.0.0",
         "sentence-transformers",
         "datasets",
         "bitsandbytes",
