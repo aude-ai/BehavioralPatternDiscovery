@@ -33,20 +33,24 @@ logger = logging.getLogger(__name__)
 class PatternNamer:
     """Generate names for patterns at all levels using modular prompts."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any], output_path: str | Path | None = None):
         """
         Args:
             config: Full merged config
+            output_path: Path for saving pattern names (checkpoint/resume).
+                         If None, checkpointing is disabled.
         """
-        pi_config = config["paths"]["pattern_identification"]
         naming_config = config["pattern_naming"]
 
         self.max_retries = naming_config["max_retries"]
-        self.output_path = Path(pi_config["naming"]["pattern_names"])
+        self.output_path = Path(output_path) if output_path else None
 
         # Debug directory for saving prompts and responses
-        self.debug_dir = self.output_path.parent / "debug"
-        self.debug_dir.mkdir(parents=True, exist_ok=True)
+        if self.output_path:
+            self.debug_dir = self.output_path.parent / "debug"
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.debug_dir = None
 
         # Initialize prompt builder
         self.prompt_builder = PromptBuilder(naming_config)
@@ -248,7 +252,7 @@ class PatternNamer:
 
     def _load_checkpoint(self) -> dict[str, Any]:
         """Load existing partial results if checkpoint file exists."""
-        if self.output_path.exists():
+        if self.output_path and self.output_path.exists():
             try:
                 with open(self.output_path, "r") as f:
                     return json.load(f)
@@ -393,13 +397,14 @@ class PatternNamer:
             RuntimeError: If naming fails after max_retries attempts
         """
         # Save original prompt for debugging
-        prompt_path = self.debug_dir / f"{debug_key}_prompt.txt"
-        with open(prompt_path, "w") as f:
-            f.write(prompt)
+        if self.debug_dir:
+            prompt_path = self.debug_dir / f"{debug_key}_prompt.txt"
+            with open(prompt_path, "w") as f:
+                f.write(prompt)
 
         # Check for partial results from previous run
-        partial_path = self.debug_dir / f"{debug_key}_partial.json"
-        accumulated_names = self._load_partial_results(partial_path)
+        partial_path = self.debug_dir / f"{debug_key}_partial.json" if self.debug_dir else None
+        accumulated_names = self._load_partial_results(partial_path) if partial_path else {}
 
         if accumulated_names:
             logger.info(f"Loaded {len(accumulated_names)} partial results for {debug_key}")
@@ -420,10 +425,11 @@ class PatternNamer:
                 text = result["text"]
 
                 # Save raw response for debugging (with attempt number if retry)
-                suffix = "" if attempt == 0 else f"_retry{attempt}"
-                response_path = self.debug_dir / f"{debug_key}_response{suffix}.txt"
-                with open(response_path, "w") as f:
-                    f.write(text)
+                if self.debug_dir:
+                    suffix = "" if attempt == 0 else f"_retry{attempt}"
+                    response_path = self.debug_dir / f"{debug_key}_response{suffix}.txt"
+                    with open(response_path, "w") as f:
+                        f.write(text)
 
                 # Parse JSON using unified client's robust parser
                 names = self.llm_client._parse_json(text)
@@ -434,14 +440,15 @@ class PatternNamer:
                 accumulated_names.update(names)
 
                 # Save partial results for potential resume
-                self._save_partial_results(partial_path, accumulated_names)
+                if partial_path:
+                    self._save_partial_results(partial_path, accumulated_names)
 
                 # Validate all patterns have name and description
                 validated = self._validate_names(accumulated_names, expected_keys)
 
                 if len(validated) >= expected_count:
                     # Success - clean up partial file
-                    if partial_path.exists():
+                    if partial_path and partial_path.exists():
                         partial_path.unlink()
                     return validated
 
@@ -467,9 +474,10 @@ class PatternNamer:
                 current_prompt = self._build_retry_prompt(validated, missing_keys)
 
                 # Save retry prompt for debugging
-                retry_prompt_path = self.debug_dir / f"{debug_key}_retry{attempt + 1}_prompt.txt"
-                with open(retry_prompt_path, "w") as f:
-                    f.write(current_prompt)
+                if self.debug_dir:
+                    retry_prompt_path = self.debug_dir / f"{debug_key}_retry{attempt + 1}_prompt.txt"
+                    with open(retry_prompt_path, "w") as f:
+                        f.write(current_prompt)
 
             except Exception as e:
                 logger.warning(f"LLM call failed: {e}. Attempt {attempt + 1}/{self.max_retries}")
@@ -589,7 +597,9 @@ class PatternNamer:
         return "\n".join(lines)
 
     def _save_names(self, names: dict[str, Any]) -> None:
-        """Save pattern names to JSON."""
+        """Save pattern names to JSON (checkpoint)."""
+        if not self.output_path:
+            return
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, "w") as f:
             json.dump(names, f, indent=2)

@@ -935,6 +935,7 @@ def _compute_word_attributions(
         message_database=messages_list,
         message_examples=message_examples,
         activations=activations,
+        aux_features=state.aux_features,
     )
 
     # Extract just the word attributions into a clean structure

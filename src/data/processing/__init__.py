@@ -2,7 +2,7 @@
 Data Processing Module
 
 Handles text encoding, statistical feature extraction, normalization,
-training data preparation, and preprocessing orchestration.
+and activity sampling.
 """
 
 from .encoders import (
@@ -16,7 +16,6 @@ from .encoders import (
     create_text_encoder,
 )
 from .statistical_features import StatisticalFeatureExtractor
-from .preprocessor import DataPreprocessor
 from .activity_sampler import ActivitySampler
 from .normalizer import (
     BaseNormalization,
@@ -29,10 +28,6 @@ from .normalizer import (
     QuantileNormalization,
     IsotropicNormalization,
     WinsorizeNormalization,
-)
-from .training_data_preparer import (
-    TrainingDataPreparer,
-    prepare_training_data,
 )
 
 __all__ = [
@@ -47,13 +42,8 @@ __all__ = [
     "create_text_encoder",
     # Features
     "StatisticalFeatureExtractor",
-    # Preprocessing
-    "DataPreprocessor",
     # Sampling
     "ActivitySampler",
-    # Training data preparation
-    "TrainingDataPreparer",
-    "prepare_training_data",
     # Normalization
     "BaseNormalization",
     "NormalizationPipeline",

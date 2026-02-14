@@ -2,24 +2,6 @@
 # Each major component can have its own optimizer
 
 # =============================================================================
-# Batching Strategy
-# =============================================================================
-batching:
-  # Mode options:
-  #   "engineer" - Each batch = all messages from one engineer (original behavior)
-  #   "multi_engineer" - Each batch = messages from N engineers (stratified)
-  #   "random" - Completely random message sampling across all engineers
-  mode: "random"
-
-  # For "multi_engineer" mode: number of engineers per batch
-  # Total batch size = engineers_per_batch * messages_per_engineer
-  engineers_per_batch: 16
-  messages_per_engineer: 32
-
-  # For "random" mode: batch size (number of messages)
-  random_batch_size: 512
-
-# =============================================================================
 # VAE Model Optimizer (Encoders, Unification, Decoder)
 # =============================================================================
 vae_optimizer:
@@ -351,7 +333,6 @@ training:
   epochs: 250
   batch_size: 512
   validation_split: 0.2
-  max_messages_per_engineer: 512
 
   early_stopping:
     enabled: true

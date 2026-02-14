@@ -81,7 +81,6 @@ def get_pipeline_config(user_overrides: dict = None) -> dict:
     merged = {
         "processing": data_config["processing"],
         "collection": data_config.get("collection", {}),  # Optional
-        "paths": data_config.get("paths", {}),  # Optional
         "model": configs["model"],
         "training": configs["training"],
         "cloud": configs["cloud"],

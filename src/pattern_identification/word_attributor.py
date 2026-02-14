@@ -14,7 +14,6 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -66,7 +65,6 @@ class WordAttributor:
             config: Full merged config
         """
         wa_config = config["word_attribution"]
-        data_paths = config["paths"]["data"]["processing"]
         norm_config = config["normalization"]
 
         self.enabled = wa_config["enabled"]
@@ -102,10 +100,8 @@ class WordAttributor:
         # Text encoder config for re-encoding
         self.text_encoder_config = config
 
-        # Determine training input path for aux features
-        aux_enabled = config["model"]["input"]["aux_features"]["enabled"]
-        self._aux_enabled = aux_enabled
-        self._aux_path = Path(data_paths["train_aux_vars"])
+        # Whether aux features should be used
+        self._aux_enabled = config["model"]["input"]["aux_features"]["enabled"]
 
         self.device = wa_config["device"]
 
@@ -124,20 +120,13 @@ class WordAttributor:
             )
         return self._text_encoder
 
-    def _load_aux_features(self) -> np.ndarray | None:
-        """Load auxiliary features if enabled."""
-        if not self._aux_enabled:
-            return None
-        if self._aux_path.exists():
-            return np.load(self._aux_path)
-        return None
-
     def compute_attributions(
         self,
         vae: BaseVAE,
         message_database: list[dict],
         message_examples: dict[str, Any],
         activations: dict[str, np.ndarray],
+        aux_features: np.ndarray | None = None,
     ) -> dict[str, Any]:
         """
         Compute word attributions and add to message_examples.
@@ -147,6 +136,7 @@ class WordAttributor:
             message_database: List of message dicts with 'text' field
             message_examples: Dict of pattern examples (queried dynamically)
             activations: Output from BatchScorer (all activation arrays)
+            aux_features: Pre-loaded auxiliary features array, or None if disabled
 
         Returns:
             Updated message_examples dict with aggregated_word_attributions
@@ -158,8 +148,8 @@ class WordAttributor:
         vae.eval()
         vae.to(self.device)
 
-        # Load aux features if needed
-        self._aux_features = self._load_aux_features()
+        # Set aux features from caller
+        self._aux_features = aux_features if self._aux_enabled else None
 
         # Collect all unique message indices to process
         message_indices_by_dim = self._collect_message_indices(message_examples)

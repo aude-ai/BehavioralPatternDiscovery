@@ -551,13 +551,6 @@ class Trainer:
         self.diversity_discriminator = None
         self.diversity_disc_loss = None
         if self.diversity_enabled:
-            # Validate batch mode
-            batch_mode = config["batching"]["mode"]
-            if batch_mode != "engineer":
-                raise ValueError(
-                    f"DiversityDiscriminator requires batching.mode='engineer', "
-                    f"got '{batch_mode}'. Each batch must contain messages from a single engineer."
-                )
 
             # Validate num_engineers
             if self.num_engineers is None:
@@ -1509,7 +1502,6 @@ class Trainer:
             checkpoint_path: Path to save checkpoints
         """
         import numpy as np
-        from src.data.datasets import create_dataset
 
         # Store message_db reference for checkpoint metadata
         self.message_db = message_db
@@ -1536,10 +1528,6 @@ class Trainer:
         logger.info(f"Training with {len(train_indices)} samples, validating with {n_val} samples")
 
         # Create data loaders
-        batching_config = self.config.get("batching", {})
-        batching_mode = batching_config.get("mode", "random")
-
-        # For cloud training, use simple random batching
         train_loader = self._create_simple_dataloader(train_subset, batch_size, shuffle=True)
         val_loader = self._create_simple_dataloader(val_subset, batch_size, shuffle=False) if val_subset is not None else None
 
@@ -1567,10 +1555,6 @@ class Trainer:
                 if val_metrics:
                     all_metrics.update(val_metrics)
                 self.on_epoch_end_callback(self.current_epoch, all_metrics, is_best)
-
-            # Save checkpoint if best
-            if is_best or self.current_epoch == 1:
-                self.save_checkpoint(checkpoint_path, include_optimizer_state=False)
 
             if should_stop:
                 logger.info("Early stopping triggered")

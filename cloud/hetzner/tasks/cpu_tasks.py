@@ -166,7 +166,7 @@ def name_patterns(self, project_id: str, job_id: str, config: dict):
                 db.commit()
                 logger.info(f"Progress: {message} ({progress:.0%})")
 
-            namer = PatternNamer(config)
+            namer = PatternNamer(config, output_path=storage.pattern_names_path)
             pattern_names = namer.name_all_patterns(
                 hierarchical_weights=hierarchical_weights,
                 message_database=messages_list,
