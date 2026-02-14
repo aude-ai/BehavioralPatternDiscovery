@@ -218,9 +218,13 @@ def get_r2_status(project_id: str, db: Session = Depends(get_db)):
             "exists": storage.population_stats_path.exists(),
             "size_bytes": storage.population_stats_path.stat().st_size if storage.population_stats_path.exists() else 0,
         },
-        "message_examples": {
-            "exists": storage.message_examples_path.exists(),
-            "size_bytes": storage.message_examples_path.stat().st_size if storage.message_examples_path.exists() else 0,
+        "message_scores_index": {
+            "exists": storage.message_scores_index_path.exists(),
+            "size_bytes": storage.message_scores_index_path.stat().st_size if storage.message_scores_index_path.exists() else 0,
+        },
+        "word_attributions": {
+            "exists": storage.word_attributions_path.exists(),
+            "size_bytes": storage.word_attributions_path.stat().st_size if storage.word_attributions_path.exists() else 0,
         },
         "hierarchical_weights": {
             "exists": storage.hierarchical_weights_path.exists(),
@@ -253,8 +257,9 @@ def start_pattern_naming(
     Name patterns using LLM (Segment C).
 
     Runs on Hetzner. Requires:
-    - message_examples.json (from B.7, sent to Hetzner)
-    - hierarchical_weights.json (from B.8, sent to Hetzner)
+    - message_scores_index.json (from B.6, sent to Hetzner)
+    - hierarchical_weights.json (from B.7, sent to Hetzner)
+    - message_scores.h5 (from B.6, in R2)
     """
     service = ProjectService(db)
     project = service.get_project(project_id)
@@ -263,10 +268,10 @@ def start_pattern_naming(
 
     storage = StorageService(project_id)
 
-    if not storage.message_examples_path.exists():
+    if not storage.message_scores_index_path.exists():
         raise HTTPException(
             status_code=400,
-            detail="message_examples.json not found. Run processing pipeline first (Segment B).",
+            detail="message_scores_index.json not found. Run processing pipeline first (Segment B).",
         )
 
     if not storage.hierarchical_weights_path.exists():

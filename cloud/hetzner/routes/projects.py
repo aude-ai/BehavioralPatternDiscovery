@@ -128,7 +128,7 @@ def get_project_status(
     has_activities = storage.file_exists(storage.activities_path)
     has_population_stats = storage.file_exists(storage.population_stats_path)
     has_hierarchical_weights = storage.file_exists(storage.hierarchical_weights_path)
-    has_message_examples = storage.file_exists(storage.message_examples_path)
+    has_message_scores_index = storage.file_exists(storage.message_scores_index_path)
     has_pattern_names = storage.file_exists(storage.pattern_names_path)
 
     # R2 files (large processing outputs stored in cloud)
@@ -160,8 +160,8 @@ def get_project_status(
             "preprocess": has_activities,
             "train_vae": has_embeddings,
             "batch_score": has_checkpoint,
-            "shap_analysis": has_activations and has_message_examples,
-            "identify_patterns": has_hierarchical_weights and has_message_examples,
+            "shap_analysis": has_activations and has_message_scores_index,
+            "identify_patterns": has_hierarchical_weights and has_message_scores_index,
             "population_viewer": has_activations,
             "score_engineer": has_checkpoint and has_population_stats,
         },

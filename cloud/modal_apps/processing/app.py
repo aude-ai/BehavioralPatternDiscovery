@@ -710,6 +710,7 @@ def step_b4_training_prep(state: PipelineState):
             "text": row["text"],
             "engineer_id": row["engineer_id"],
             "source": row["source"],
+            "activity_type": row.get("activity_type"),
             "timestamp": str(row["timestamp"]),
         })
 

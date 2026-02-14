@@ -27,10 +27,12 @@ ALL_FILE_KEYS = [
     "message_database",
     "checkpoint",
     "activations",
+    "message_scores",
     # Hetzner files
     "activities",
     "population_stats",
-    "message_examples",
+    "message_scores_index",
+    "word_attributions",
     "hierarchical_weights",
     "pattern_names",
 ]

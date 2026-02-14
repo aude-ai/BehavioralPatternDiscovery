@@ -195,11 +195,6 @@ def explain_pattern(
     if not scores:
         raise HTTPException(status_code=404, detail="Scores not found - run scoring first")
 
-    # Load message examples
-    message_examples = storage.load_json(storage.message_examples_path)
-    if not message_examples:
-        raise HTTPException(status_code=404, detail="Message examples not found")
-
     # Find the pattern in scores
     pattern_score = None
     for p in scores.get("patterns", []):
@@ -210,8 +205,40 @@ def explain_pattern(
     if not pattern_score:
         raise HTTPException(status_code=404, detail=f"Pattern {request.pattern_id} not found in scores")
 
-    # Get example messages for this pattern
-    pattern_examples = message_examples.get(request.pattern_id, {}).get("examples", [])
+    # Query example messages for this pattern from message_scores.h5
+    from src.pattern_identification.message_scorer import MessageScorer
+    from ..services.r2_service import download_h5_from_r2
+
+    h5_path = storage.get_cached_h5("message_scores")
+    if not h5_path.exists():
+        download_h5_from_r2(project_id, "message_scores", h5_path)
+
+    # Parse pattern_id (format: "level_key:pattern_idx")
+    parts = request.pattern_id.split(":")
+    level_key = parts[0] if len(parts) == 2 else request.pattern_id.rsplit("_", 1)[0]
+    pattern_idx = int(parts[1]) if len(parts) == 2 else int(request.pattern_id.rsplit("_", 1)[1])
+
+    import pickle
+    msg_db_path = storage.base_path / "cache" / "message_database.pkl"
+    if not msg_db_path.exists():
+        from ..services.r2_service import download_pickle_from_r2
+        msg_data = download_pickle_from_r2(project_id, "message_database")
+        msg_db_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(msg_db_path, "wb") as f:
+            pickle.dump(msg_data, f)
+    else:
+        with open(msg_db_path, "rb") as f:
+            msg_data = pickle.load(f)
+
+    messages_list = msg_data.get("messages", msg_data) if isinstance(msg_data, dict) else msg_data
+
+    pattern_examples = MessageScorer.get_top_messages_for_pattern(
+        h5_path=h5_path,
+        level_key=level_key,
+        pattern_idx=pattern_idx,
+        message_database=messages_list,
+        limit=5,
+    )
 
     # Generate explanation using LLM directly
     from src.llm import UnifiedLLMClient

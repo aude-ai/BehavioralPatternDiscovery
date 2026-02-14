@@ -5,9 +5,7 @@ Generates LLM-based performance reports for individual engineers.
 """
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from src.llm import UnifiedLLMClient
@@ -26,11 +24,7 @@ class ReportGenerator:
             config: Full merged configuration
         """
         self.config = config
-        self.paths = config["paths"]
         self.report_config = config["report"]
-
-        self.output_dir = Path(self.paths["scoring"]["reports_dir"])
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.llm_client = UnifiedLLMClient(config, config_key="report")
 
@@ -92,21 +86,6 @@ class ReportGenerator:
             report = result["data"]
             report["engineer_id"] = engineer_id
 
-        # Save report
-        output_path = self.output_dir / f"report_{engineer_id}.json"
-        with open(output_path, "w") as f:
-            json.dump(report, f, indent=2)
-
-        # Save LLM interaction for debugging
-        self.llm_client.save_interaction(
-            output_dir=self.output_dir,
-            name=f"report_{engineer_id}",
-            prompt=prompt,
-            response=result,
-        )
-
-        logger.info(f"Saved report to {output_path}")
-
         return report
 
     def _build_report_prompt(
@@ -166,17 +145,3 @@ Guidelines:
 """
 
         return prompt
-
-    def check_report_exists(self, engineer_id: str) -> bool:
-        """Check if report exists for an engineer."""
-        output_path = self.output_dir / f"report_{engineer_id}.json"
-        return output_path.exists()
-
-    def load_report(self, engineer_id: str) -> dict[str, Any] | None:
-        """Load existing report for an engineer."""
-        output_path = self.output_dir / f"report_{engineer_id}.json"
-        if not output_path.exists():
-            return None
-
-        with open(output_path, "r") as f:
-            return json.load(f)

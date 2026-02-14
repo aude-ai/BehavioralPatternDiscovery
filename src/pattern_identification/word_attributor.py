@@ -103,7 +103,7 @@ class WordAttributor:
         self.text_encoder_config = config
 
         # Determine training input path for aux features
-        aux_enabled = config["input"]["aux_features"]["enabled"]
+        aux_enabled = config["model"]["input"]["aux_features"]["enabled"]
         self._aux_enabled = aux_enabled
         self._aux_path = Path(data_paths["train_aux_vars"])
 

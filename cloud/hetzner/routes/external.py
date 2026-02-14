@@ -1,4 +1,5 @@
 """External API routes for third-party integration."""
+import pickle
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..services import ProjectService, StorageService
+from ..services.r2_service import download_h5_from_r2, download_pickle_from_r2
+from src.pattern_identification.message_scorer import MessageScorer
 
 router = APIRouter()
 
@@ -22,6 +25,26 @@ def get_external_config() -> dict:
         config_path = Path(__file__).parent.parent.parent.parent / "config" / "external.yaml"
         _external_config = load_config(config_path)
     return _external_config
+
+
+def _get_h5_and_messages(storage: StorageService, project_id: str) -> tuple[Path, list[dict]]:
+    """Get cached message_scores.h5 and message database for querying."""
+    h5_path = storage.get_cached_h5("message_scores")
+    if not h5_path.exists():
+        download_h5_from_r2(project_id, "message_scores", h5_path)
+
+    msg_cache_path = storage.base_path / "cache" / "message_database.pkl"
+    if not msg_cache_path.exists():
+        msg_data = download_pickle_from_r2(project_id, "message_database")
+        msg_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(msg_cache_path, "wb") as f:
+            pickle.dump(msg_data, f)
+    else:
+        with open(msg_cache_path, "rb") as f:
+            msg_data = pickle.load(f)
+
+    messages_list = msg_data.get("messages", msg_data) if isinstance(msg_data, dict) else msg_data
+    return h5_path, messages_list
 
 
 @router.get("/health")
@@ -52,9 +75,13 @@ def list_patterns(
     if not pattern_names:
         raise HTTPException(status_code=404, detail="Patterns not found")
 
-    message_examples = storage.load_json(storage.message_examples_path) or {}
     hierarchical_weights = storage.load_json(storage.hierarchical_weights_path) or {}
     population_stats = storage.load_json(storage.population_stats_path) or {}
+
+    config = get_external_config()
+    top_k_examples = config.get("pattern_export", {}).get("top_k_examples", 5)
+
+    h5_path, messages_list = _get_h5_and_messages(storage, project_id)
 
     patterns = []
     for pattern_id, info in pattern_names.items():
@@ -72,11 +99,14 @@ def list_patterns(
         if encoder and not pattern_level.startswith(encoder):
             continue
 
-        examples = message_examples.get(pattern_id, {}).get("examples", [])
+        examples = MessageScorer.get_top_messages_for_pattern(
+            h5_path=h5_path,
+            level_key=pattern_level,
+            pattern_idx=pattern_idx,
+            message_database=messages_list,
+            limit=top_k_examples,
+        )
         stats = population_stats.get(pattern_id, {})
-
-        config = get_external_config()
-        top_k_examples = config.get("pattern_export", {}).get("top_k_examples", 5)
 
         patterns.append({
             "id": pattern_id,
@@ -84,7 +114,7 @@ def list_patterns(
             "description": info.get("description"),
             "level": pattern_level,
             "index": pattern_idx,
-            "examples": examples[:top_k_examples],
+            "examples": examples,
             "statistics": stats,
         })
 
@@ -105,8 +135,23 @@ def get_pattern(
         raise HTTPException(status_code=404, detail="Pattern not found")
 
     info = pattern_names[pattern_id]
-    message_examples = storage.load_json(storage.message_examples_path) or {}
-    examples = message_examples.get(pattern_id, {}).get("examples", [])
+
+    # Parse pattern_id to query examples
+    parts = pattern_id.rsplit("_", 1)
+    if len(parts) != 2:
+        raise HTTPException(status_code=400, detail=f"Invalid pattern_id format: {pattern_id}")
+
+    level_key, idx_str = parts
+    pattern_idx = int(idx_str)
+
+    h5_path, messages_list = _get_h5_and_messages(storage, project_id)
+    examples = MessageScorer.get_top_messages_for_pattern(
+        h5_path=h5_path,
+        level_key=level_key,
+        pattern_idx=pattern_idx,
+        message_database=messages_list,
+        limit=20,
+    )
 
     return {
         "id": pattern_id,
@@ -141,19 +186,37 @@ def get_pattern_messages(
 
     storage = StorageService(project_id)
 
-    message_examples = storage.load_json(storage.message_examples_path)
-    if not message_examples or pattern_id not in message_examples:
-        raise HTTPException(status_code=404, detail="Pattern not found")
+    # Parse pattern_id
+    parts = pattern_id.rsplit("_", 1)
+    if len(parts) != 2:
+        raise HTTPException(status_code=400, detail=f"Invalid pattern_id format: {pattern_id}")
 
-    examples = message_examples[pattern_id].get("examples", [])
+    level_key, idx_str = parts
+    pattern_idx = int(idx_str)
 
-    # Filter by engineer if specified
+    h5_path, messages_list = _get_h5_and_messages(storage, project_id)
+
+    # Get message indices filtered by engineer if specified
+    message_indices = None
     if engineer_id:
-        examples = [e for e in examples if e.get("engineer_id") == engineer_id]
+        index = storage.load_json(storage.message_scores_index_path)
+        if index and engineer_id in index.get("engineers", {}):
+            message_indices = index["engineers"][engineer_id]["message_indices"]
+        else:
+            return {"pattern_id": pattern_id, "messages": [], "total": 0}
+
+    examples = MessageScorer.get_top_messages_for_pattern(
+        h5_path=h5_path,
+        level_key=level_key,
+        pattern_idx=pattern_idx,
+        message_database=messages_list,
+        limit=top_k,
+        message_indices=message_indices,
+    )
 
     return {
         "pattern_id": pattern_id,
-        "messages": examples[:top_k],
+        "messages": examples,
         "total": len(examples),
     }
 
