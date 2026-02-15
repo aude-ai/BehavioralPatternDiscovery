@@ -109,7 +109,16 @@ class PatternNamer:
         # Load existing partial results if resuming
         all_names = self._load_checkpoint() if resume else {}
         if all_names:
-            logger.info(f"Resumed from checkpoint with {len(all_names)} completed items: {list(all_names.keys())}")
+            # Check if ALL naming is already complete — if so, wipe and regenerate
+            expected_keys = [f"{enc}_{lvl}" for lvl in level_names for enc in encoder_names] + ["unified"]
+            if all(k in all_names for k in expected_keys):
+                logger.info(
+                    f"All {len(expected_keys)} items already named — clearing old results to regenerate from scratch"
+                )
+                all_names = {}
+                self._clear_naming_state()
+            else:
+                logger.info(f"Resumed from checkpoint with {len(all_names)} completed items: {list(all_names.keys())}")
 
         # Process levels in order
         for level_idx, level_name in enumerate(level_names):
@@ -251,6 +260,17 @@ class PatternNamer:
 
         logger.info(f"Pattern naming complete: {len(all_names)} total items")
         return all_names
+
+    def _clear_naming_state(self) -> None:
+        """Delete pattern_names.json and all partial/debug files to start fresh."""
+        if self.output_path and self.output_path.exists():
+            self.output_path.unlink()
+            logger.info(f"Deleted checkpoint: {self.output_path}")
+
+        if self.debug_dir and self.debug_dir.exists():
+            for f in self.debug_dir.iterdir():
+                f.unlink()
+            logger.info(f"Cleared debug directory: {self.debug_dir}")
 
     def _load_checkpoint(self) -> dict[str, Any]:
         """Load existing partial results if checkpoint file exists."""
