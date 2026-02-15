@@ -262,14 +262,16 @@ class PatternNamer:
         return all_names
 
     def _clear_naming_state(self) -> None:
-        """Delete pattern_names.json and all partial/debug files to start fresh."""
+        """Delete pattern_names.json and all debug files/subdirectories to start fresh."""
+        import shutil
+
         if self.output_path and self.output_path.exists():
             self.output_path.unlink()
             logger.info(f"Deleted checkpoint: {self.output_path}")
 
         if self.debug_dir and self.debug_dir.exists():
-            for f in self.debug_dir.iterdir():
-                f.unlink()
+            shutil.rmtree(self.debug_dir)
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Cleared debug directory: {self.debug_dir}")
 
     def _load_checkpoint(self) -> dict[str, Any]:
